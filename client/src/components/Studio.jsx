@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import { Home, Layers, Settings, Save, Download, ScanLine, Box, AlertTriangle, Calculator, ChevronRight, LayoutTemplate, Magnet, Sun, MessageSquare, Image as ImageIcon, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Canvas2D from './Canvas2D';
 
 export default function Studio() {
+  const [drawingMode, setDrawingMode] = useState(null);
+
   return (
     <div className="h-screen w-screen flex overflow-hidden font-sans bg-black text-zinc-100">
       
@@ -123,21 +126,33 @@ export default function Studio() {
           <div className="px-3 py-1.5 text-xs font-semibold text-zinc-500 border-r border-zinc-800 mr-1">
             Build Mode
           </div>
-          <button className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-zinc-800 text-white text-xs font-medium hover:bg-zinc-700 transition-colors">
+          <button 
+            onClick={() => setDrawingMode(drawingMode === 'wall' ? null : 'wall')}
+            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${drawingMode === 'wall' ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}
+          >
             <Layers className="w-3.5 h-3.5" /> Wall
           </button>
-          <button className="flex items-center gap-2 px-4 py-1.5 rounded-full text-zinc-400 text-xs font-medium hover:bg-zinc-800 hover:text-white transition-colors">
+          <button 
+            onClick={() => setDrawingMode(drawingMode === 'door' ? null : 'door')}
+            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${drawingMode === 'door' ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}
+          >
             <LayoutTemplate className="w-3.5 h-3.5" /> Door
           </button>
-          <button className="flex items-center gap-2 px-4 py-1.5 rounded-full text-zinc-400 text-xs font-medium hover:bg-zinc-800 hover:text-white transition-colors">
+          <button 
+            onClick={() => setDrawingMode(drawingMode === 'window' ? null : 'window')}
+            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${drawingMode === 'window' ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}
+          >
             <Box className="w-3.5 h-3.5" /> Window
           </button>
-          <button className="flex items-center gap-2 px-4 py-1.5 rounded-full text-zinc-400 text-xs font-medium hover:bg-zinc-800 hover:text-white transition-colors">
+          <button 
+            onClick={() => setDrawingMode(drawingMode === 'stairs' ? null : 'stairs')}
+            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${drawingMode === 'stairs' ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}
+          >
             <Layers className="w-3.5 h-3.5 rotate-90" /> Stairs
           </button>
         </div>
 
-        <Canvas2D />
+        <Canvas2D drawingMode={drawingMode} />
       </main>
     </div>
   );
