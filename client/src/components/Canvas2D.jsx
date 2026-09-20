@@ -127,8 +127,6 @@ export default function Canvas2D({ drawingMode }) {
         borderColor: '#ffffff',
         transparentCorners: false,
         cornerSize: 8,
-        // Disable vertical scaling to keep line thickness intact during edits
-        lockScalingY: true,
       });
       canvas.add(currentLine.current);
     });
