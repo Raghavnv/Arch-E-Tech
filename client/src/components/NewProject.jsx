@@ -98,7 +98,7 @@ export default function NewProject() {
                     </div>
                     <div>
                       <h4 className={`font-semibold mb-1 ${config.initMode === 'upload' ? 'text-white' : 'text-zinc-300'}`}>AI Floor Plan</h4>
-                      <p className="text-xs text-zinc-500">Upload a sketch for automated YOLOv11 detection.</p>
+                      <p className="text-xs text-zinc-500">Upload a sketch for automated AI detection.</p>
                     </div>
                   </div>
                 </div>
