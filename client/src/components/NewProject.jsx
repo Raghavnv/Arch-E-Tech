@@ -64,6 +64,23 @@ export default function NewProject() {
               </div>
 
               <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-2">Number of Floors</label>
+                <div className="flex items-center gap-4">
+                  <input 
+                    type="range" 
+                    min="1" 
+                    max="10" 
+                    value={config.floors || 1}
+                    onChange={(e) => setConfig({ ...config, floors: parseInt(e.target.value) })}
+                    className="flex-1 accent-white"
+                  />
+                  <div className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-white text-lg">
+                    {config.floors || 1}
+                  </div>
+                </div>
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium text-zinc-300 mb-3">Initialization Method</label>
                 <div className="grid grid-cols-2 gap-4">
                   {/* Option 1: Start from Scratch */}

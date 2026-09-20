@@ -5,6 +5,9 @@ export default function Canvas2D({ drawingMode }) {
   const canvasRef = useRef(null);
   const fabricRef = useRef(null);
   const isDrawing = useRef(false);
+  const isPanning = useRef(false);
+  const lastPosX = useRef(0);
+  const lastPosY = useRef(0);
   const currentLine = useRef(null);
   const startPos = useRef({ x: 0, y: 0 });
 
@@ -19,19 +22,22 @@ export default function Canvas2D({ drawingMode }) {
       selectionColor: 'rgba(255,255,255,0.1)',
       selectionBorderColor: 'rgba(255,255,255,0.3)',
       selectionLineWidth: 1,
+      fireRightClick: true,
+      stopContextMenu: true,
     });
 
     const canvas = fabricRef.current;
 
     // Grid background
     const gridSize = 40;
-    for (let i = 0; i < (window.innerWidth / gridSize); i++) {
-      canvas.add(new fabric.Line([ i * gridSize, 0, i * gridSize, window.innerHeight], { 
+    // We create a large grid to allow for panning
+    for (let i = -50; i < 100; i++) {
+      canvas.add(new fabric.Line([ i * gridSize, -2000, i * gridSize, 4000], { 
         stroke: '#18181b', selectable: false, evented: false, isGrid: true 
       }));
     }
-    for (let i = 0; i < (window.innerHeight / gridSize); i++) {
-      canvas.add(new fabric.Line([ 0, i * gridSize, window.innerWidth, i * gridSize], { 
+    for (let i = -50; i < 100; i++) {
+      canvas.add(new fabric.Line([ -2000, i * gridSize, 4000, i * gridSize], { 
         stroke: '#18181b', selectable: false, evented: false, isGrid: true 
       }));
     }
@@ -47,9 +53,7 @@ export default function Canvas2D({ drawingMode }) {
       if (e.key === 'Backspace' || e.key === 'Delete') {
         const activeObjects = canvas.getActiveObjects();
         if (activeObjects.length > 0) {
-          // Don't delete if user is typing in an input field somewhere else
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
-          
           activeObjects.forEach(obj => {
             if (!obj.isGrid) canvas.remove(obj);
           });
@@ -61,6 +65,48 @@ export default function Canvas2D({ drawingMode }) {
 
     window.addEventListener('resize', handleResize);
     window.addEventListener('keydown', handleKeyDown);
+
+    // Zooming logic
+    canvas.on('mouse:wheel', function(opt) {
+      const delta = opt.e.deltaY;
+      let zoom = canvas.getZoom();
+      zoom *= 0.999 ** delta;
+      if (zoom > 20) zoom = 20;
+      if (zoom < 0.1) zoom = 0.1;
+      canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+      opt.e.preventDefault();
+      opt.e.stopPropagation();
+    });
+
+    // Global pan state logic (Alt + Drag or Middle Mouse)
+    canvas.on('mouse:down', function(opt) {
+      if (opt.e.altKey || opt.button === 2 || opt.button === 3) {
+        isPanning.current = true;
+        canvas.selection = false;
+        lastPosX.current = opt.e.clientX;
+        lastPosY.current = opt.e.clientY;
+      }
+    });
+
+    canvas.on('mouse:move', function(opt) {
+      if (isPanning.current) {
+        const e = opt.e;
+        const vpt = canvas.viewportTransform;
+        vpt[4] += e.clientX - lastPosX.current;
+        vpt[5] += e.clientY - lastPosY.current;
+        canvas.requestRenderAll();
+        lastPosX.current = e.clientX;
+        lastPosY.current = e.clientY;
+      }
+    });
+
+    canvas.on('mouse:up', function(opt) {
+      if (isPanning.current) {
+        canvas.setViewportTransform(canvas.viewportTransform);
+        isPanning.current = false;
+        if (!drawingMode) canvas.selection = true;
+      }
+    });
 
     return () => {
       window.removeEventListener('resize', handleResize);
@@ -74,9 +120,96 @@ export default function Canvas2D({ drawingMode }) {
     const canvas = fabricRef.current;
     if (!canvas) return;
 
-    canvas.off('mouse:down');
-    canvas.off('mouse:move');
-    canvas.off('mouse:up');
+    // We keep wheel, but override down/move/up for drawing
+    const handleMouseDown = function(o) {
+      if (o.e.altKey || o.button === 2 || o.button === 3) return; // Ignore if panning
+      if (!drawingMode) return;
+
+      isDrawing.current = true;
+      const pointer = canvas.getPointer(o.e);
+      startPos.current = { x: pointer.x, y: pointer.y };
+      
+      let strokeColor = '#ffffff';
+      let strokeWidth = 6;
+      
+      if (drawingMode === 'wall') { strokeColor = '#e4e4e7'; strokeWidth = 8; } 
+      else if (drawingMode === 'door') { strokeColor = '#facc15'; strokeWidth = 4; } 
+      else if (drawingMode === 'window') { strokeColor = '#60a5fa'; strokeWidth = 4; } 
+      else if (drawingMode === 'stairs') { strokeColor = '#c084fc'; strokeWidth = 4; }
+
+      currentLine.current = new fabric.Rect({
+        left: pointer.x,
+        top: pointer.y,
+        width: 0,
+        height: strokeWidth,
+        fill: strokeColor,
+        originX: 'left',
+        originY: 'center',
+        selectable: false,
+        evented: false,
+        type: drawingMode,
+        cornerColor: '#ffffff',
+        borderColor: '#ffffff',
+        transparentCorners: false,
+        cornerSize: 8,
+      });
+      canvas.add(currentLine.current);
+    };
+
+    const handleMouseMove = function(o) {
+      if (!isDrawing.current || !currentLine.current) return;
+      const pointer = canvas.getPointer(o.e);
+      
+      let dx = pointer.x - startPos.current.x;
+      let dy = pointer.y - startPos.current.y;
+      
+      let length = Math.sqrt(dx * dx + dy * dy);
+      let angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+      // Smart Snapping (Shift key or proximity to 45 degree angles)
+      // If close to 0, 45, 90, 135, 180, etc...
+      const snapThreshold = 5; // degrees
+      const snappedAngle = Math.round(angle / 45) * 45;
+      
+      if (Math.abs(angle - snappedAngle) < snapThreshold || o.e.shiftKey) {
+        angle = snappedAngle;
+        
+        // When snapping, recalculate length based on projection to keep cursor aligned
+        const rad = angle * Math.PI / 180;
+        // Project the mouse position onto the snapped vector line
+        const dot = (dx * Math.cos(rad) + dy * Math.sin(rad));
+        length = Math.abs(dot);
+      }
+
+      currentLine.current.set({
+        width: length,
+        angle: angle
+      });
+      
+      canvas.renderAll();
+    };
+
+    const handleMouseUp = function(o) {
+      if (!currentLine.current) return;
+      if (currentLine.current.width < 5) {
+        canvas.remove(currentLine.current);
+      } else {
+        currentLine.current.setCoords();
+      }
+      isDrawing.current = false;
+      currentLine.current = null;
+    };
+
+    // First remove old listeners that might conflict
+    canvas.off('mouse:down', handleMouseDown);
+    canvas.off('mouse:move', handleMouseMove);
+    canvas.off('mouse:up', handleMouseUp);
+    
+    // Clear out any anonymous ones from previous renders (hacky but works for react hot reloads)
+    canvas.__eventListeners['mouse:down'] = canvas.__eventListeners['mouse:down']?.filter(fn => !fn.toString().includes('isDrawing'));
+    canvas.__eventListeners['mouse:move'] = canvas.__eventListeners['mouse:move']?.filter(fn => !fn.toString().includes('isDrawing'));
+    canvas.__eventListeners['mouse:up'] = canvas.__eventListeners['mouse:up']?.filter(fn => !fn.toString().includes('isDrawing'));
+
 
     if (!drawingMode) {
       canvas.isDrawingMode = false;
@@ -98,70 +231,9 @@ export default function Canvas2D({ drawingMode }) {
       o.set('evented', false);
     });
 
-    canvas.on('mouse:down', function(o) {
-      isDrawing.current = true;
-      const pointer = canvas.getPointer(o.e);
-      startPos.current = { x: pointer.x, y: pointer.y };
-      
-      let strokeColor = '#ffffff';
-      let strokeWidth = 6;
-      
-      if (drawingMode === 'wall') { strokeColor = '#e4e4e7'; strokeWidth = 8; } 
-      else if (drawingMode === 'door') { strokeColor = '#facc15'; strokeWidth = 4; } 
-      else if (drawingMode === 'window') { strokeColor = '#60a5fa'; strokeWidth = 4; } 
-      else if (drawingMode === 'stairs') { strokeColor = '#c084fc'; strokeWidth = 4; }
-
-      // We use Rect instead of Line to ensure the bounding box tightly hugs the shape even when rotated diagonally
-      currentLine.current = new fabric.Rect({
-        left: pointer.x,
-        top: pointer.y,
-        width: 0,
-        height: strokeWidth,
-        fill: strokeColor,
-        originX: 'left',
-        originY: 'center',
-        selectable: false,
-        evented: false,
-        type: drawingMode,
-        cornerColor: '#ffffff',
-        borderColor: '#ffffff',
-        transparentCorners: false,
-        cornerSize: 8,
-      });
-      canvas.add(currentLine.current);
-    });
-
-    canvas.on('mouse:move', function(o) {
-      if (!isDrawing.current || !currentLine.current) return;
-      const pointer = canvas.getPointer(o.e);
-      
-      const dx = pointer.x - startPos.current.x;
-      const dy = pointer.y - startPos.current.y;
-      
-      const length = Math.sqrt(dx * dx + dy * dy);
-      const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-
-      currentLine.current.set({
-        width: length,
-        angle: angle
-      });
-      
-      canvas.renderAll();
-    });
-
-    canvas.on('mouse:up', function(o) {
-      if (!currentLine.current) return;
-      
-      // If the line is too short (just a click), remove it to avoid 0-width artifacts
-      if (currentLine.current.width < 5) {
-        canvas.remove(currentLine.current);
-      } else {
-        currentLine.current.setCoords();
-      }
-      
-      isDrawing.current = false;
-      currentLine.current = null;
-    });
+    canvas.on('mouse:down', handleMouseDown);
+    canvas.on('mouse:move', handleMouseMove);
+    canvas.on('mouse:up', handleMouseUp);
 
   }, [drawingMode]);
 

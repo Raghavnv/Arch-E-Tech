@@ -5,6 +5,9 @@ import Canvas2D from './Canvas2D';
 
 export default function Studio() {
   const [drawingMode, setDrawingMode] = useState(null);
+  const [activeTab, setActiveTab] = useState('2D');
+  const [activeFloor, setActiveFloor] = useState(1);
+  const totalFloors = 3; // Mocked from project setup
 
   return (
     <div className="h-screen w-screen flex overflow-hidden font-sans bg-black text-zinc-100">
@@ -18,15 +21,36 @@ export default function Studio() {
             <span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>
             Studio Engine
           </div>
-          <Link to="/dashboard" className="text-zinc-500 hover:text-white transition-colors">
-            <Home className="w-4 h-4" />
-          </Link>
+          <div className="flex items-center gap-4">
+            <select 
+              value={activeFloor}
+              onChange={(e) => setActiveFloor(Number(e.target.value))}
+              className="bg-zinc-900 border border-zinc-700 text-xs text-white rounded-md px-2 py-1 focus:outline-none"
+            >
+              {[...Array(totalFloors)].map((_, i) => (
+                <option key={i+1} value={i+1}>Floor {i+1}</option>
+              ))}
+            </select>
+            <Link to="/dashboard" className="text-zinc-500 hover:text-white transition-colors">
+              <Home className="w-4 h-4" />
+            </Link>
+          </div>
         </div>
 
         {/* Modules/Tabs */}
         <div className="flex border-b border-zinc-800">
-          <button className="flex-1 py-3 text-xs font-semibold text-white border-b-2 border-white">2D Draft</button>
-          <button className="flex-1 py-3 text-xs font-medium text-zinc-500 hover:text-zinc-300">3D View</button>
+          <button 
+            onClick={() => setActiveTab('2D')}
+            className={`flex-1 py-3 text-xs font-semibold transition-colors ${activeTab === '2D' ? 'text-white border-b-2 border-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+          >
+            2D Draft
+          </button>
+          <button 
+            onClick={() => setActiveTab('3D')}
+            className={`flex-1 py-3 text-xs font-semibold transition-colors ${activeTab === '3D' ? 'text-white border-b-2 border-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+          >
+            3D View
+          </button>
         </div>
 
         {/* Toolbar (Quick Actions) */}
@@ -128,25 +152,25 @@ export default function Studio() {
           </div>
           <button 
             onClick={() => setDrawingMode(drawingMode === 'wall' ? null : 'wall')}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${drawingMode === 'wall' ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}
+            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${drawingMode === 'wall' ? 'bg-zinc-200 text-black' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}
           >
             <Layers className="w-3.5 h-3.5" /> Wall
           </button>
           <button 
             onClick={() => setDrawingMode(drawingMode === 'door' ? null : 'door')}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${drawingMode === 'door' ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}
+            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${drawingMode === 'door' ? 'bg-yellow-400 text-black' : 'bg-zinc-800 text-yellow-400/70 hover:bg-zinc-700 hover:text-yellow-400'}`}
           >
             <LayoutTemplate className="w-3.5 h-3.5" /> Door
           </button>
           <button 
             onClick={() => setDrawingMode(drawingMode === 'window' ? null : 'window')}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${drawingMode === 'window' ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}
+            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${drawingMode === 'window' ? 'bg-blue-400 text-black' : 'bg-zinc-800 text-blue-400/70 hover:bg-zinc-700 hover:text-blue-400'}`}
           >
             <Box className="w-3.5 h-3.5" /> Window
           </button>
           <button 
             onClick={() => setDrawingMode(drawingMode === 'stairs' ? null : 'stairs')}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${drawingMode === 'stairs' ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}
+            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${drawingMode === 'stairs' ? 'bg-purple-400 text-black' : 'bg-zinc-800 text-purple-400/70 hover:bg-zinc-700 hover:text-purple-400'}`}
           >
             <Layers className="w-3.5 h-3.5 rotate-90" /> Stairs
           </button>
