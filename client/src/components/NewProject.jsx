@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, ScanLine, Box, AlertTriangle, Calculator, FileImage, LayoutTemplate, Magnet, Sun, MessageSquare, Image as ImageIcon, FileText, PenTool } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ScanLine, Box, AlertTriangle, Calculator, FileImage, LayoutTemplate, Magnet, Sun, MessageSquare, Image as ImageIcon, FileText, PenTool } from 'lucide-react';
 
 export default function NewProject() {
   const navigate = useNavigate();
@@ -50,7 +50,7 @@ export default function NewProject() {
           </div>
 
           {step === 1 && (
-            <div className="space-y-6 max-w-xl mx-auto">
+            <div className="space-y-8 max-w-xl mx-auto">
               <div>
                 <label className="block text-sm font-medium text-zinc-300 mb-2">Project Name</label>
                 <input 
@@ -64,23 +64,65 @@ export default function NewProject() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-2">Initial Floor Plan (Optional)</label>
-                <div className="border-2 border-dashed border-zinc-800 hover:border-zinc-600 bg-zinc-900/50 rounded-xl p-10 flex flex-col items-center justify-center cursor-pointer transition-colors text-center">
-                  <FileImage className="w-8 h-8 text-zinc-500 mb-3" />
-                  <p className="text-sm font-medium text-zinc-300">Click to upload or drag and drop</p>
-                  <p className="text-xs text-zinc-500 mt-1">PNG, JPG or PDF up to 10MB</p>
+                <label className="block text-sm font-medium text-zinc-300 mb-3">Initialization Method</label>
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Option 1: Start from Scratch */}
+                  <div 
+                    onClick={() => setConfig({ ...config, initMode: 'scratch' })}
+                    className={`p-5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col items-center justify-center text-center gap-3 ${
+                      config.initMode === 'scratch' 
+                        ? 'border-white bg-zinc-900' 
+                        : 'border-zinc-800 bg-black hover:border-zinc-700'
+                    }`}
+                  >
+                    <div className={`p-3 rounded-full ${config.initMode === 'scratch' ? 'bg-white text-black' : 'bg-zinc-900 text-zinc-400'}`}>
+                      <PenTool className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className={`font-semibold mb-1 ${config.initMode === 'scratch' ? 'text-white' : 'text-zinc-300'}`}>Start from Scratch</h4>
+                      <p className="text-xs text-zinc-500">Launch a blank canvas and draft manually.</p>
+                    </div>
+                  </div>
+
+                  {/* Option 2: AI Upload */}
+                  <div 
+                    onClick={() => setConfig({ ...config, initMode: 'upload' })}
+                    className={`p-5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col items-center justify-center text-center gap-3 ${
+                      config.initMode === 'upload' 
+                        ? 'border-white bg-zinc-900' 
+                        : 'border-zinc-800 bg-black hover:border-zinc-700'
+                    }`}
+                  >
+                    <div className={`p-3 rounded-full ${config.initMode === 'upload' ? 'bg-white text-black' : 'bg-zinc-900 text-zinc-400'}`}>
+                      <ScanLine className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className={`font-semibold mb-1 ${config.initMode === 'upload' ? 'text-white' : 'text-zinc-300'}`}>AI Floor Plan</h4>
+                      <p className="text-xs text-zinc-500">Upload a sketch for automated YOLOv11 detection.</p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="pt-6">
+              {config.initMode === 'upload' && (
+                <div className="animate-in fade-in slide-in-from-top-4 duration-300">
+                  <div className="border-2 border-dashed border-zinc-800 hover:border-zinc-600 bg-zinc-900/50 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-colors text-center">
+                    <FileImage className="w-8 h-8 text-zinc-500 mb-3" />
+                    <p className="text-sm font-medium text-zinc-300">Have a floor plan? Drop it here.</p>
+                    <p className="text-xs text-zinc-500 mt-1">PNG, JPG or PDF up to 10MB</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-2">
                 <button 
                   onClick={() => setStep(2)}
                   disabled={!config.name.trim()}
-                  className={`w-full py-4 rounded-xl font-medium transition-all ${
+                  className={`w-full py-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
                     config.name.trim() ? 'bg-white text-black hover:bg-zinc-200' : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
                   }`}
                 >
-                  Next Step
+                  Configure Pipeline <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
             </div>

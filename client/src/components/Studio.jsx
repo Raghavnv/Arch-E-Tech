@@ -117,7 +117,26 @@ export default function Studio() {
       </aside>
 
       {/* Main Canvas Area */}
-      <main className="flex-1 relative bg-zinc-950">
+      <main className="flex-1 relative bg-zinc-950 flex flex-col">
+        {/* Floating Drafting Toolbar */}
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 bg-zinc-900 border border-zinc-800 p-1.5 rounded-full shadow-2xl">
+          <div className="px-3 py-1.5 text-xs font-semibold text-zinc-500 border-r border-zinc-800 mr-1">
+            Build Mode
+          </div>
+          <button className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-zinc-800 text-white text-xs font-medium hover:bg-zinc-700 transition-colors">
+            <Layers className="w-3.5 h-3.5" /> Wall
+          </button>
+          <button className="flex items-center gap-2 px-4 py-1.5 rounded-full text-zinc-400 text-xs font-medium hover:bg-zinc-800 hover:text-white transition-colors">
+            <LayoutTemplate className="w-3.5 h-3.5" /> Door
+          </button>
+          <button className="flex items-center gap-2 px-4 py-1.5 rounded-full text-zinc-400 text-xs font-medium hover:bg-zinc-800 hover:text-white transition-colors">
+            <Box className="w-3.5 h-3.5" /> Window
+          </button>
+          <button className="flex items-center gap-2 px-4 py-1.5 rounded-full text-zinc-400 text-xs font-medium hover:bg-zinc-800 hover:text-white transition-colors">
+            <Layers className="w-3.5 h-3.5 rotate-90" /> Stairs
+          </button>
+        </div>
+
         <Canvas2D />
       </main>
     </div>
