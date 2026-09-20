@@ -27,18 +27,22 @@ export default function Studio() {
         </div>
 
         {/* Toolbar (Quick Actions) */}
-        <div className="p-4 border-b border-zinc-800 grid grid-cols-4 gap-2">
-          <button className="flex flex-col items-center justify-center p-2 rounded hover:bg-zinc-900 transition-colors text-zinc-400 hover:text-white" title="Auto Detect (YOLOv11)">
-            <ScanLine className="w-4 h-4 mb-1" />
+        <div className="p-3 border-b border-zinc-800 grid grid-cols-4 gap-2">
+          <button className="flex flex-col items-center justify-center p-2 rounded hover:bg-zinc-900 transition-colors text-zinc-400 hover:text-white">
+            <ScanLine className="w-4 h-4 mb-1.5" />
+            <span className="text-[9px] font-medium text-center leading-tight">Auto Detect</span>
           </button>
-          <button className="flex flex-col items-center justify-center p-2 rounded hover:bg-zinc-900 transition-colors text-zinc-400 hover:text-white" title="Smart Snap">
-            <Magnet className="w-4 h-4 mb-1" />
+          <button className="flex flex-col items-center justify-center p-2 rounded hover:bg-zinc-900 transition-colors text-zinc-400 hover:text-white">
+            <Magnet className="w-4 h-4 mb-1.5" />
+            <span className="text-[9px] font-medium text-center leading-tight">Smart Snap</span>
           </button>
-          <button className="flex flex-col items-center justify-center p-2 rounded hover:bg-zinc-900 transition-colors text-zinc-400 hover:text-white" title="AI Text-to-Layout">
-            <LayoutTemplate className="w-4 h-4 mb-1" />
+          <button className="flex flex-col items-center justify-center p-2 rounded hover:bg-zinc-900 transition-colors text-zinc-400 hover:text-white">
+            <LayoutTemplate className="w-4 h-4 mb-1.5" />
+            <span className="text-[9px] font-medium text-center leading-tight">AI Layout</span>
           </button>
-          <button className="flex flex-col items-center justify-center p-2 rounded hover:bg-zinc-900 transition-colors text-zinc-400 hover:text-white" title="Concept Visualizer">
-            <ImageIcon className="w-4 h-4 mb-1" />
+          <button className="flex flex-col items-center justify-center p-2 rounded hover:bg-zinc-900 transition-colors text-zinc-400 hover:text-white">
+            <ImageIcon className="w-4 h-4 mb-1.5" />
+            <span className="text-[9px] font-medium text-center leading-tight">Concept Viz</span>
           </button>
         </div>
 
