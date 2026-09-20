@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.venv/
+env/
+*.pt
+*.onnx
+node_modules/
+dist/
+.env
+.DS_Store
