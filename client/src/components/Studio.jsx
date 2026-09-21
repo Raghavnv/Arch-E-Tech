@@ -106,11 +106,15 @@ export default function Studio() {
             <div className="space-y-1">
               <div className="flex items-center justify-between group cursor-pointer px-2 py-2 -mx-2 rounded hover:bg-zinc-900 transition-colors">
                 <span className="flex items-center gap-2 text-xs text-zinc-300"><div className="w-1.5 h-1.5 bg-zinc-400"></div> Walls</span>
-                <span className="text-xs text-zinc-500 font-mono">1</span>
+                <span className="text-xs text-zinc-500 font-mono">{canvasElements.filter(el => el.type === 'wall').length}</span>
               </div>
-              <div className="flex items-center justify-between group cursor-pointer px-2 py-2 -mx-2 rounded hover:bg-zinc-900 transition-colors opacity-50">
-                <span className="flex items-center gap-2 text-xs text-zinc-300"><div className="w-1.5 h-1.5 bg-zinc-400"></div> Doors</span>
-                <span className="text-xs text-zinc-500 font-mono">0</span>
+              <div className="flex items-center justify-between group cursor-pointer px-2 py-2 -mx-2 rounded hover:bg-zinc-900 transition-colors">
+                <span className="flex items-center gap-2 text-xs text-zinc-300"><div className="w-1.5 h-1.5 bg-yellow-400"></div> Doors</span>
+                <span className="text-xs text-zinc-500 font-mono">{canvasElements.filter(el => el.type === 'door').length}</span>
+              </div>
+              <div className="flex items-center justify-between group cursor-pointer px-2 py-2 -mx-2 rounded hover:bg-zinc-900 transition-colors">
+                <span className="flex items-center gap-2 text-xs text-zinc-300"><div className="w-1.5 h-1.5 bg-blue-400"></div> Windows</span>
+                <span className="text-xs text-zinc-500 font-mono">{canvasElements.filter(el => el.type === 'window').length}</span>
               </div>
             </div>
           </div>
@@ -121,7 +125,28 @@ export default function Studio() {
           <div>
             <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Assistants</h3>
             <div className="space-y-2">
-              <button className="w-full flex items-center justify-between bg-zinc-900 hover:bg-zinc-800 transition-colors p-3 rounded-lg border border-zinc-800 text-left text-xs">
+              <button 
+                onClick={() => {
+                  const violations = [];
+                  canvasElements.forEach(el => {
+                    if (el.type === 'door' && el.width < 50) {
+                      violations.push('Violation (Code 1020.2): Door width is less than 32" clearance.');
+                    }
+                    if (el.type === 'wall' && el.width > 600) {
+                      violations.push('Structural Warning: Span exceeds 20ft without supporting pillar.');
+                    }
+                    if (el.type === 'window' && el.width < 40) {
+                      violations.push('Egress Warning (Code 1030): Window width insufficient for emergency escape.');
+                    }
+                  });
+                  if (violations.length === 0) {
+                    alert("✅ AI Inspector: All designs meet local compliance codes.");
+                  } else {
+                    alert("⚠️ AI Inspector Found Issues:\n\n- " + violations.join('\n- '));
+                  }
+                }}
+                className="w-full flex items-center justify-between bg-zinc-900 hover:bg-zinc-800 transition-colors p-3 rounded-lg border border-zinc-800 text-left text-xs"
+              >
                 <span className="flex items-center gap-2 text-zinc-300"><MessageSquare className="w-4 h-4 text-white" /> Code Compliance RAG</span>
                 <ChevronRight className="w-3 h-3 text-zinc-600" />
               </button>

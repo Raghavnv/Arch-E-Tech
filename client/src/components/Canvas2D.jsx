@@ -42,6 +42,43 @@ export default function Canvas2D({ drawingMode }) {
       }));
     }
 
+    // Load AI Generative / Upload Draft Elements
+    const draft = localStorage.getItem('draftElements');
+    if (draft) {
+      try {
+        const elements = JSON.parse(draft);
+        elements.forEach(el => {
+          let strokeColor = '#ffffff';
+          if (el.type === 'wall') strokeColor = '#e4e4e7';
+          else if (el.type === 'door') strokeColor = '#facc15';
+          else if (el.type === 'window') strokeColor = '#60a5fa';
+          else if (el.type === 'stairs') strokeColor = '#c084fc';
+
+          const rect = new fabric.Rect({
+            left: el.left,
+            top: el.top,
+            width: el.width,
+            height: el.height,
+            angle: el.angle,
+            fill: strokeColor,
+            originX: 'left',
+            originY: 'center',
+            selectable: true,
+            evented: true,
+            type: el.type,
+            cornerColor: '#ffffff',
+            borderColor: '#ffffff',
+            transparentCorners: false,
+            cornerSize: 8,
+          });
+          canvas.add(rect);
+        });
+        setCanvasElements(elements);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
     const handleResize = () => {
       canvas.setWidth(window.innerWidth - 320);
       canvas.setHeight(window.innerHeight);
