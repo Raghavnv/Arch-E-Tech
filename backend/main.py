@@ -67,6 +67,40 @@ def login_user(user: UserLogin, db: Session = Depends(get_db)):
     token = jwt.encode({"sub": db_user.email, "exp": datetime.datetime.utcnow() + datetime.timedelta(days=7)}, SECRET_KEY, algorithm=ALGORITHM)
     return {"token": token, "user": {"id": db_user.id, "email": db_user.email, "name": db_user.full_name}}
 
+
+# -----------------------------------------------------------------
+# AI GENERATIVE ENDPOINT (Text-to-Blueprint)
+# -----------------------------------------------------------------
+class AIPrompt(BaseModel):
+    prompt: str
+
+@app.post("/api/ai/generate-plan")
+async def generate_floor_plan(payload: AIPrompt):
+    # TODO: Initialize OpenAI or Gemini client here when API key is provided
+    # e.g., client = OpenAI(api_key="sk-...")
+    # 
+    # The LLM needs to be instructed to return a JSON array matching this exact schema:
+    # [
+    #   { "type": "wall", "left": float, "top": float, "width": float, "height": float, "angle": float },
+    #   { "type": "door", ... },
+    #   { "type": "window", ... }
+    # ]
+    #
+    # For now, returning the mock structural blueprint:
+    
+    return {
+        "status": "success",
+        "elements": [
+            { "type": "wall", "left": 100, "top": 100, "width": 400, "height": 8, "angle": 0 },
+            { "type": "wall", "left": 500, "top": 100, "width": 300, "height": 8, "angle": 90 },
+            { "type": "wall", "left": 500, "top": 400, "width": 400, "height": 8, "angle": 180 },
+            { "type": "wall", "left": 100, "top": 400, "width": 300, "height": 8, "angle": 270 },
+            { "type": "door", "left": 250, "top": 400, "width": 60, "height": 4, "angle": 180 },
+            { "type": "window", "left": 500, "top": 200, "width": 80, "height": 4, "angle": 90 }
+        ]
+    }
+
+
 @app.post("/api/upload-sketch")
 async def upload_sketch(file: UploadFile = File(...)):
     # Create a temporary file to save the uploaded image

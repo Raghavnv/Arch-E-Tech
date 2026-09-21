@@ -213,18 +213,25 @@ export default function NewProject() {
 
               <div className="pt-4 border-t border-zinc-900">
                 <button 
-                  onClick={() => {
-                    if (config.initMode === 'generative' || config.initMode === 'upload') {
-                      // Mock LLM/YOLO response: A basic room with a door
-                      const mockElements = [
-                        { type: 'wall', left: 100, top: 100, width: 400, height: 8, angle: 0 }, // Top wall
-                        { type: 'wall', left: 500, top: 100, width: 300, height: 8, angle: 90 }, // Right wall
-                        { type: 'wall', left: 500, top: 400, width: 400, height: 8, angle: 180 }, // Bottom wall
-                        { type: 'wall', left: 100, top: 400, width: 300, height: 8, angle: 270 }, // Left wall
-                        { type: 'door', left: 250, top: 400, width: 60, height: 4, angle: 180 }, // Door on bottom wall
-                        { type: 'window', left: 500, top: 200, width: 80, height: 4, angle: 90 } // Window on right wall
-                      ];
-                      localStorage.setItem('draftElements', JSON.stringify(mockElements));
+                  onClick={async () => {
+                    if (config.initMode === 'generative') {
+                      try {
+                        const res = await fetch('http://localhost:8000/api/ai/generate-plan', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ prompt: config.prompt || "Default modern house" })
+                        });
+                        const data = await res.json();
+                        if (data.elements) {
+                          localStorage.setItem('draftElements', JSON.stringify(data.elements));
+                        }
+                      } catch (err) {
+                        console.error("Backend not running, falling back to empty.");
+                        localStorage.removeItem('draftElements');
+                      }
+                    } else if (config.initMode === 'upload') {
+                       // We will leave this for YOLO later. For now, empty canvas.
+                       localStorage.removeItem('draftElements');
                     } else {
                       localStorage.removeItem('draftElements');
                     }

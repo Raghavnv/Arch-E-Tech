@@ -10,26 +10,32 @@ function ExtrudedElement({ el }) {
   // Height configurations based on element type
   let height = 3; // default wall height (approx 3m)
   let yPos = height / 2;
-  let color = '#e4e4e7';
-  let roughness = 0.7;
-  let opacity = 1;
-  let transparent = false;
+  let material;
 
   if (el.type === 'door') {
-    height = 2.2; // Door height
+    height = 2.2; 
     yPos = height / 2;
-    color = '#facc15';
+    material = <meshStandardMaterial color="#78350f" roughness={0.9} />; // Rich dark wood
   } else if (el.type === 'window') {
-    height = 1.2; // Window height
+    height = 1.2; 
     yPos = 1.5; // Raised off the ground
-    color = '#60a5fa';
-    opacity = 0.5;
-    transparent = true;
-    roughness = 0.1;
+    material = (
+      <meshPhysicalMaterial 
+        transmission={0.95} 
+        opacity={1} 
+        roughness={0.05} 
+        ior={1.5} 
+        thickness={0.5} 
+        color="#e0f2fe" 
+      />
+    ); // Realistic architectural glass
   } else if (el.type === 'stairs') {
     height = 0.5;
     yPos = height / 2;
-    color = '#c084fc';
+    material = <meshStandardMaterial color="#52525b" roughness={0.8} metalness={0.2} />; // Concrete/Steel
+  } else {
+    // Wall
+    material = <meshStandardMaterial color="#fafafa" roughness={1} />; // Matte white plaster
   }
 
   // Convert Fabric.js origin (left-center) to Three.js origin (center-center)
@@ -45,12 +51,7 @@ function ExtrudedElement({ el }) {
       receiveShadow
     >
       <boxGeometry args={[length, height, depth]} />
-      <meshStandardMaterial 
-        color={color} 
-        roughness={roughness} 
-        transparent={transparent}
-        opacity={opacity}
-      />
+      {material}
     </mesh>
   );
 }
