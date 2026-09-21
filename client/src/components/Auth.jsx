@@ -1,13 +1,23 @@
-import { useState } from 'react';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, ArrowRight, AlertCircle, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
+
+  // Auto-hide error after 5 seconds
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError(null);
     const email = e.target.email.value;
     const password = e.target.password.value;
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -23,7 +33,6 @@ export default function Auth() {
           });
         } catch (networkErr) {
           console.warn('Backend not reachable:', networkErr);
-          // Fallback to mock dev mode
           localStorage.setItem('token', 'mock-token-for-dev');
           localStorage.setItem('isNewUser', 'false');
           navigate('/dashboard');
@@ -38,9 +47,9 @@ export default function Auth() {
         } else {
           try {
             const errorData = await res.json();
-            alert(errorData.detail || 'Login failed. Please check your credentials.');
+            setError(errorData.detail || 'Login failed. Please check your credentials.');
           } catch (e) {
-            alert(`Server error (${res.status}): The backend is unreachable or misconfigured.`);
+            setError(`Server error (${res.status}): The backend is unreachable or misconfigured.`);
           }
         }
       } else {
@@ -54,7 +63,6 @@ export default function Auth() {
           });
         } catch (networkErr) {
           console.warn('Backend not reachable:', networkErr);
-          // Fallback to mock dev mode
           localStorage.setItem('token', 'mock-token-for-dev');
           localStorage.setItem('isNewUser', 'true');
           navigate('/welcome');
@@ -69,21 +77,34 @@ export default function Auth() {
         } else {
           try {
             const errorData = await res.json();
-            alert(errorData.detail || 'Registration failed.');
+            setError(errorData.detail || 'Registration failed.');
           } catch (e) {
-            alert(`Server error (${res.status}): The backend is unreachable or misconfigured.`);
+            setError(`Server error (${res.status}): The backend is unreachable or misconfigured.`);
           }
         }
       }
-    } catch (error) {
-      console.error("Unexpected auth error:", error);
-      alert("An unexpected error occurred during authentication.");
+    } catch (err) {
+      console.error("Unexpected auth error:", err);
+      setError("An unexpected error occurred during authentication.");
     }
   };
 
   return (
-    <div className="min-h-screen bg-black text-zinc-100 flex font-sans">
+    <div className="min-h-screen bg-black text-zinc-100 flex font-sans relative">
       
+      {/* Custom Error Toast */}
+      {error && (
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-4 fade-in duration-300">
+          <div className="bg-red-500/10 border border-red-500/50 text-red-500 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 backdrop-blur-md">
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <span className="text-sm font-medium">{error}</span>
+            <button onClick={() => setError(null)} className="ml-4 hover:bg-red-500/20 p-1 rounded-md transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Left Panel: Graphic/Branding */}
       <div className="hidden lg:flex flex-1 relative bg-zinc-950 flex-col items-center justify-center border-r border-zinc-900 overflow-hidden">
         {/* Abstract Architectural Grid Background */}
@@ -167,7 +188,10 @@ export default function Auth() {
           <div className="mt-8 text-center text-sm text-zinc-500">
             {isLogin ? "Don't have an account? " : "Already have an account? "}
             <button 
-              onClick={() => setIsLogin(!isLogin)} 
+              onClick={() => {
+                setIsLogin(!isLogin);
+                setError(null);
+              }} 
               className="text-white hover:underline font-medium focus:outline-none"
             >
               {isLogin ? 'Sign up' : 'Sign in'}

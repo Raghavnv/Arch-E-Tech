@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Home, Layers, Settings, Save, Download, ScanLine, Box, AlertTriangle, Calculator, ChevronRight, LayoutTemplate, Magnet, Sun, MessageSquare, Image as ImageIcon, FileText } from 'lucide-react';
+import { Home, Layers, Settings, Save, Download, ScanLine, Box, AlertTriangle, Calculator, ChevronRight, LayoutTemplate, Magnet, Sun, MessageSquare, Image as ImageIcon, FileText, X, CheckCircle } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
@@ -17,6 +17,7 @@ export default function Studio() {
   const [timeOfDay, setTimeOfDay] = useState(12); // Default to Noon
   const totalFloors = 3; // Mocked from project setup
   const [isSaving, setIsSaving] = useState(false);
+  const [complianceResult, setComplianceResult] = useState(null);
 
   // Fetch project from database
   useEffect(() => {
@@ -204,9 +205,9 @@ export default function Studio() {
                     }
                   });
                   if (violations.length === 0) {
-                    alert("✅ AI Inspector: All designs meet local compliance codes.");
+                    setComplianceResult({ status: 'success', messages: ['All designs meet local compliance codes.'] });
                   } else {
-                    alert("⚠️ AI Inspector Found Issues:\n\n- " + violations.join('\n- '));
+                    setComplianceResult({ status: 'warning', messages: violations });
                   }
                 }}
                 className="w-full flex items-center justify-between bg-zinc-900 hover:bg-zinc-800 transition-colors p-3 rounded-lg border border-zinc-800 text-left text-xs"
@@ -286,6 +287,54 @@ export default function Studio() {
           <Canvas3D elements={canvasElements} timeOfDay={timeOfDay} />
         </div>
       </main>
+
+      {/* Compliance Modal */}
+      {complianceResult && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-md p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-start justify-between mb-6">
+              <div className="flex items-center gap-3">
+                {complianceResult.status === 'success' ? (
+                  <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                    <CheckCircle className="w-5 h-5 text-emerald-500" />
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
+                    <AlertTriangle className="w-5 h-5 text-red-500" />
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-lg font-bold text-white">AI Inspector</h3>
+                  <p className="text-xs text-zinc-400">
+                    {complianceResult.status === 'success' ? 'Compliance Check Passed' : 'Issues Found'}
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setComplianceResult(null)} className="text-zinc-500 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="bg-zinc-900 rounded-lg p-4 max-h-60 overflow-y-auto custom-scrollbar">
+              <ul className="space-y-3">
+                {complianceResult.messages.map((msg, idx) => (
+                  <li key={idx} className="flex gap-2 text-sm text-zinc-300">
+                    <span className="text-zinc-600 mt-0.5">•</span>
+                    <span>{msg}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            
+            <button 
+              onClick={() => setComplianceResult(null)}
+              className="w-full mt-6 py-3 rounded-xl bg-white text-black font-semibold hover:bg-zinc-200 transition-colors"
+            >
+              Acknowledge
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
