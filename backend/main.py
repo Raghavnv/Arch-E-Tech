@@ -86,7 +86,7 @@ async def generate_floor_plan(payload: AIPrompt):
     genai.configure(api_key=api_key)
     
     generation_config = {
-      "temperature": 0.2,
+      "temperature": 0.4, # Slightly higher for creativity in floor plans
       "response_mime_type": "application/json",
     }
     
@@ -94,7 +94,7 @@ async def generate_floor_plan(payload: AIPrompt):
     
     system_prompt = f"""You are an expert architectural AI that designs 2D floor plans.
     The user will provide a description of a house or layout.
-    You must output a JSON array of structural elements (walls, doors, windows).
+    You MUST generate the exact layout they asked for. If they ask for multiple rooms, you must generate the walls, doors, and windows for multiple rooms.
     
     1 unit = 1 inch (or 1 pixel in our canvas).
     A standard house might be 800x600 units.
@@ -111,21 +111,34 @@ async def generate_floor_plan(payload: AIPrompt):
     "left" and "top" represent the starting X and Y coordinate of the element.
     Walls must form connected rooms. 
     Angles should typically be 0, 90, 180, or 270.
+    DO NOT wrap your response in markdown code blocks. Return strictly the raw JSON array.
     
     User prompt: '{payload.prompt}'
-    
-    Return ONLY the raw JSON array.
     """
     
     try:
         response = model.generate_content(system_prompt)
-        elements = json.loads(response.text)
+        
+        # Clean up potential markdown formatting that breaks JSON parsing
+        raw_text = response.text.strip()
+        if raw_text.startswith("```json"):
+            raw_text = raw_text[7:]
+        if raw_text.startswith("```"):
+            raw_text = raw_text[3:]
+        if raw_text.endswith("```"):
+            raw_text = raw_text[:-3]
+            
+        elements = json.loads(raw_text.strip())
+        
         return {
             "status": "success",
             "elements": elements
         }
     except Exception as e:
         print(f"Gemini API Error: {str(e)}")
+        if hasattr(response, 'text'):
+            print(f"Raw response was: {response.text}")
+            
         # Fallback to mock if API fails/hallucinates
         return {
             "status": "error",
