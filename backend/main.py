@@ -1,25 +1,71 @@
-from fastapi import FastAPI, File, UploadFile, Depends
+from fastapi import FastAPI, File, UploadFile, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+from passlib.context import CryptContext
+import jwt
+import datetime
+from pydantic import BaseModel
+
+import models
+from database import engine, Base, get_db
 import shutil
 import os
 from tempfile import NamedTemporaryFile
-from database import engine, Base, get_db
-import models
-from sqlalchemy.orm import Session
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Arch-E-Tech API")
 
-# Configure CORS for the Vite frontend (including Vercel deployed domains)
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "*"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Auth Configuration
+SECRET_KEY = "arch-e-tech-super-secret-key-for-jwt"
+ALGORITHM = "HS256"
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Pydantic Models for Input
+class UserCreate(BaseModel):
+    full_name: str
+    email: str
+    password: str
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+@app.post("/api/auth/register")
+def register_user(user: UserCreate, db: Session = Depends(get_db)):
+    db_user = db.query(models.User).filter(models.User.email == user.email).first()
+    if db_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    hashed_password = pwd_context.hash(user.password)
+    new_user = models.User(full_name=user.full_name, email=user.email, hashed_password=hashed_password)
+    
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    
+    # Generate token
+    token = jwt.encode({"sub": new_user.email, "exp": datetime.datetime.utcnow() + datetime.timedelta(days=7)}, SECRET_KEY, algorithm=ALGORITHM)
+    return {"token": token, "user": {"id": new_user.id, "email": new_user.email, "name": new_user.full_name}}
+
+@app.post("/api/auth/login")
+def login_user(user: UserLogin, db: Session = Depends(get_db)):
+    db_user = db.query(models.User).filter(models.User.email == user.email).first()
+    if not db_user or not pwd_context.verify(user.password, db_user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    token = jwt.encode({"sub": db_user.email, "exp": datetime.datetime.utcnow() + datetime.timedelta(days=7)}, SECRET_KEY, algorithm=ALGORITHM)
+    return {"token": token, "user": {"id": db_user.id, "email": db_user.email, "name": db_user.full_name}}
 
 @app.post("/api/upload-sketch")
 async def upload_sketch(file: UploadFile = File(...)):

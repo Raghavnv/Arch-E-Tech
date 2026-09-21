@@ -8,6 +8,7 @@ export default function Studio() {
   const [drawingMode, setDrawingMode] = useState(null);
   const [activeTab, setActiveTab] = useState('2D');
   const [activeFloor, setActiveFloor] = useState(1);
+  const [canvasElements, setCanvasElements] = useState([]);
   const totalFloors = 3; // Mocked from project setup
 
   return (
@@ -177,12 +178,13 @@ export default function Studio() {
           </button>
         </div>
 
-        {/* Conditional Rendering of Canvas Engine */}
-        {activeTab === '2D' ? (
-          <Canvas2D drawingMode={drawingMode} />
-        ) : (
-          <Canvas3D />
-        )}
+        {/* Conditional Rendering of Canvas Engine using CSS to retain state */}
+        <div className={activeTab === '2D' ? 'absolute inset-0' : 'hidden'}>
+          <Canvas2D drawingMode={drawingMode} setCanvasElements={setCanvasElements} />
+        </div>
+        <div className={activeTab === '3D' ? 'absolute inset-0' : 'hidden'}>
+          <Canvas3D elements={canvasElements} />
+        </div>
       </main>
     </div>
   );

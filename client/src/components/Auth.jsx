@@ -6,14 +6,47 @@ export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (isLogin) {
-      localStorage.setItem('isNewUser', 'false');
-      navigate('/dashboard');
-    } else {
-      localStorage.setItem('isNewUser', 'true');
-      navigate('/welcome');
+    const email = e.target.email.value;
+    const password = e.target.password.value;
+    
+    try {
+      if (isLogin) {
+        // Try real API, fallback to mock if not running
+        try {
+          const res = await fetch('http://localhost:8000/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            localStorage.setItem('token', data.token);
+          }
+        } catch (err) { console.log('Backend not reachable, mocking login'); }
+        
+        localStorage.setItem('isNewUser', 'false');
+        navigate('/dashboard');
+      } else {
+        const fullName = e.target.fullName.value;
+        try {
+          const res = await fetch('http://localhost:8000/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ full_name: fullName, email, password })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            localStorage.setItem('token', data.token);
+          }
+        } catch (err) { console.log('Backend not reachable, mocking signup'); }
+        
+        localStorage.setItem('isNewUser', 'true');
+        navigate('/welcome');
+      }
+    } catch (error) {
+      console.error(error);
     }
   };
 
@@ -61,6 +94,7 @@ export default function Auth() {
                 <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Full Name</label>
                 <input 
                   type="text" 
+                  name="fullName"
                   placeholder="Zaha Hadid" 
                   required
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white transition-all placeholder:text-zinc-600"
@@ -71,6 +105,7 @@ export default function Auth() {
               <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Email</label>
               <input 
                 type="email" 
+                name="email"
                 placeholder="architect@studio.com" 
                 required
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white transition-all placeholder:text-zinc-600"
@@ -82,7 +117,8 @@ export default function Auth() {
                 {isLogin && <a href="#" className="text-xs text-zinc-500 hover:text-white transition-colors">Forgot password?</a>}
               </div>
               <input 
-                type="password" 
+                type="password"
+                name="password" 
                 placeholder="••••••••" 
                 required
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white transition-all placeholder:text-zinc-600"

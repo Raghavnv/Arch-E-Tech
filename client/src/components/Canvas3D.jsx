@@ -1,45 +1,91 @@
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Grid, Environment } from '@react-three/drei';
 
-export default function Canvas3D() {
+function ExtrudedElement({ el }) {
+  // Scale factor to convert pixel units to 3D space units
+  const scale = 0.05;
+  const length = el.width * scale;
+  const depth = el.height * scale;
+  
+  // Height configurations based on element type
+  let height = 3; // default wall height (approx 3m)
+  let yPos = height / 2;
+  let color = '#e4e4e7';
+  let roughness = 0.7;
+  let opacity = 1;
+  let transparent = false;
+
+  if (el.type === 'door') {
+    height = 2.2; // Door height
+    yPos = height / 2;
+    color = '#facc15';
+  } else if (el.type === 'window') {
+    height = 1.2; // Window height
+    yPos = 1.5; // Raised off the ground
+    color = '#60a5fa';
+    opacity = 0.5;
+    transparent = true;
+    roughness = 0.1;
+  } else if (el.type === 'stairs') {
+    height = 0.5;
+    yPos = height / 2;
+    color = '#c084fc';
+  }
+
+  // Convert Fabric.js origin (left-center) to Three.js origin (center-center)
+  const rotationRad = -(el.angle * Math.PI) / 180; // Fabric rotation is inverted in 3D Z-plane
+  const centerX = (el.left * scale) + (length / 2) * Math.cos(-rotationRad);
+  const centerZ = (el.top * scale) + (length / 2) * Math.sin(-rotationRad);
+
+  return (
+    <mesh 
+      position={[centerX, yPos, centerZ]} 
+      rotation={[0, rotationRad, 0]} 
+      castShadow 
+      receiveShadow
+    >
+      <boxGeometry args={[length, height, depth]} />
+      <meshStandardMaterial 
+        color={color} 
+        roughness={roughness} 
+        transparent={transparent}
+        opacity={opacity}
+      />
+    </mesh>
+  );
+}
+
+export default function Canvas3D({ elements = [] }) {
   return (
     <div className="absolute inset-0 bg-zinc-950">
-      <Canvas camera={{ position: [10, 10, 10], fov: 50 }} shadows>
+      <Canvas camera={{ position: [0, 20, 20], fov: 50 }} shadows>
         <color attach="background" args={['#09090b']} />
         
-        {/* Lighting setup for realistic architectural rendering */}
         <ambientLight intensity={0.4} />
         <directionalLight 
           position={[10, 15, 10]} 
           intensity={1.5} 
           castShadow 
-          shadow-mapSize={[1024, 1024]}
+          shadow-mapSize={[2048, 2048]}
         />
         <Environment preset="city" />
 
-        {/* Infinite Architectural Grid */}
         <Grid 
           infiniteGrid 
-          fadeDistance={50} 
+          fadeDistance={100} 
           sectionColor="#3f3f46" 
           cellColor="#18181b" 
-          sectionSize={1} 
-          cellSize={0.25}
+          sectionSize={2} 
+          cellSize={0.5}
         />
         
         <OrbitControls makeDefault />
 
-        {/* Placeholder Extruded Wall (We will dynamically feed this from Canvas2D later) */}
-        <mesh position={[0, 1.5, 0]} castShadow receiveShadow>
-          {/* args: [width, height, depth] */}
-          <boxGeometry args={[6, 3, 0.3]} />
-          <meshStandardMaterial color="#e4e4e7" roughness={0.7} />
-        </mesh>
-
-        <mesh position={[-3.15, 1.5, 2]} rotation={[0, Math.PI / 2, 0]} castShadow receiveShadow>
-          <boxGeometry args={[4, 3, 0.3]} />
-          <meshStandardMaterial color="#e4e4e7" roughness={0.7} />
-        </mesh>
+        {/* Dynamically extrude all 2D elements */}
+        {elements.map((el, i) => (
+          <ExtrudedElement key={i} el={el} />
+        ))}
+        
       </Canvas>
     </div>
   );

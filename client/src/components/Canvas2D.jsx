@@ -48,6 +48,20 @@ export default function Canvas2D({ drawingMode }) {
       canvas.renderAll();
     };
 
+    const syncElements = () => {
+      const elements = canvas.getObjects().filter(obj => !obj.isGrid).map(obj => ({
+        type: obj.type,
+        left: obj.left,
+        top: obj.top,
+        width: obj.width * (obj.scaleX || 1),
+        height: obj.height * (obj.scaleY || 1),
+        angle: obj.angle
+      }));
+      setCanvasElements(elements);
+    };
+
+    canvas.on('object:modified', syncElements);
+
     const handleKeyDown = (e) => {
       // Handle deletion of selected elements
       if (e.key === 'Backspace' || e.key === 'Delete') {
@@ -59,6 +73,7 @@ export default function Canvas2D({ drawingMode }) {
           });
           canvas.discardActiveObject();
           canvas.renderAll();
+          syncElements();
         }
       }
     };
@@ -113,7 +128,7 @@ export default function Canvas2D({ drawingMode }) {
       window.removeEventListener('keydown', handleKeyDown);
       canvas.dispose();
     };
-  }, []);
+  }, [setCanvasElements]);
 
   // Handle Drawing Mode Changes
   useEffect(() => {
@@ -198,6 +213,17 @@ export default function Canvas2D({ drawingMode }) {
       }
       isDrawing.current = false;
       currentLine.current = null;
+      
+      // Sync state to parent
+      const elements = canvas.getObjects().filter(obj => !obj.isGrid).map(obj => ({
+        type: obj.type,
+        left: obj.left,
+        top: obj.top,
+        width: obj.width * (obj.scaleX || 1),
+        height: obj.height * (obj.scaleY || 1),
+        angle: obj.angle
+      }));
+      setCanvasElements(elements);
     };
 
     // First remove old listeners that might conflict
