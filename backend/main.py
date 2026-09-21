@@ -68,6 +68,9 @@ def login_user(user: UserLogin, db: Session = Depends(get_db)):
     return {"token": token, "user": {"id": db_user.id, "email": db_user.email, "name": db_user.full_name}}
 
 
+import google.generativeai as genai
+import json
+
 # -----------------------------------------------------------------
 # AI GENERATIVE ENDPOINT (Text-to-Blueprint)
 # -----------------------------------------------------------------
@@ -76,29 +79,66 @@ class AIPrompt(BaseModel):
 
 @app.post("/api/ai/generate-plan")
 async def generate_floor_plan(payload: AIPrompt):
-    # TODO: Initialize OpenAI or Gemini client here when API key is provided
-    # e.g., client = OpenAI(api_key="sk-...")
-    # 
-    # The LLM needs to be instructed to return a JSON array matching this exact schema:
-    # [
-    #   { "type": "wall", "left": float, "top": float, "width": float, "height": float, "angle": float },
-    #   { "type": "door", ... },
-    #   { "type": "window", ... }
-    # ]
-    #
-    # For now, returning the mock structural blueprint:
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="Gemini API Key is not configured.")
+        
+    genai.configure(api_key=api_key)
     
-    return {
-        "status": "success",
-        "elements": [
-            { "type": "wall", "left": 100, "top": 100, "width": 400, "height": 8, "angle": 0 },
-            { "type": "wall", "left": 500, "top": 100, "width": 300, "height": 8, "angle": 90 },
-            { "type": "wall", "left": 500, "top": 400, "width": 400, "height": 8, "angle": 180 },
-            { "type": "wall", "left": 100, "top": 400, "width": 300, "height": 8, "angle": 270 },
-            { "type": "door", "left": 250, "top": 400, "width": 60, "height": 4, "angle": 180 },
-            { "type": "window", "left": 500, "top": 200, "width": 80, "height": 4, "angle": 90 }
-        ]
+    generation_config = {
+      "temperature": 0.2,
+      "response_mime_type": "application/json",
     }
+    
+    model = genai.GenerativeModel("gemini-1.5-pro", generation_config=generation_config)
+    
+    system_prompt = f"""You are an expert architectural AI that designs 2D floor plans.
+    The user will provide a description of a house or layout.
+    You must output a JSON array of structural elements (walls, doors, windows).
+    
+    1 unit = 1 inch (or 1 pixel in our canvas).
+    A standard house might be 800x600 units.
+    Standard wall thickness = 8
+    Standard door width = 60
+    Standard window width = 80
+    
+    Your JSON MUST match this exact schema:
+    [
+      {{ "type": "wall", "left": X, "top": Y, "width": length, "height": 8, "angle": rotation_in_degrees }},
+      {{ "type": "door", "left": X, "top": Y, "width": length, "height": 4, "angle": rotation_in_degrees }}
+    ]
+    
+    "left" and "top" represent the starting X and Y coordinate of the element.
+    Walls must form connected rooms. 
+    Angles should typically be 0, 90, 180, or 270.
+    
+    User prompt: '{payload.prompt}'
+    
+    Return ONLY the raw JSON array.
+    """
+    
+    try:
+        response = model.generate_content(system_prompt)
+        elements = json.loads(response.text)
+        return {
+            "status": "success",
+            "elements": elements
+        }
+    except Exception as e:
+        print(f"Gemini API Error: {str(e)}")
+        # Fallback to mock if API fails/hallucinates
+        return {
+            "status": "error",
+            "message": "AI failed to generate a valid layout. Showing fallback.",
+            "elements": [
+                { "type": "wall", "left": 100, "top": 100, "width": 400, "height": 8, "angle": 0 },
+                { "type": "wall", "left": 500, "top": 100, "width": 300, "height": 8, "angle": 90 },
+                { "type": "wall", "left": 500, "top": 400, "width": 400, "height": 8, "angle": 180 },
+                { "type": "wall", "left": 100, "top": 400, "width": 300, "height": 8, "angle": 270 },
+                { "type": "door", "left": 250, "top": 400, "width": 60, "height": 4, "angle": 180 },
+                { "type": "window", "left": 500, "top": 200, "width": 80, "height": 4, "angle": 90 }
+            ]
+        }
 
 
 @app.post("/api/upload-sketch")
