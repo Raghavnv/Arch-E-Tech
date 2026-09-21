@@ -1,12 +1,17 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Check, ScanLine, Box, AlertTriangle, Calculator, FileImage, LayoutTemplate, Magnet, Sun, MessageSquare, Image as ImageIcon, FileText, PenTool } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { ArrowLeft, ArrowRight, LayoutTemplate, ScanLine, PenTool, Magnet, Box, Sun, AlertTriangle, Calculator, MessageSquare, Image as ImageIcon, FileText, Check, Plus, Upload, Type, FileImage } from 'lucide-react';
 
 export default function NewProject() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [config, setConfig] = useState({
     name: '',
+    locality: '',
+    floors: 1,
+    initMode: 'generative',
+    prompt: '',
     features: {
       textToLayout: false,
       aiDetection: true,
@@ -213,7 +218,9 @@ export default function NewProject() {
 
               <div className="pt-4 border-t border-zinc-900">
                 <button 
+                  disabled={isGenerating}
                   onClick={async () => {
+                    setIsGenerating(true);
                     let initialElements = [];
                     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
                     const token = localStorage.getItem('token');
@@ -257,6 +264,7 @@ export default function NewProject() {
                       console.error("Failed to create project in DB", err);
                     }
                     
+                    setIsGenerating(false);
                     // Fallback to local storage if DB fails
                     if (initialElements.length > 0) {
                       localStorage.setItem('draftElements', JSON.stringify(initialElements));
@@ -265,9 +273,18 @@ export default function NewProject() {
                     }
                     navigate('/studio');
                   }}
-                  className="w-full py-4 rounded-xl font-medium bg-white text-black hover:bg-zinc-200 transition-all flex items-center justify-center gap-2"
+                  className={`w-full py-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
+                    isGenerating ? 'bg-zinc-800 text-zinc-400 cursor-not-allowed' : 'bg-white text-black hover:bg-zinc-200'
+                  }`}
                 >
-                  Launch Studio Engine <Check className="w-4 h-4" />
+                  {isGenerating ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-zinc-400 border-t-white rounded-full animate-spin"></div>
+                      Generating AI Blueprint...
+                    </>
+                  ) : (
+                    <>Launch Studio Engine <Check className="w-4 h-4" /></>
+                  )}
                 </button>
               </div>
             </div>

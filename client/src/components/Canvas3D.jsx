@@ -94,6 +94,11 @@ export default function Canvas3D({ elements = [], timeOfDay = 12 }) {
         )}
         <Environment preset={sunPos.altitude > 0 ? "city" : "night"} />
 
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
+          <planeGeometry args={[1000, 1000]} />
+          <shadowMaterial transparent opacity={0.4} />
+        </mesh>
+
         <Grid 
           infiniteGrid 
           fadeDistance={100} 
