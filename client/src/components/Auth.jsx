@@ -14,51 +14,70 @@ export default function Auth() {
     
     try {
       if (isLogin) {
+        let res;
         try {
-          const res = await fetch(`${API_URL}/api/auth/login`, {
+          res = await fetch(`${API_URL}/api/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password })
           });
-          if (res.ok) {
-            const data = await res.json();
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('isNewUser', 'false');
-            navigate('/dashboard');
-          } else {
-            const errorData = await res.json();
-            alert(errorData.detail || 'Login failed. Please check your credentials.');
-          }
-        } catch (err) { 
-          console.log('Backend not reachable, mocking login'); 
+        } catch (networkErr) {
+          console.warn('Backend not reachable:', networkErr);
+          // Fallback to mock dev mode
+          localStorage.setItem('token', 'mock-token-for-dev');
           localStorage.setItem('isNewUser', 'false');
           navigate('/dashboard');
+          return;
+        }
+
+        if (res.ok) {
+          const data = await res.json();
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('isNewUser', 'false');
+          navigate('/dashboard');
+        } else {
+          try {
+            const errorData = await res.json();
+            alert(errorData.detail || 'Login failed. Please check your credentials.');
+          } catch (e) {
+            alert(`Server error (${res.status}): The backend is unreachable or misconfigured.`);
+          }
         }
       } else {
         const fullName = e.target.fullName.value;
+        let res;
         try {
-          const res = await fetch(`${API_URL}/api/auth/register`, {
+          res = await fetch(`${API_URL}/api/auth/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ full_name: fullName, email, password })
           });
-          if (res.ok) {
-            const data = await res.json();
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('isNewUser', 'true');
-            navigate('/welcome');
-          } else {
-            const errorData = await res.json();
-            alert(errorData.detail || 'Registration failed.');
-          }
-        } catch (err) { 
-          console.log('Backend not reachable, mocking signup'); 
+        } catch (networkErr) {
+          console.warn('Backend not reachable:', networkErr);
+          // Fallback to mock dev mode
+          localStorage.setItem('token', 'mock-token-for-dev');
           localStorage.setItem('isNewUser', 'true');
           navigate('/welcome');
+          return;
+        }
+
+        if (res.ok) {
+          const data = await res.json();
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('isNewUser', 'true');
+          navigate('/welcome');
+        } else {
+          try {
+            const errorData = await res.json();
+            alert(errorData.detail || 'Registration failed.');
+          } catch (e) {
+            alert(`Server error (${res.status}): The backend is unreachable or misconfigured.`);
+          }
         }
       }
     } catch (error) {
-      console.error(error);
+      console.error("Unexpected auth error:", error);
+      alert("An unexpected error occurred during authentication.");
     }
   };
 
