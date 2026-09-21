@@ -62,12 +62,12 @@ export default function Dashboard() {
           <span className="font-bold text-white tracking-tight">Arch-E-Tech</span>
         </div>
         <nav className="flex-1 p-4 space-y-1">
-          <a href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-zinc-900 text-white font-medium">
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-zinc-900 text-white font-medium cursor-pointer">
             <LayoutDashboard className="w-4 h-4" /> Projects
-          </a>
-          <a href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-900/50 font-medium transition-colors">
+          </div>
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-900/50 font-medium transition-colors cursor-pointer">
             <Settings className="w-4 h-4" /> Settings
-          </a>
+          </div>
         </nav>
         <div className="p-4 border-t border-zinc-800">
           <button onClick={handleSignOut} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-900/50 font-medium transition-colors">
