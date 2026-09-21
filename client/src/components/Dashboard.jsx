@@ -5,11 +5,15 @@ import { Plus, LayoutDashboard, Settings, LogOut, Clock, MoreVertical, Layout, B
 export default function Dashboard() {
   const navigate = useNavigate();
   
-  const [projects, setProjects] = useState([
-    { id: 1, name: "Skyline Tower Gen-1", type: "Commercial", date: "2 hrs ago", area: "12,500 sqft", status: "Processed" },
-    { id: 2, name: "Urban Residence A", type: "Residential", date: "Yesterday", area: "2,400 sqft", status: "Draft" },
-    { id: 3, name: "Warehouse Complex", type: "Industrial", date: "Oct 12", area: "45,000 sqft", status: "Clash Detected" },
-  ]);
+  const [projects, setProjects] = useState(() => {
+    const isNewUser = localStorage.getItem('isNewUser') === 'true';
+    if (isNewUser) return [];
+    return [
+      { id: 1, name: "Skyline Tower Gen-1", type: "Commercial", date: "2 hrs ago", area: "12,500 sqft", status: "Processed" },
+      { id: 2, name: "Urban Residence A", type: "Residential", date: "Yesterday", area: "2,400 sqft", status: "Draft" },
+      { id: 3, name: "Warehouse Complex", type: "Industrial", date: "Oct 12", area: "45,000 sqft", status: "Clash Detected" },
+    ];
+  });
 
   const [activeMenu, setActiveMenu] = useState(null);
   const menuRef = useRef(null);

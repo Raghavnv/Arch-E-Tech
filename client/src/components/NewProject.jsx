@@ -64,6 +64,18 @@ export default function NewProject() {
               </div>
 
               <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-2">Project Locality (City, Region)</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. New York City, NY"
+                  className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white transition-all placeholder:text-zinc-600"
+                  value={config.locality || ''}
+                  onChange={(e) => setConfig({ ...config, locality: e.target.value })}
+                />
+                <p className="text-xs text-zinc-500 mt-2">Used by the RAG LLM to fetch specific municipal building codes and regulations.</p>
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium text-zinc-300 mb-2">Number of Floors</label>
                 <div className="flex items-center gap-4">
                   <input 

@@ -238,7 +238,7 @@ export default function Canvas2D({ drawingMode }) {
   }, [drawingMode]);
 
   return (
-    <div className={`w-full h-full overflow-hidden bg-zinc-950 ${drawingMode ? 'cursor-crosshair' : 'cursor-default'}`}>
+    <div className={`absolute inset-0 overflow-hidden bg-zinc-950 ${drawingMode ? 'cursor-crosshair' : 'cursor-default'}`}>
       <canvas ref={canvasRef} />
     </div>
   );

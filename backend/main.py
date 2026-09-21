@@ -1,15 +1,21 @@
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import shutil
 import os
 from tempfile import NamedTemporaryFile
+from database import engine, Base, get_db
+import models
+from sqlalchemy.orm import Session
+
+# Create database tables
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Arch-E-Tech API")
 
-# Configure CORS for the Vite frontend
+# Configure CORS for the Vite frontend (including Vercel deployed domains)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

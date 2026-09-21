@@ -1,5 +1,6 @@
 fastapi
 uvicorn
-python-multipart
-torch
-ultralytics
+sqlalchemy
+psycopg2-binary
+pydantic
+python-dotenv

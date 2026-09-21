@@ -3,7 +3,7 @@ import { OrbitControls, Grid, Environment } from '@react-three/drei';
 
 export default function Canvas3D() {
   return (
-    <div className="w-full h-full bg-zinc-950">
+    <div className="absolute inset-0 bg-zinc-950">
       <Canvas camera={{ position: [10, 10, 10], fov: 50 }} shadows>
         <color attach="background" args={['#09090b']} />
         

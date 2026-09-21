@@ -9,8 +9,10 @@ export default function Auth() {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (isLogin) {
+      localStorage.setItem('isNewUser', 'false');
       navigate('/dashboard');
     } else {
+      localStorage.setItem('isNewUser', 'true');
       navigate('/welcome');
     }
   };
