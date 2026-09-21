@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { fabric } from 'fabric';
 
-export default function Canvas2D({ drawingMode }) {
+export default function Canvas2D({ drawingMode, setCanvasElements }) {
   const canvasRef = useRef(null);
   const fabricRef = useRef(null);
   const isDrawing = useRef(false);

@@ -40,17 +40,19 @@ export default function LandingPage() {
       );
 
       // Docs section reveal
-      gsap.fromTo('.docs-section', 
-        { opacity: 0, y: 30 },
+      gsap.fromTo('.tech-step', 
+        { opacity: 0, y: 40, scale: 0.95 },
         {
           scrollTrigger: {
             trigger: '#technology',
-            start: 'top 90%',
+            start: 'top 80%',
           },
           opacity: 1,
           y: 0,
-          duration: 1,
-          ease: 'power2.out'
+          scale: 1,
+          duration: 0.8,
+          stagger: 0.2,
+          ease: 'back.out(1.2)'
         }
       );
     });
@@ -182,24 +184,66 @@ export default function LandingPage() {
         </section>
 
         {/* Technology / Architecture Section */}
-        <section id="technology" className="px-6 max-w-7xl mx-auto py-24 border-t border-zinc-900">
-          <div className="docs-section bg-zinc-900 border border-zinc-800 rounded-3xl p-10 md:p-16 flex flex-col md:flex-row gap-12 items-center">
-            <div className="flex-1 space-y-6">
-              <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight">Built on robust architecture.</h2>
-              <p className="text-zinc-400 leading-relaxed">
-                Arch-E-Tech orchestrates a highly performant stack. A React frontend renders complex vector geometry via Fabric.js and 3D scenes via Three.js. This interfaces seamlessly with a FastAPI Python backend that runs state-of-the-art YOLOv11 inference pipelines and Shapely polygon mathematics.
-              </p>
-              <button className="inline-flex items-center gap-2 text-white font-medium hover:text-zinc-300 transition-colors pt-4">
-                Explore Our Technology <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="flex-1 w-full flex justify-center">
-              <div className="w-full max-w-sm aspect-square bg-black border border-zinc-800 rounded-full flex items-center justify-center relative shadow-2xl">
-                {/* Abstract visualization */}
-                <div className="absolute w-3/4 h-3/4 border border-zinc-800 rounded-full animate-[spin_20s_linear_infinite]"></div>
-                <div className="absolute w-1/2 h-1/2 border border-zinc-700 rounded-full animate-[spin_15s_linear_infinite_reverse]"></div>
-                <Layers className="w-12 h-12 text-zinc-500" />
+        <section id="technology" className="px-6 max-w-7xl mx-auto py-32 border-t border-zinc-900">
+          <div className="text-center max-w-3xl mx-auto mb-20">
+            <h2 className="text-3xl md:text-5xl font-bold text-white mb-6 tracking-tight">How Arch-E-Tech Works</h2>
+            <p className="text-zinc-400 text-lg">Our proprietary architecture bridges the gap between natural language, computer vision, and exact mathematical rendering.</p>
+          </div>
+
+          <div className="docs-section relative max-w-5xl mx-auto">
+            {/* Connection Line Background */}
+            <div className="absolute top-1/2 left-0 w-full h-1 bg-zinc-800 -translate-y-1/2 hidden md:block z-0"></div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-8 relative z-10">
+              
+              {/* Step 1 */}
+              <div className="tech-step flex flex-col items-center text-center bg-black p-6 rounded-2xl border border-zinc-800 hover:border-white/50 transition-colors">
+                <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(255,255,255,0.05)]">
+                  <MessageSquare className="w-6 h-6 text-white" />
+                </div>
+                <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-2">Step 01</span>
+                <h4 className="text-lg font-bold text-white mb-2">Input Layer</h4>
+                <p className="text-xs text-zinc-500 leading-relaxed">
+                  Provide a text prompt or upload a raw floor plan sketch.
+                </p>
               </div>
+
+              {/* Step 2 */}
+              <div className="tech-step flex flex-col items-center text-center bg-black p-6 rounded-2xl border border-zinc-800 hover:border-white/50 transition-colors">
+                <div className="w-16 h-16 rounded-full bg-indigo-900 border border-indigo-700 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(99,102,241,0.2)]">
+                  <Zap className="w-6 h-6 text-indigo-300" />
+                </div>
+                <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-2">Step 02</span>
+                <h4 className="text-lg font-bold text-white mb-2">AI Processing</h4>
+                <p className="text-xs text-zinc-500 leading-relaxed">
+                  Google Gemini 1.5 Pro & YOLOv11 extract spatial mathematics and logic.
+                </p>
+              </div>
+
+              {/* Step 3 */}
+              <div className="tech-step flex flex-col items-center text-center bg-black p-6 rounded-2xl border border-zinc-800 hover:border-white/50 transition-colors">
+                <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(255,255,255,0.05)]">
+                  <PenTool className="w-6 h-6 text-white" />
+                </div>
+                <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-2">Step 03</span>
+                <h4 className="text-lg font-bold text-white mb-2">2D Vector Array</h4>
+                <p className="text-xs text-zinc-500 leading-relaxed">
+                  Fabric.js translates the AI schema into an editable, interactive grid.
+                </p>
+              </div>
+
+              {/* Step 4 */}
+              <div className="tech-step flex flex-col items-center text-center bg-black p-6 rounded-2xl border border-zinc-800 hover:border-white/50 transition-colors">
+                <div className="w-16 h-16 rounded-full bg-emerald-900 border border-emerald-700 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
+                  <Box className="w-6 h-6 text-emerald-400" />
+                </div>
+                <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-2">Step 04</span>
+                <h4 className="text-lg font-bold text-white mb-2">3D Extrusion</h4>
+                <p className="text-xs text-zinc-500 leading-relaxed">
+                  Three.js procedurally generates photorealistic 3D meshes in real-time.
+                </p>
+              </div>
+
             </div>
           </div>
         </section>
