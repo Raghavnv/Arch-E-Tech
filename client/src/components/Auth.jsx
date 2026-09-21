@@ -14,7 +14,6 @@ export default function Auth() {
     
     try {
       if (isLogin) {
-        // Try real API, fallback to mock if not running
         try {
           const res = await fetch(`${API_URL}/api/auth/login`, {
             method: 'POST',
@@ -24,11 +23,17 @@ export default function Auth() {
           if (res.ok) {
             const data = await res.json();
             localStorage.setItem('token', data.token);
+            localStorage.setItem('isNewUser', 'false');
+            navigate('/dashboard');
+          } else {
+            const errorData = await res.json();
+            alert(errorData.detail || 'Login failed. Please check your credentials.');
           }
-        } catch (err) { console.log('Backend not reachable, mocking login'); }
-        
-        localStorage.setItem('isNewUser', 'false');
-        navigate('/dashboard');
+        } catch (err) { 
+          console.log('Backend not reachable, mocking login'); 
+          localStorage.setItem('isNewUser', 'false');
+          navigate('/dashboard');
+        }
       } else {
         const fullName = e.target.fullName.value;
         try {
@@ -40,11 +45,17 @@ export default function Auth() {
           if (res.ok) {
             const data = await res.json();
             localStorage.setItem('token', data.token);
+            localStorage.setItem('isNewUser', 'true');
+            navigate('/welcome');
+          } else {
+            const errorData = await res.json();
+            alert(errorData.detail || 'Registration failed.');
           }
-        } catch (err) { console.log('Backend not reachable, mocking signup'); }
-        
-        localStorage.setItem('isNewUser', 'true');
-        navigate('/welcome');
+        } catch (err) { 
+          console.log('Backend not reachable, mocking signup'); 
+          localStorage.setItem('isNewUser', 'true');
+          navigate('/welcome');
+        }
       }
     } catch (error) {
       console.error(error);
