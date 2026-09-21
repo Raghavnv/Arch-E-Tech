@@ -10,12 +10,13 @@ export default function Auth() {
     e.preventDefault();
     const email = e.target.email.value;
     const password = e.target.password.value;
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
     
     try {
       if (isLogin) {
         // Try real API, fallback to mock if not running
         try {
-          const res = await fetch('http://localhost:8000/api/auth/login', {
+          const res = await fetch(`${API_URL}/api/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password })
@@ -31,7 +32,7 @@ export default function Auth() {
       } else {
         const fullName = e.target.fullName.value;
         try {
-          const res = await fetch('http://localhost:8000/api/auth/register', {
+          const res = await fetch(`${API_URL}/api/auth/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ full_name: fullName, email, password })
