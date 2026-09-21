@@ -1,5 +1,6 @@
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Grid, Environment } from '@react-three/drei';
+import SunCalc from 'suncalc';
 
 function ExtrudedElement({ el }) {
   // Scale factor to convert pixel units to 3D space units
@@ -56,20 +57,42 @@ function ExtrudedElement({ el }) {
   );
 }
 
-export default function Canvas3D({ elements = [] }) {
+export default function Canvas3D({ elements = [], timeOfDay = 12 }) {
+  // Use SunCalc to calculate sun position (using New York approx coordinates)
+  const date = new Date();
+  const hours = Math.floor(timeOfDay);
+  const minutes = Math.floor((timeOfDay - hours) * 60);
+  date.setHours(hours, minutes, 0, 0);
+
+  const sunPos = SunCalc.getPosition(date, 40.7128, -74.0060);
+  
+  // Convert spherical (azimuth/altitude) to Cartesian (x,y,z) for directional light
+  const distance = 50;
+  // Note: SunCalc azimuth is 0 at South, moving clockwise. 
+  // Three.js Y is up, X is right, Z is forward.
+  const x = distance * Math.cos(sunPos.altitude) * Math.sin(sunPos.azimuth);
+  const y = distance * Math.sin(sunPos.altitude);
+  const z = distance * Math.cos(sunPos.altitude) * Math.cos(sunPos.azimuth);
+  
+  // Determine if it's night time
+  const intensity = sunPos.altitude > 0 ? 1.5 : 0;
+  
   return (
     <div className="absolute inset-0 bg-zinc-950">
       <Canvas camera={{ position: [0, 20, 20], fov: 50 }} shadows>
         <color attach="background" args={['#09090b']} />
         
-        <ambientLight intensity={0.4} />
-        <directionalLight 
-          position={[10, 15, 10]} 
-          intensity={1.5} 
-          castShadow 
-          shadow-mapSize={[2048, 2048]}
-        />
-        <Environment preset="city" />
+        <ambientLight intensity={sunPos.altitude > 0 ? 0.4 : 0.1} />
+        
+        {sunPos.altitude > 0 && (
+          <directionalLight 
+            position={[x, y, z]} 
+            intensity={intensity} 
+            castShadow 
+            shadow-mapSize={[2048, 2048]}
+          />
+        )}
+        <Environment preset={sunPos.altitude > 0 ? "city" : "night"} />
 
         <Grid 
           infiniteGrid 

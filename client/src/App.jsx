@@ -5,6 +5,7 @@ import NewProject from './components/NewProject';
 import Studio from './components/Studio';
 import Auth from './components/Auth';
 import OnboardingCinematic from './components/OnboardingCinematic';
+import HowItWorks from './components/HowItWorks';
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
       <div className="min-h-screen bg-black text-zinc-100 font-sans selection:bg-white selection:text-black">
         <Routes>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/how-it-works" element={<HowItWorks />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/welcome" element={<OnboardingCinematic />} />
           <Route path="/dashboard" element={<Dashboard />} />

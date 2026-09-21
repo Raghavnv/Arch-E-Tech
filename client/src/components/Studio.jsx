@@ -9,6 +9,7 @@ export default function Studio() {
   const [activeTab, setActiveTab] = useState('2D');
   const [activeFloor, setActiveFloor] = useState(1);
   const [canvasElements, setCanvasElements] = useState([]);
+  const [timeOfDay, setTimeOfDay] = useState(12); // Default to Noon
   const totalFloors = 3; // Mocked from project setup
 
   return (
@@ -86,13 +87,20 @@ export default function Studio() {
                 <span className="flex items-center gap-2 text-zinc-300"><Box className="w-3.5 h-3.5" /> 3D Extrusion</span>
                 <span className="text-emerald-400 text-[10px]">Active</span>
               </div>
-              <div className="flex items-center justify-between text-xs py-1">
-                <span className="flex items-center gap-2 text-zinc-300"><AlertTriangle className="w-3.5 h-3.5" /> Clash Detection</span>
-                <span className="text-zinc-600 text-[10px]">Standby</span>
-              </div>
-              <div className="flex items-center justify-between text-xs py-1">
-                <span className="flex items-center gap-2 text-zinc-300"><Sun className="w-3.5 h-3.5" /> Solar Sim</span>
-                <span className="text-zinc-600 text-[10px]">Off</span>
+              <div className="flex flex-col gap-2 py-2 border-t border-zinc-900 mt-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-2 text-zinc-300"><Sun className="w-3.5 h-3.5" /> Solar Sim (SunCalc)</span>
+                  <span className="text-zinc-500 font-mono text-[10px]">{Math.floor(timeOfDay)}:00</span>
+                </div>
+                <input 
+                  type="range" 
+                  min="0" 
+                  max="24" 
+                  step="0.5" 
+                  value={timeOfDay} 
+                  onChange={(e) => setTimeOfDay(Number(e.target.value))} 
+                  className="w-full accent-white h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer" 
+                />
               </div>
             </div>
           </div>
@@ -208,7 +216,7 @@ export default function Studio() {
           <Canvas2D drawingMode={drawingMode} setCanvasElements={setCanvasElements} />
         </div>
         <div className={activeTab === '3D' ? 'absolute inset-0' : 'hidden'}>
-          <Canvas3D elements={canvasElements} />
+          <Canvas3D elements={canvasElements} timeOfDay={timeOfDay} />
         </div>
       </main>
     </div>

@@ -183,67 +183,21 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Technology / Architecture Section */}
-        <section id="technology" className="px-6 max-w-7xl mx-auto py-32 border-t border-zinc-900">
-          <div className="text-center max-w-3xl mx-auto mb-20">
-            <h2 className="text-3xl md:text-5xl font-bold text-white mb-6 tracking-tight">How Arch-E-Tech Works</h2>
-            <p className="text-zinc-400 text-lg">Our proprietary architecture bridges the gap between natural language, computer vision, and exact mathematical rendering.</p>
-          </div>
-
-          <div className="docs-section relative max-w-5xl mx-auto">
-            {/* Connection Line Background */}
-            <div className="absolute top-1/2 left-0 w-full h-1 bg-zinc-800 -translate-y-1/2 hidden md:block z-0"></div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-8 relative z-10">
-              
-              {/* Step 1 */}
-              <div className="tech-step flex flex-col items-center text-center bg-black p-6 rounded-2xl border border-zinc-800 hover:border-white/50 transition-colors">
-                <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(255,255,255,0.05)]">
-                  <MessageSquare className="w-6 h-6 text-white" />
-                </div>
-                <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-2">Step 01</span>
-                <h4 className="text-lg font-bold text-white mb-2">Input Layer</h4>
-                <p className="text-xs text-zinc-500 leading-relaxed">
-                  Provide a text prompt or upload a raw floor plan sketch.
-                </p>
-              </div>
-
-              {/* Step 2 */}
-              <div className="tech-step flex flex-col items-center text-center bg-black p-6 rounded-2xl border border-zinc-800 hover:border-white/50 transition-colors">
-                <div className="w-16 h-16 rounded-full bg-indigo-900 border border-indigo-700 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(99,102,241,0.2)]">
-                  <Zap className="w-6 h-6 text-indigo-300" />
-                </div>
-                <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-2">Step 02</span>
-                <h4 className="text-lg font-bold text-white mb-2">AI Processing</h4>
-                <p className="text-xs text-zinc-500 leading-relaxed">
-                  Google Gemini 1.5 Pro & YOLOv11 extract spatial mathematics and logic.
-                </p>
-              </div>
-
-              {/* Step 3 */}
-              <div className="tech-step flex flex-col items-center text-center bg-black p-6 rounded-2xl border border-zinc-800 hover:border-white/50 transition-colors">
-                <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(255,255,255,0.05)]">
-                  <PenTool className="w-6 h-6 text-white" />
-                </div>
-                <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-2">Step 03</span>
-                <h4 className="text-lg font-bold text-white mb-2">2D Vector Array</h4>
-                <p className="text-xs text-zinc-500 leading-relaxed">
-                  Fabric.js translates the AI schema into an editable, interactive grid.
-                </p>
-              </div>
-
-              {/* Step 4 */}
-              <div className="tech-step flex flex-col items-center text-center bg-black p-6 rounded-2xl border border-zinc-800 hover:border-white/50 transition-colors">
-                <div className="w-16 h-16 rounded-full bg-emerald-900 border border-emerald-700 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
-                  <Box className="w-6 h-6 text-emerald-400" />
-                </div>
-                <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-2">Step 04</span>
-                <h4 className="text-lg font-bold text-white mb-2">3D Extrusion</h4>
-                <p className="text-xs text-zinc-500 leading-relaxed">
-                  Three.js procedurally generates photorealistic 3D meshes in real-time.
-                </p>
-              </div>
-
+        {/* Cinematic Technology Section CTA */}
+        <section className="px-6 max-w-7xl mx-auto py-32 border-t border-zinc-900">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-10 md:p-16 text-center max-w-4xl mx-auto relative overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-900/20 via-zinc-900 to-zinc-900 pointer-events-none"></div>
+            <div className="relative z-10">
+              <h2 className="text-3xl md:text-5xl font-bold text-white mb-6 tracking-tight">Experience the Engine</h2>
+              <p className="text-zinc-400 text-lg mb-10 max-w-2xl mx-auto">
+                Take an immersive visual journey through our proprietary architecture. See exactly how we bridge the gap between natural language, AI, and exact mathematical rendering.
+              </p>
+              <Link 
+                to="/how-it-works"
+                className="inline-flex items-center gap-2 bg-white text-black px-8 py-4 rounded-full font-bold hover:bg-zinc-200 hover:scale-105 transition-all shadow-[0_0_40px_rgba(255,255,255,0.3)]"
+              >
+                Watch How It Works <ArrowRight className="w-5 h-5" />
+              </Link>
             </div>
           </div>
         </section>
