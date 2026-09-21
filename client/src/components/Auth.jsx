@@ -8,8 +8,11 @@ export default function Auth() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Placeholder authentication logic
-    navigate('/dashboard');
+    if (isLogin) {
+      navigate('/dashboard');
+    } else {
+      navigate('/welcome');
+    }
   };
 
   return (

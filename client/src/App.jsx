@@ -4,6 +4,7 @@ import Dashboard from './components/Dashboard';
 import NewProject from './components/NewProject';
 import Studio from './components/Studio';
 import Auth from './components/Auth';
+import OnboardingCinematic from './components/OnboardingCinematic';
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/welcome" element={<OnboardingCinematic />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/new-project" element={<NewProject />} />
           <Route path="/studio" element={<Studio />} />
