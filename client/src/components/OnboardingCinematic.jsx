@@ -1,102 +1,133 @@
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
-import { useGSAP } from '@gsap/react';
-import { Hammer, Ruler, ScanLine } from 'lucide-react';
+import { Cpu, PenTool, Box } from 'lucide-react';
 
 export default function OnboardingCinematic() {
   const containerRef = useRef(null);
   const navigate = useNavigate();
 
-  useGSAP(() => {
-    const tl = gsap.timeline({
-      onComplete: () => {
-        navigate('/dashboard');
-      }
-    });
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      const tl = gsap.timeline({
+        onComplete: () => {
+          navigate('/new-project');
+        }
+      });
 
-    // Setup initial states
-    gsap.set('.text-layer', { opacity: 0, y: 30 });
-    gsap.set('.crane', { opacity: 0, x: -100 });
-    gsap.set('.blueprint-line', { scaleX: 0, transformOrigin: 'left' });
-    gsap.set('.blueprint-col', { scaleY: 0, transformOrigin: 'bottom' });
-    gsap.set('.grid-bg', { opacity: 0 });
-    gsap.set('.icon-spin', { opacity: 0, rotation: -180, scale: 0 });
+      // Initial state setup
+      gsap.set(['.text-layer', '.ai-core', '.floor-plan', '.block-3d'], { opacity: 0 });
+      gsap.set('.text-layer', { y: 20 });
+      gsap.set('.ai-core', { scale: 0.5, rotation: -180 });
+      gsap.set('.floor-plan', { rotationX: 70, rotationZ: 45, scale: 0.5 });
+      gsap.set('.block-3d', { zZ: -100, scaleZ: 0.1 });
+      gsap.set('.container-3d', { perspective: 1500 });
 
-    // 1. Grid fades in like a blueprint
-    tl.to('.grid-bg', { opacity: 0.4, duration: 1, ease: 'power2.inOut' })
-      
-      // 2. Icon & Text Phase 1
-      .to('.icon-1', { opacity: 1, rotation: 0, scale: 1, duration: 0.8, ease: 'back.out(1.7)' })
-      .to('.text-1', { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, '<0.2')
-      
-      // 3. Draw Blueprint Lines (Horizontal)
-      .to('.blueprint-line', { scaleX: 1, duration: 1.5, stagger: 0.1, ease: 'power4.inOut' })
-      
-      // Clear Phase 1
-      .to(['.text-1', '.icon-1'], { opacity: 0, y: -20, duration: 0.4, ease: 'power2.in' }, '+=0.2')
-      
-      // 4. Icon & Text Phase 2
-      .to('.icon-2', { opacity: 1, rotation: 0, scale: 1, duration: 0.8, ease: 'back.out(1.7)' })
-      .to('.text-2', { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, '<0.2')
-      
-      // 5. Crane & Extrusion (Vertical Columns)
-      .to('.crane', { opacity: 1, x: 0, duration: 1, ease: 'power3.out' }, '<')
-      .to('.blueprint-col', { scaleY: 1, duration: 1.2, stagger: 0.1, ease: 'elastic.out(1, 0.5)' })
-      
-      // Clear Phase 2
-      .to(['.text-2', '.icon-2', '.crane'], { opacity: 0, y: -20, duration: 0.4, ease: 'power2.in' }, '+=0.4')
-      
-      // 6. Final Welcome Text
-      .to('.icon-3', { opacity: 1, rotation: 0, scale: 1, duration: 0.8, ease: 'back.out(1.7)' })
-      .to('.text-3', { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out' }, '<0.2')
-      
-      // 7. Fade everything out for transition
-      .to('.anim-container', { opacity: 0, duration: 0.6, ease: 'power2.inOut', delay: 1.2 });
+      // PHASE 1: Neural Ignition
+      tl.to('.text-1', { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' })
+        .to('.ai-core', { opacity: 1, scale: 1.2, rotation: 0, duration: 1.2, ease: 'elastic.out(1, 0.4)' }, "<")
+        .to('.ai-core', { scale: 0, opacity: 0, duration: 0.4, ease: 'power2.in' }, "+=0.5")
+        .to('.text-1', { opacity: 0, y: -20, duration: 0.4 }, "<")
 
-  }, { scope: containerRef });
+      // PHASE 2: Procedural Blueprint (Neon Lines)
+      tl.to('.text-2', { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, "+=0.2")
+        .to('.floor-plan', { opacity: 1, duration: 0.1 }, "<")
+        .fromTo('.mesh-line', 
+          { strokeDasharray: 2000, strokeDashoffset: 2000 }, 
+          { strokeDashoffset: 0, duration: 1.5, stagger: 0.15, ease: 'power3.inOut' }, "<"
+        )
+        .to('.floor-plan', { rotationX: 55, rotationZ: 25, scale: 1.1, duration: 1.5, ease: 'power2.inOut' }, "<0.2")
+        .to('.text-2', { opacity: 0, y: -20, duration: 0.4 }, "+=0.5")
+
+      // PHASE 3: 3D Materialization
+      tl.to('.text-3', { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, "+=0.2")
+        .to('.block-3d', { 
+          opacity: 1, 
+          scaleZ: 1, 
+          z: 0, 
+          y: -20,
+          duration: 1.2, 
+          stagger: { amount: 0.5, from: "random" }, 
+          ease: 'back.out(1.5)' 
+        }, "<")
+        // Flash brilliant white
+        .to('.block-3d', { 
+          backgroundColor: '#ffffff', 
+          borderColor: '#ffffff',
+          boxShadow: '0 0 50px rgba(255,255,255,1)', 
+          duration: 0.3, 
+          stagger: 0.1 
+        }, "+=0.4")
+
+      // PHASE 4: Hyper-Zoom & Launch to New Project
+      tl.to('.container-3d', { 
+        scale: 8, 
+        opacity: 0, 
+        filter: 'blur(20px)', 
+        duration: 1, 
+        ease: 'power4.in' 
+      }, "+=0.4")
+      .to('.text-3', { opacity: 0, duration: 0.4 }, "<0.2");
+
+    }, containerRef);
+
+    return () => ctx.revert();
+  }, [navigate]);
 
   return (
-    <div ref={containerRef} className="w-screen h-screen bg-[#09090b] flex flex-col items-center justify-center overflow-hidden font-sans text-white relative">
+    <div ref={containerRef} className="w-screen h-screen bg-black flex flex-col items-center justify-center overflow-hidden font-sans text-white relative">
       
-      {/* Background Blueprint Grid */}
-      <div className="grid-bg absolute inset-0 pointer-events-none" style={{ backgroundImage: 'linear-gradient(#3f3f46 1px, transparent 1px), linear-gradient(90deg, #3f3f46 1px, transparent 1px)', backgroundSize: '50px 50px' }}></div>
-      
-      {/* Graphic Container (Blueprint & Construction) */}
-      <div className="anim-container relative w-full max-w-4xl h-80 flex items-end justify-center mb-12 z-10">
+      {/* Hyper Grid Background */}
+      <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-transparent to-black"></div>
+
+      {/* 3D Visualizer Container */}
+      <div className="container-3d relative w-full max-w-4xl h-[60vh] flex items-center justify-center z-10 transform-style-3d">
         
-        {/* Crane Graphic */}
-        <div className="crane absolute top-0 right-20 w-32 h-64 border-r-4 border-t-4 border-yellow-500 rounded-tr-xl opacity-0">
-          <div className="absolute top-0 -left-16 w-16 h-1 bg-yellow-500"></div>
-          <div className="absolute top-1 -left-12 w-0.5 h-16 bg-zinc-400"></div>
+        {/* Phase 1: AI Core */}
+        <div className="ai-core absolute z-30">
+          <div className="relative">
+            <Cpu className="w-24 h-24 text-indigo-500 relative z-10 drop-shadow-[0_0_30px_rgba(99,102,241,0.8)]" />
+            <div className="absolute inset-0 bg-indigo-500 blur-2xl opacity-50 rounded-full animate-pulse"></div>
+          </div>
         </div>
 
-        {/* Horizontal Blueprint Lines */}
-        <div className="blueprint-line absolute bottom-0 left-0 right-0 h-1 bg-zinc-100"></div>
-        <div className="blueprint-line absolute bottom-12 left-10 right-10 h-0.5 bg-zinc-500"></div>
-        <div className="blueprint-line absolute bottom-24 left-20 right-20 h-0.5 bg-zinc-500"></div>
-        <div className="blueprint-line absolute bottom-36 left-32 right-32 h-0.5 bg-zinc-500"></div>
-        
-        {/* Vertical Buildings/Columns */}
-        <div className="blueprint-col absolute bottom-0 left-[15%] w-16 h-48 bg-zinc-900 border-2 border-zinc-400"></div>
-        <div className="blueprint-col absolute bottom-0 left-[30%] w-24 h-64 bg-zinc-800 border-2 border-zinc-300"></div>
-        <div className="blueprint-col absolute bottom-0 left-[50%] w-20 h-40 bg-zinc-900 border-2 border-zinc-500"></div>
-        <div className="blueprint-col absolute bottom-0 right-[25%] w-32 h-72 bg-white border-2 border-zinc-200"></div>
+        {/* Phase 2: SVG Blueprint (Isometric) */}
+        <div className="floor-plan absolute w-96 h-96 transform-style-3d z-20">
+          <svg viewBox="0 0 400 400" className="w-full h-full overflow-visible drop-shadow-[0_0_15px_rgba(16,185,129,0.8)]">
+            <rect x="50" y="50" width="300" height="300" fill="none" stroke="#10b981" strokeWidth="4" className="mesh-line" />
+            <rect x="100" y="100" width="100" height="150" fill="none" stroke="#10b981" strokeWidth="4" className="mesh-line" />
+            <line x1="200" y1="50" x2="200" y2="350" stroke="#10b981" strokeWidth="4" className="mesh-line" />
+            <line x1="50" y1="200" x2="350" y2="200" stroke="#10b981" strokeWidth="4" className="mesh-line" />
+          </svg>
+          
+          {/* Phase 3: 3D Blocks popping out of the floor plan */}
+          <div className="absolute top-[50px] left-[50px] w-[150px] h-[150px] transform-style-3d">
+            <div className="block-3d absolute inset-0 bg-zinc-900 border border-zinc-700 shadow-2xl" style={{ transform: 'translateZ(40px)' }}></div>
+          </div>
+          <div className="absolute top-[200px] left-[50px] w-[150px] h-[150px] transform-style-3d">
+            <div className="block-3d absolute inset-0 bg-zinc-900 border border-zinc-700 shadow-2xl" style={{ transform: 'translateZ(60px)' }}></div>
+          </div>
+          <div className="absolute top-[50px] left-[200px] w-[150px] h-[300px] transform-style-3d">
+            <div className="block-3d absolute inset-0 bg-zinc-900 border border-zinc-700 shadow-2xl" style={{ transform: 'translateZ(80px)' }}></div>
+          </div>
+        </div>
+
       </div>
 
-      {/* Text Layers */}
-      <div className="relative h-20 flex flex-col items-center justify-center text-center anim-container w-full z-20">
-        <div className="absolute flex flex-col items-center justify-center">
-          <Ruler className="icon-spin icon-1 w-8 h-8 text-zinc-400 mb-4 absolute -top-10" />
-          <h2 className="text-layer text-1 text-2xl md:text-3xl font-semibold tracking-wide text-zinc-400">Drafting Blueprint Vectors...</h2>
+      {/* Cinematic Text Descriptions */}
+      <div className="absolute bottom-20 left-0 right-0 flex items-center justify-center z-30 h-20">
+        <div className="text-layer text-1 absolute flex flex-col items-center">
+          <span className="text-indigo-400 font-mono text-sm tracking-widest uppercase mb-2">System Init</span>
+          <h2 className="text-3xl md:text-5xl font-bold tracking-tighter">Initializing AI Core.</h2>
         </div>
-        <div className="absolute flex flex-col items-center justify-center">
-          <Hammer className="icon-spin icon-2 w-8 h-8 text-yellow-500 mb-4 absolute -top-10" />
-          <h2 className="text-layer text-2 text-2xl md:text-3xl font-semibold tracking-wide text-zinc-300">Extruding 3D Geometry...</h2>
+        <div className="text-layer text-2 absolute flex flex-col items-center">
+          <span className="text-emerald-400 font-mono text-sm tracking-widest uppercase mb-2">Vector Phase</span>
+          <h2 className="text-3xl md:text-5xl font-bold tracking-tighter">Generating Geometry.</h2>
         </div>
-        <div className="absolute flex flex-col items-center justify-center">
-          <ScanLine className="icon-spin icon-3 w-10 h-10 text-white mb-4 absolute -top-12" />
-          <h2 className="text-layer text-3 text-4xl md:text-5xl font-bold tracking-tight text-white">Welcome to Arch-E-Tech.</h2>
+        <div className="text-layer text-3 absolute flex flex-col items-center">
+          <span className="text-white font-mono text-sm tracking-widest uppercase mb-2">Materialization</span>
+          <h2 className="text-3xl md:text-5xl font-bold tracking-tighter text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.8)]">Welcome to Arch-E-Tech.</h2>
         </div>
       </div>
     </div>
