@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Home, Layers, Settings, Save, Download, ScanLine, Box, AlertTriangle, Calculator, ChevronRight, LayoutTemplate, Magnet, Sun, MessageSquare, Image as ImageIcon, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Canvas2D from './Canvas2D';
+import Canvas3D from './Canvas3D';
 
 export default function Studio() {
   const [drawingMode, setDrawingMode] = useState(null);
@@ -176,7 +177,12 @@ export default function Studio() {
           </button>
         </div>
 
-        <Canvas2D drawingMode={drawingMode} />
+        {/* Conditional Rendering of Canvas Engine */}
+        {activeTab === '2D' ? (
+          <Canvas2D drawingMode={drawingMode} />
+        ) : (
+          <Canvas3D />
+        )}
       </main>
     </div>
   );

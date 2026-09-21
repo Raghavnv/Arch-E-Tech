@@ -111,7 +111,7 @@ export default function LandingPage() {
           <button onClick={() => scrollToSection('features')} className="text-sm font-medium hover:text-white transition-colors">Features</button>
           <button onClick={() => scrollToSection('technology')} className="text-sm font-medium hover:text-white transition-colors">Our Technology</button>
           <Link 
-            to="/dashboard" 
+            to="/auth" 
             className="text-sm font-medium text-black bg-white px-5 py-2.5 rounded-full hover:bg-zinc-200 transition-colors"
           >
             Launch Platform
@@ -135,7 +135,7 @@ export default function LandingPage() {
             </p>
             <div className="hero-elem flex items-center justify-center gap-4">
               <Link 
-                to="/dashboard" 
+                to="/auth" 
                 className="inline-flex items-center justify-center gap-2 bg-white text-black px-8 py-4 rounded-full font-medium hover:bg-zinc-200 transition-all"
               >
                 Start designing <ArrowRight className="w-4 h-4" />
