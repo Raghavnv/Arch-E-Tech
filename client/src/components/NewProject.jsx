@@ -214,9 +214,12 @@ export default function NewProject() {
               <div className="pt-4 border-t border-zinc-900">
                 <button 
                   onClick={async () => {
+                    let initialElements = [];
+                    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+                    const token = localStorage.getItem('token');
+                    
                     if (config.initMode === 'generative') {
                       try {
-                        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
                         const res = await fetch(`${API_URL}/api/ai/generate-plan`, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
@@ -224,15 +227,39 @@ export default function NewProject() {
                         });
                         const data = await res.json();
                         if (data.elements) {
-                          localStorage.setItem('draftElements', JSON.stringify(data.elements));
+                          initialElements = data.elements;
                         }
                       } catch (err) {
-                        console.error("Backend not running, falling back to empty.");
-                        localStorage.removeItem('draftElements');
+                        console.error("Backend AI generation failed", err);
                       }
-                    } else if (config.initMode === 'upload') {
-                       // We will leave this for YOLO later. For now, empty canvas.
-                       localStorage.removeItem('draftElements');
+                    }
+
+                    // Create the project in the DB
+                    try {
+                      const createRes = await fetch(`${API_URL}/api/projects`, {
+                        method: 'POST',
+                        headers: { 
+                          'Authorization': `Bearer ${token}`,
+                          'Content-Type': 'application/json' 
+                        },
+                        body: JSON.stringify({
+                          name: config.name || "Untitled Project",
+                          elements_data: initialElements
+                        })
+                      });
+                      
+                      if (createRes.ok) {
+                        const newProject = await createRes.json();
+                        navigate(`/studio?projectId=${newProject.id}`);
+                        return;
+                      }
+                    } catch (err) {
+                      console.error("Failed to create project in DB", err);
+                    }
+                    
+                    // Fallback to local storage if DB fails
+                    if (initialElements.length > 0) {
+                      localStorage.setItem('draftElements', JSON.stringify(initialElements));
                     } else {
                       localStorage.removeItem('draftElements');
                     }

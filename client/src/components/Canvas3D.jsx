@@ -1,6 +1,6 @@
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Grid, Environment } from '@react-three/drei';
-import SunCalc from 'suncalc';
+import * as SunCalc from 'suncalc';
 
 function ExtrudedElement({ el }) {
   // Scale factor to convert pixel units to 3D space units

@@ -68,6 +68,65 @@ def login_user(user: UserLogin, db: Session = Depends(get_db)):
     return {"token": token, "user": {"id": db_user.id, "email": db_user.email, "name": db_user.full_name}}
 
 
+from fastapi.security import OAuth2PasswordBearer
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
+
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+    return user
+
+class ProjectCreate(BaseModel):
+    name: str
+    elements_data: list = []
+
+@app.get("/api/projects")
+def get_projects(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    projects = db.query(models.Project).filter(models.Project.owner_id == current_user.id).all()
+    return projects
+
+@app.post("/api/projects")
+def create_project(project: ProjectCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    new_project = models.Project(
+        name=project.name,
+        elements_data=project.elements_data,
+        owner_id=current_user.id
+    )
+    db.add(new_project)
+    db.commit()
+    db.refresh(new_project)
+    return new_project
+
+@app.get("/api/projects/{project_id}")
+def get_project(project_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    project = db.query(models.Project).filter(models.Project.id == project_id, models.Project.owner_id == current_user.id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return project
+
+class ProjectUpdate(BaseModel):
+    elements_data: list
+
+@app.put("/api/projects/{project_id}")
+def update_project(project_id: int, project_update: ProjectUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    project = db.query(models.Project).filter(models.Project.id == project_id, models.Project.owner_id == current_user.id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    project.elements_data = project_update.elements_data
+    db.commit()
+    return {"status": "success"}
+
 import google.generativeai as genai
 import json
 

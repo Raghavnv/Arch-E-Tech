@@ -5,15 +5,35 @@ import { Plus, LayoutDashboard, Settings, LogOut, Clock, MoreVertical, Layout, B
 export default function Dashboard() {
   const navigate = useNavigate();
   
-  const [projects, setProjects] = useState(() => {
-    const isNewUser = localStorage.getItem('isNewUser') === 'true';
-    if (isNewUser) return [];
-    return [
-      { id: 1, name: "Skyline Tower Gen-1", type: "Commercial", date: "2 hrs ago", area: "12,500 sqft", status: "Processed" },
-      { id: 2, name: "Urban Residence A", type: "Residential", date: "Yesterday", area: "2,400 sqft", status: "Draft" },
-      { id: 3, name: "Warehouse Complex", type: "Industrial", date: "Oct 12", area: "45,000 sqft", status: "Clash Detected" },
-    ];
-  });
+  const [projects, setProjects] = useState([]);
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/');
+        return;
+      }
+      try {
+        const res = await fetch(`${API_URL}/api/projects`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setProjects(data);
+        } else {
+          // Fallback to mock for testing without backend
+          setProjects([
+            { id: 1, name: "Skyline Tower Gen-1", created_at: "2 hrs ago", status: "Processed" }
+          ]);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    fetchProjects();
+  }, [navigate]);
 
   const [activeMenu, setActiveMenu] = useState(null);
   const menuRef = useRef(null);
@@ -148,9 +168,9 @@ export default function Dashboard() {
                       project.status === 'Clash Detected' ? 'bg-red-950/50 text-red-400 border border-red-900/50' : 
                       'bg-zinc-900 text-zinc-500'
                     }`}>
-                      {project.status}
+                      {project.status || "Draft"}
                     </span>
-                    <Link to="/studio" className="text-xs font-medium text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Link to={`/studio?projectId=${project.id}`} className="text-xs font-medium text-white opacity-0 group-hover:opacity-100 transition-opacity">
                       Open Studio →
                     </Link>
                   </div>

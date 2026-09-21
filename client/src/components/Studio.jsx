@@ -1,16 +1,72 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Home, Layers, Settings, Save, Download, ScanLine, Box, AlertTriangle, Calculator, ChevronRight, LayoutTemplate, Magnet, Sun, MessageSquare, Image as ImageIcon, FileText } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
 
 export default function Studio() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const projectId = searchParams.get('projectId');
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
   const [drawingMode, setDrawingMode] = useState(null);
   const [activeTab, setActiveTab] = useState('2D');
   const [activeFloor, setActiveFloor] = useState(1);
   const [canvasElements, setCanvasElements] = useState([]);
   const [timeOfDay, setTimeOfDay] = useState(12); // Default to Noon
   const totalFloors = 3; // Mocked from project setup
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Fetch project from database
+  useEffect(() => {
+    if (!projectId) return;
+    const fetchProject = async () => {
+      const token = localStorage.getItem('token');
+      try {
+        const res = await fetch(`${API_URL}/api/projects/${projectId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.elements_data && data.elements_data.length > 0) {
+            setCanvasElements(data.elements_data);
+          } else {
+            // Check if draft in local storage for newly generated AI plan
+            const draft = localStorage.getItem('draftElements');
+            if (draft) {
+              setCanvasElements(JSON.parse(draft));
+              localStorage.removeItem('draftElements');
+            }
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    fetchProject();
+  }, [projectId]);
+
+  // Save project to database
+  const saveProject = async () => {
+    if (!projectId) return;
+    setIsSaving(true);
+    const token = localStorage.getItem('token');
+    try {
+      await fetch(`${API_URL}/api/projects/${projectId}`, {
+        method: 'PUT',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ elements_data: canvasElements })
+      });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="h-screen w-screen flex overflow-hidden font-sans bg-black text-zinc-100">
@@ -208,6 +264,17 @@ export default function Studio() {
             className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${drawingMode === 'stairs' ? 'bg-purple-400 text-black' : 'bg-zinc-800 text-purple-400/70 hover:bg-zinc-700 hover:text-purple-400'}`}
           >
             <Layers className="w-3.5 h-3.5 rotate-90" /> Stairs
+          </button>
+          
+          <div className="w-px h-6 bg-zinc-800 mx-1"></div>
+          
+          <button 
+            onClick={saveProject}
+            disabled={isSaving}
+            className="flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors bg-white/10 hover:bg-white/20 text-white"
+          >
+            <Save className="w-3.5 h-3.5" />
+            {isSaving ? 'Saving...' : 'Save Cloud'}
           </button>
         </div>
 
