@@ -31,33 +31,41 @@ export default function Studio() {
   ]);
   const [isTyping, setIsTyping] = useState(false);
 
-  // Fetch project from database
+  // Fetch project from database or local storage
   useEffect(() => {
-    if (!projectId) return;
-    const fetchProject = async () => {
-      const token = localStorage.getItem('token');
-      try {
-        const res = await fetch(`${API_URL}/api/projects/${projectId}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.elements_data && data.elements_data.length > 0) {
-            setCanvasElements(data.elements_data);
-          } else {
-            // Check if draft in local storage for newly generated AI plan
-            const draft = localStorage.getItem('draftElements');
-            if (draft) {
-              setCanvasElements(JSON.parse(draft));
-              localStorage.removeItem('draftElements');
+    const loadData = async () => {
+      // First try to load draft if it exists (prioritize freshly generated AI drafts)
+      const draft = localStorage.getItem('draftElements');
+      if (draft) {
+        try {
+          const parsedDraft = JSON.parse(draft);
+          if (parsedDraft && parsedDraft.length > 0) {
+            setCanvasElements(parsedDraft);
+          }
+        } catch(e) {}
+        localStorage.removeItem('draftElements');
+      }
+
+      // Then fetch project from DB if ID exists
+      if (projectId) {
+        const token = localStorage.getItem('token');
+        try {
+          const res = await fetch(`${API_URL}/api/projects/${projectId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            // Only overwrite if we didn't just load a fresh AI draft, or if the DB has actual data
+            if (data.elements_data && data.elements_data.length > 0) {
+              setCanvasElements(data.elements_data);
             }
           }
+        } catch (e) {
+          console.error(e);
         }
-      } catch (e) {
-        console.error(e);
       }
     };
-    fetchProject();
+    loadData();
   }, [projectId]);
 
   // Save project to database

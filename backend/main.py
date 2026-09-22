@@ -149,7 +149,7 @@ async def generate_floor_plan(payload: AIPrompt):
       "response_mime_type": "application/json",
     }
     
-    model = genai.GenerativeModel("gemini-2.5-pro", generation_config=generation_config)
+    model = genai.GenerativeModel("gemini-3.5-flash", generation_config=generation_config)
     
     system_prompt = f"""You are an expert architectural AI that designs 2D floor plans.
     The user will provide a description of a house or layout.
