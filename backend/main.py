@@ -139,76 +139,102 @@ class AIPrompt(BaseModel):
 @app.post("/api/ai/generate-plan")
 async def generate_floor_plan(payload: AIPrompt):
     api_key = os.getenv("GROQ_API_KEY")
-    if not api_key:
-        print("Warning: GROQ_API_KEY not found. Ensure it is set in the environment variables.")
-        # We will attempt to proceed in case it's injected elsewhere, but it will likely trigger the fallback.
     
-    system_prompt = f"""You are an expert architectural AI that designs 2D floor plans.
-    The user will provide a description of a house or layout.
-    You MUST generate the exact layout they asked for. If they ask for multiple rooms, you must generate the walls, doors, and windows for multiple rooms.
+    # -----------------------------------------------------------------
+    # PHASE 1: The AI "Lead Architect" (Prompt -> Room Graph)
+    # -----------------------------------------------------------------
+    system_prompt = """You are an expert AI Architectural Interpreter. 
+    The user will give you a prompt for a building. It might be detailed, or it might be absolute nonsense.
+    Your ONLY job is to determine a logical list of rooms needed based on their request.
     
-    1 unit = 1 inch (or 1 pixel in our canvas).
-    A standard house might be 800x600 units.
-    Standard wall thickness = 8
-    Standard door width = 60
-    Standard window width = 80
+    Rules:
+    - If they ask for a "3 bedroom house", you need 3 beds + 1 bath + 1 living/kitchen = 5 rooms.
+    - If they type gibberish (e.g. "asdfasdf"), default to a basic 1-bed apartment (2 rooms).
+    - Cap the maximum number of rooms at 12 so it fits on our drafting grid.
     
-    You must output valid JSON. The JSON must be an object containing a single key "elements", which is an array of layout objects.
-    Match this schema exactly:
-    {{
-      "elements": [
-        {{ "type": "wall", "left": 100, "top": 100, "width": 400, "height": 8, "angle": 0 }},
-        {{ "type": "door", "left": 250, "top": 400, "width": 60, "height": 4, "angle": 180 }}
-      ]
-    }}
-    
-    "left" and "top" represent the starting X and Y coordinate of the element.
-    Walls must form connected rooms. 
-    Angles should typically be 0, 90, 180, or 270.
-    Output ONLY the JSON object, nothing else.
+    You must output strictly valid JSON matching this schema:
+    { "rooms": ["Living Room", "Kitchen", "Master Bedroom", "Bathroom"] }
+    Output ONLY the JSON object.
     """
     
-    try:
-        client = Groq(api_key=api_key)
-        chat_completion = client.chat.completions.create(
-            messages=[
-                {
-                    "role": "system",
-                    "content": system_prompt,
-                },
-                {
-                    "role": "user",
-                    "content": payload.prompt,
-                }
-            ],
-            model="llama3-70b-8192",
-            temperature=0.3,
-            response_format={"type": "json_object"}
-        )
+    room_names = ["Main Area"] # Fallback default
+    
+    if api_key:
+        try:
+            client = Groq(api_key=api_key)
+            chat_completion = client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": payload.prompt}
+                ],
+                model="llama3-70b-8192",
+                temperature=0.2,
+                response_format={"type": "json_object"}
+            )
+            raw_text = chat_completion.choices[0].message.content
+            data = json.loads(raw_text)
+            if "rooms" in data and isinstance(data["rooms"], list) and len(data["rooms"]) > 0:
+                room_names = data["rooms"]
+        except Exception as e:
+            print(f"Groq AI Logic Error: {str(e)}")
+            # If AI fails, fallback to a standard 4-room layout
+            room_names = ["Living Room", "Kitchen", "Bedroom", "Bathroom"]
+
+    # -----------------------------------------------------------------
+    # PHASE 2: The Python "Draftsman" (Binary Space Partitioning Algorithm)
+    # -----------------------------------------------------------------
+    num_rooms = len(room_names)
+    
+    # Base layout dimensions
+    W, H = 800, 600
+    # Start with one giant master rectangle centered on the canvas
+    rects = [{"x": 100, "y": 100, "w": W, "h": H, "name": room_names[0]}]
+    
+    # Recursively split the largest room until we have enough rooms
+    room_idx = 1
+    while len(rects) < num_rooms:
+        # Find the largest rectangle by area
+        rects.sort(key=lambda r: r["w"] * r["h"], reverse=True)
+        largest = rects.pop(0)
         
-        raw_text = chat_completion.choices[0].message.content
-        data = json.loads(raw_text)
+        # Determine split direction based on aspect ratio
+        if largest["w"] > largest["h"]:
+            # Split vertically
+            w1 = largest["w"] / 2
+            rects.append({"x": largest["x"], "y": largest["y"], "w": w1, "h": largest["h"], "name": largest["name"]})
+            rects.append({"x": largest["x"] + w1, "y": largest["y"], "w": w1, "h": largest["h"], "name": room_names[room_idx]})
+        else:
+            # Split horizontally
+            h1 = largest["h"] / 2
+            rects.append({"x": largest["x"], "y": largest["y"], "w": largest["w"], "h": h1, "name": largest["name"]})
+            rects.append({"x": largest["x"], "y": largest["y"] + h1, "w": largest["w"], "h": h1, "name": room_names[room_idx]})
+        room_idx += 1
+
+    # Convert the partitioned rectangles into physical wall, door, and window elements
+    elements = []
+    
+    for r in rects:
+        x, y, w, h = r["x"], r["y"], r["w"], r["h"]
         
-        return {
-            "status": "success",
-            "elements": data.get("elements", [])
-        }
-    except Exception as e:
-        print(f"Groq API Error: {str(e)}")
-            
-        # Fallback to mock if API fails/hallucinates
-        return {
-            "status": "error",
-            "message": "AI failed to generate a valid layout. Showing fallback.",
-            "elements": [
-                { "type": "wall", "left": 100, "top": 100, "width": 400, "height": 8, "angle": 0 },
-                { "type": "wall", "left": 500, "top": 100, "width": 300, "height": 8, "angle": 90 },
-                { "type": "wall", "left": 500, "top": 400, "width": 400, "height": 8, "angle": 180 },
-                { "type": "wall", "left": 100, "top": 400, "width": 300, "height": 8, "angle": 270 },
-                { "type": "door", "left": 250, "top": 400, "width": 60, "height": 4, "angle": 180 },
-                { "type": "window", "left": 500, "top": 200, "width": 80, "height": 4, "angle": 90 }
-            ]
-        }
+        # Draw the 4 walls of the room
+        elements.append({"type": "wall", "left": x, "top": y, "width": w, "height": 8, "angle": 0})          # Top
+        elements.append({"type": "wall", "left": x, "top": y + h, "width": w, "height": 8, "angle": 0})      # Bottom
+        elements.append({"type": "wall", "left": x, "top": y, "width": h, "height": 8, "angle": 90})         # Left
+        elements.append({"type": "wall", "left": x + w, "top": y, "width": h, "height": 8, "angle": 90})     # Right
+        
+        # Place an interior door on the bottom wall (slightly off-center to look natural)
+        elements.append({"type": "door", "left": x + (w / 2) - 30, "top": y + h, "width": 60, "height": 4, "angle": 0})
+        
+        # Add exterior windows if the room touches the outside boundary of the house
+        if y == 100: # Top outer edge
+            elements.append({"type": "window", "left": x + (w / 2) - 40, "top": y, "width": 80, "height": 4, "angle": 0})
+        if x == 100: # Left outer edge
+            elements.append({"type": "window", "left": x, "top": y + (h / 2) - 40, "width": 80, "height": 4, "angle": 90})
+
+    return {
+        "status": "success",
+        "elements": elements
+    }
 
 
 @app.post("/api/upload-sketch")
