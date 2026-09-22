@@ -38,19 +38,20 @@ export default function NewProject() {
     <div className="min-h-screen bg-black text-zinc-100 flex items-center justify-center p-6 font-sans">
       <div className="max-w-4xl w-full">
         <button 
-          onClick={() => step === 1 ? navigate('/dashboard') : setStep(1)}
+          type="button"
+          onClick={() => navigate('/dashboard')}
           className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-8 text-sm font-medium"
         >
-          <ArrowLeft className="w-4 h-4" /> {step === 1 ? 'Back to Dashboard' : 'Back to details'}
+          <ArrowLeft className="w-4 h-4" /> Back to Dashboard
         </button>
 
         <div className="bg-zinc-950 border border-zinc-800 rounded-3xl p-10 shadow-2xl">
           <div className="mb-10">
             <h2 className="text-3xl font-bold text-white tracking-tight mb-2">
-              {step === 1 ? "Initialize Workspace" : "Configure Pipeline"}
+              Initialize Workspace
             </h2>
-            <p className="text-zinc-400">
-              {step === 1 ? "Give your project a name and upload an initial sketch to begin." : "Select the computational modules you want to enable for this project."}
+            <p className="text-zinc-400 text-sm">
+              Define your project parameters to set up the 2D/3D studio environment.
             </p>
           </div>
 
