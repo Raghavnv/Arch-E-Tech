@@ -6,6 +6,7 @@ import Studio from './components/Studio';
 import Auth from './components/Auth';
 import OnboardingCinematic from './components/OnboardingCinematic';
 import HowItWorks from './components/HowItWorks';
+import RenderStudio from './components/RenderStudio';
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/new-project" element={<NewProject />} />
           <Route path="/studio" element={<Studio />} />
+          <Route path="/render-studio" element={<RenderStudio />} />
         </Routes>
       </div>
     </Router>

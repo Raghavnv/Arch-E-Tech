@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Home, Layers, Settings, Save, Download, ScanLine, Box, AlertTriangle, Calculator, ChevronRight, LayoutTemplate, Magnet, Sun, MessageSquare, Image as ImageIcon, FileText, X, CheckCircle } from 'lucide-react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { 
+  Menu, MousePointer2, Box, Home, PenTool, LayoutTemplate, 
+  Settings, Save, FileText, ChevronRight, Calculator, CheckCircle, 
+  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, ImageIcon, Sparkles, Download, ScanLine, Magnet 
+} from 'lucide-react';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
 
@@ -18,6 +22,14 @@ export default function Studio() {
   const totalFloors = 3; // Mocked from project setup
   const [isSaving, setIsSaving] = useState(false);
   const [complianceResult, setComplianceResult] = useState(null);
+  
+  // Chat Copilot State
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const [chatMessages, setChatMessages] = useState([
+    { role: 'ai', content: "Hi! I'm your AI Architect. Ask me for design suggestions, code compliance, or how to optimize your current layout!" }
+  ]);
+  const [isTyping, setIsTyping] = useState(false);
 
   // Fetch project from database
   useEffect(() => {
@@ -229,9 +241,12 @@ export default function Studio() {
           <button className="flex items-center justify-center gap-2 py-2.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-xs font-semibold text-white transition-colors border border-zinc-800">
             <FileText className="w-3.5 h-3.5" /> PDF Report
           </button>
-          <button className="flex items-center justify-center gap-2 py-2.5 rounded-lg bg-white hover:bg-zinc-200 text-xs font-semibold text-black transition-colors">
-            Process 3D <ChevronRight className="w-3.5 h-3.5" />
-          </button>
+          <Link 
+            to={`/render-studio?projectId=${projectId}`}
+            className="flex items-center justify-center gap-2 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-xs font-semibold text-white transition-colors shadow-[0_0_15px_rgba(99,102,241,0.3)]"
+          >
+            <ImageIcon className="w-3.5 h-3.5" /> Photo Render
+          </Link>
         </div>
       </aside>
 
@@ -285,6 +300,90 @@ export default function Studio() {
         </div>
         <div className={activeTab === '3D' ? 'absolute inset-0' : 'hidden'}>
           <Canvas3D elements={canvasElements} timeOfDay={timeOfDay} />
+        </div>
+
+        {/* AI Copilot Floating Widget */}
+        <div className="absolute bottom-6 right-6 z-40 flex flex-col items-end">
+          {/* Chat Window */}
+          <div className={`mb-4 w-80 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl flex flex-col transition-all origin-bottom-right duration-300 ${
+            chatOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 pointer-events-none translate-y-4'
+          }`} style={{ height: '400px' }}>
+            {/* Chat Header */}
+            <div className="p-4 border-b border-zinc-800 bg-zinc-900/50 flex items-center justify-between rounded-t-2xl">
+              <div className="flex items-center gap-2 text-indigo-400 font-semibold text-sm">
+                <Sparkles className="w-4 h-4" /> AI Architect Copilot
+              </div>
+              <button onClick={() => setChatOpen(false)} className="text-zinc-500 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            {/* Chat Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+              {chatMessages.map((msg, i) => (
+                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`px-4 py-2 text-sm rounded-2xl max-w-[85%] ${
+                    msg.role === 'user' 
+                      ? 'bg-indigo-500 text-white rounded-br-sm' 
+                      : 'bg-zinc-800 text-zinc-200 rounded-bl-sm'
+                  }`}>
+                    {msg.content}
+                  </div>
+                </div>
+              ))}
+              {isTyping && (
+                <div className="flex justify-start">
+                  <div className="px-4 py-3 bg-zinc-800 text-zinc-200 rounded-2xl rounded-bl-sm flex items-center gap-1">
+                    <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce"></div>
+                    <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }}></div>
+                    <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></div>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Chat Input */}
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!chatInput.trim()) return;
+                const newMsgs = [...chatMessages, { role: 'user', content: chatInput }];
+                setChatMessages(newMsgs);
+                setChatInput('');
+                setIsTyping(true);
+                
+                // Simulate backend delay then respond contextually
+                setTimeout(() => {
+                  let reply = "I've analyzed your layout. Try adding more windows to the southern wall for better daylighting.";
+                  if (chatInput.toLowerCase().includes('wall')) reply = `You currently have ${canvasElements.filter(e => e.type === 'wall').length} walls. Want me to optimize the structural span?`;
+                  if (chatInput.toLowerCase().includes('door')) reply = `I see ${canvasElements.filter(e => e.type === 'door').length} doors. Remember to maintain 32 inches for ADA compliance!`;
+                  
+                  setChatMessages([...newMsgs, { role: 'ai', content: reply }]);
+                  setIsTyping(false);
+                }, 1500);
+              }}
+              className="p-3 border-t border-zinc-800 bg-black flex gap-2 rounded-b-2xl"
+            >
+              <input 
+                type="text" 
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="Ask about your layout..."
+                className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
+              />
+              <button type="submit" disabled={!chatInput.trim()} className="bg-white text-black p-2 rounded-lg hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </form>
+          </div>
+
+          {/* Toggle Button */}
+          <button 
+            onClick={() => setChatOpen(!chatOpen)}
+            className="w-14 h-14 bg-indigo-500 hover:bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-[0_0_20px_rgba(99,102,241,0.5)] transition-transform hover:scale-105 active:scale-95"
+          >
+            {chatOpen ? <X className="w-6 h-6" /> : <MessageSquare className="w-6 h-6" />}
+          </button>
         </div>
       </main>
 
