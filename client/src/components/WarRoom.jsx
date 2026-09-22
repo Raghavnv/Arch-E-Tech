@@ -2,10 +2,26 @@ import { useState, useRef, useEffect } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Plus, StickyNote, Image as ImageIcon, Palette, Type, MousePointer2, Move, Share2, Users, Download } from 'lucide-react';
 
+const PinterestIcon = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.162-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.911 2.168-2.911 1.024 0 1.518.769 1.518 1.688 0 1.029-.653 2.567-.992 3.992-.285 1.193.6 2.165 1.775 2.165 2.128 0 3.768-2.245 3.768-5.487 0-2.861-2.063-4.869-5.008-4.869-3.41 0-5.409 2.562-5.409 5.199 0 1.033.394 2.143.889 2.741.099.12.112.225.085.345-.09.375-.293 1.199-.334 1.363-.053.225-.172.271-.401.165-1.495-.69-2.433-2.878-2.433-4.646 0-3.776 2.748-7.252 7.951-7.252 4.168 0 7.392 2.967 7.392 6.923 0 4.135-2.607 7.462-6.233 7.462-1.214 0-2.354-.629-2.758-1.379l-.749 2.848c-.269 1.045-1.004 2.352-1.498 3.146 1.123.345 2.306.535 3.55.535 6.607 0 11.985-5.365 11.985-11.987C23.97 5.367 18.624 0 12.017 0z"/>
+  </svg>
+);
+
 export default function WarRoom() {
   const [searchParams] = useSearchParams();
   const projectId = searchParams.get('projectId');
   const navigate = useNavigate();
+
+  const [showPinterest, setShowPinterest] = useState(false);
+  const mockPins = [
+    "https://images.unsplash.com/photo-1600607686527-6fb886090705?q=80&w=600&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=600&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=600&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?q=80&w=600&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1449844908441-8829872d2607?q=80&w=600&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1503387762-592deb58ef4e?q=80&w=600&auto=format&fit=crop"
+  ];
 
   // Canvas State (Pan & Zoom)
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -144,10 +160,59 @@ export default function WarRoom() {
             <Palette className="w-5 h-5" />
           </button>
           <div className="w-8 h-px bg-zinc-800"></div>
-          <button className="w-10 h-10 rounded-xl bg-zinc-900 hover:bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white transition-colors" title="Pan Tool">
+          <button 
+            onClick={() => setShowPinterest(!showPinterest)}
+            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${showPinterest ? 'bg-[#E60023] text-white' : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white'}`}
+            title="Import from Pinterest"
+          >
+            <PinterestIcon className="w-5 h-5" />
+          </button>
+          <button className="w-10 h-10 rounded-xl bg-zinc-900 hover:bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white transition-colors mt-auto" title="Pan Tool">
             <Move className="w-5 h-5" />
           </button>
         </aside>
+
+        {/* Pinterest Slide-Out Panel */}
+        <div className={`absolute top-0 bottom-0 left-16 w-80 bg-zinc-950 border-r border-zinc-800 z-10 transition-transform duration-300 flex flex-col shadow-2xl ${showPinterest ? 'translate-x-0' : '-translate-x-full'}`}>
+          <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+            <h2 className="font-semibold text-white flex items-center gap-2">
+              <PinterestIcon className="w-4 h-4 text-[#E60023]" /> Pinterest Boards
+            </h2>
+            <button onClick={() => setShowPinterest(false)} className="text-zinc-500 hover:text-white">
+              <Plus className="w-5 h-5 rotate-45" />
+            </button>
+          </div>
+          <div className="p-4">
+            <input 
+              type="text" 
+              placeholder="Paste board URL..."
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#E60023] transition-colors mb-2"
+            />
+            <button className="w-full py-2 bg-[#E60023] hover:bg-[#d5001c] text-white rounded-lg text-sm font-semibold transition-colors">
+              Connect Account
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 pt-0">
+            <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">Saved Pins</p>
+            <div className="columns-2 gap-2 space-y-2">
+              {mockPins.map((pin, i) => (
+                <div 
+                  key={i} 
+                  className="relative group cursor-pointer break-inside-avoid"
+                  onClick={() => {
+                    // Spawn pin on canvas
+                    setItems([...items, { id: Date.now().toString(), type: 'image', x: -pan.x/zoom + 300 + (Math.random()*100), y: -pan.y/zoom + 200 + (Math.random()*100), content: pin }]);
+                  }}
+                >
+                  <img src={pin} className="w-full rounded-md object-cover" alt="pin" />
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center">
+                    <span className="bg-[#E60023] text-white text-xs font-bold px-2 py-1 rounded-full">Save</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
 
         {/* Endless Canvas Workspace */}
         <div 
