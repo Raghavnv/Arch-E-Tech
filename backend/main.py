@@ -252,3 +252,123 @@ async def upload_sketch(file: UploadFile = File(...)):
 @app.get("/")
 def read_root():
     return {"status": "ok", "message": "Arch-E-Tech Backend Running"}
+
+# -----------------------------------------------------------------
+# AI COPILOT CHAT ENDPOINT
+# -----------------------------------------------------------------
+class AIChatRequest(BaseModel):
+    message: str
+    elements: list
+
+@app.post("/api/ai/chat")
+async def ai_copilot_chat(payload: AIChatRequest):
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        return {"status": "error", "reply": "Warning: GROQ_API_KEY is missing. I cannot process this request."}
+        
+    system_prompt = """You are an expert Architectural AI Copilot. 
+    You are assisting a user who is currently designing a floor plan.
+    You will be provided with their message and the current layout JSON (walls, doors, windows).
+    Keep your answers concise, helpful, and professional. 
+    Analyze their layout if they ask for feedback. Point out missing doors, weirdly placed walls, etc.
+    """
+    
+    try:
+        client = Groq(api_key=api_key)
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"My current layout data: {json.dumps(payload.elements)}\n\nMy question: {payload.message}"}
+            ],
+            model="llama3-70b-8192",
+            temperature=0.5,
+        )
+        
+        reply = chat_completion.choices[0].message.content
+        return {"status": "success", "reply": reply}
+    except Exception as e:
+        print(f"Groq Chat Error: {str(e)}")
+        return {"status": "error", "reply": "Sorry, I am having trouble connecting to my neural network right now."}
+
+# -----------------------------------------------------------------
+# AI CODE COMPLIANCE RAG ENDPOINT
+# -----------------------------------------------------------------
+class ComplianceRequest(BaseModel):
+    elements: list
+
+@app.post("/api/ai/compliance")
+async def check_compliance(payload: ComplianceRequest):
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        return {"status": "error", "issues": ["GROQ_API_KEY missing - unable to run compliance check."]}
+        
+    system_prompt = """You are an AI Building Inspector evaluating a 2D floor plan JSON.
+    Standard conversions: 1 unit = 1 inch.
+    Analyze the provided layout for standard building code violations (e.g. ADA door widths must be at least 32 inches, window egress, span lengths).
+    Return a valid JSON object matching this schema exactly:
+    {
+      "status": "success" or "warning",
+      "messages": ["List of strings", "describing specific code violations", "or saying 'All clear!'"]
+    }
+    Output ONLY the JSON object.
+    """
+    
+    try:
+        client = Groq(api_key=api_key)
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Layout data: {json.dumps(payload.elements)}"}
+            ],
+            model="llama3-70b-8192",
+            temperature=0.1,
+            response_format={"type": "json_object"}
+        )
+        
+        raw_text = chat_completion.choices[0].message.content
+        data = json.loads(raw_text)
+        return {
+            "status": data.get("status", "success"),
+            "messages": data.get("messages", ["All designs meet local compliance codes."])
+        }
+    except Exception as e:
+        print(f"Groq Compliance Error: {str(e)}")
+        return {"status": "warning", "messages": ["Failed to run AI compliance check. Please verify manually."]}
+
+# -----------------------------------------------------------------
+# AI PDF NARRATIVE ENDPOINT
+# -----------------------------------------------------------------
+class ReportRequest(BaseModel):
+    elements: list
+
+@app.post("/api/ai/report-narrative")
+async def generate_report_narrative(payload: ReportRequest):
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        return {"status": "error", "narrative": "Warning: GROQ_API_KEY is missing."}
+        
+    system_prompt = """You are an AI Architectural Analyst. 
+    Review the provided layout JSON. 
+    Write a 3-paragraph executive summary for a PDF report. 
+    Paragraph 1: Project Overview (number of rooms, estimated footprint).
+    Paragraph 2: Structural & Compliance Review.
+    Paragraph 3: Estimated Cost Analysis (Assume basic construction costs).
+    Do NOT use markdown, just output plain text with double newlines between paragraphs.
+    """
+    
+    try:
+        client = Groq(api_key=api_key)
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Layout data: {json.dumps(payload.elements)}"}
+            ],
+            model="llama3-70b-8192",
+            temperature=0.3,
+        )
+        
+        reply = chat_completion.choices[0].message.content
+        return {"status": "success", "narrative": reply.strip()}
+    except Exception as e:
+        print(f"Groq Report Error: {str(e)}")
+        return {"status": "error", "narrative": "Failed to generate report narrative."}
