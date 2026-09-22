@@ -411,6 +411,17 @@ export default function Studio() {
             <Save className="w-3.5 h-3.5" />
             {isSaving ? 'Saving...' : 'Save Cloud'}
           </button>
+          
+          <button 
+            onClick={() => {
+              localStorage.setItem('immersiveDraft', JSON.stringify(canvasElements));
+              navigate('/immersive');
+            }}
+            className="flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors bg-indigo-500 hover:bg-indigo-600 text-white shadow-[0_0_15px_rgba(99,102,241,0.4)]"
+          >
+            <ImageIcon className="w-3.5 h-3.5" />
+            Immersive View
+          </button>
         </div>
 
         {/* 2D / 3D Canvas Renders */}

@@ -8,6 +8,7 @@ import OnboardingCinematic from './components/OnboardingCinematic';
 import HowItWorks from './components/HowItWorks';
 import RenderStudio from './components/RenderStudio';
 import WarRoom from './components/WarRoom';
+import ImmersiveView from './components/ImmersiveView';
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
           <Route path="/studio" element={<Studio />} />
           <Route path="/render-studio" element={<RenderStudio />} />
           <Route path="/war-room" element={<WarRoom />} />
+          <Route path="/immersive" element={<ImmersiveView />} />
         </Routes>
       </div>
     </Router>
