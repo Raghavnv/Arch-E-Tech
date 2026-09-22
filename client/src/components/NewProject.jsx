@@ -178,47 +178,9 @@ export default function NewProject() {
                 </div>
               )}
 
-              <div className="pt-2">
+              <div className="pt-4 border-t border-zinc-900 mt-4">
                 <button 
-                  onClick={() => setStep(2)}
-                  disabled={!config.name.trim()}
-                  className={`w-full py-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
-                    config.name.trim() ? 'bg-white text-black hover:bg-zinc-200' : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
-                  }`}
-                >
-                  Configure Pipeline <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {step === 2 && (
-            <div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[60vh] overflow-y-auto pr-4 mb-8 custom-scrollbar">
-                
-                {/* Generative & Detection */}
-                <FeatureToggle icon={<LayoutTemplate className="w-4 h-4"/>} title="AI Text-to-Layout" desc="Llama 3 NLP prompt to canvas generation." enabled={config.features.textToLayout} onClick={() => toggleFeature('textToLayout')} />
-                <FeatureToggle icon={<ScanLine className="w-4 h-4"/>} title="YOLOv11 Floor Plan Detection" desc="Automated wall/door classification." enabled={config.features.aiDetection} onClick={() => toggleFeature('aiDetection')} />
-                
-                {/* 2D Canvas */}
-                <FeatureToggle icon={<PenTool className="w-4 h-4"/>} title="Vector Canvas Editor" desc="Fabric.js interactive drag-and-drop." enabled={config.features.canvasEditor} onClick={() => toggleFeature('canvasEditor')} />
-                <FeatureToggle icon={<Magnet className="w-4 h-4"/>} title="Smart Wall Snapping" desc="Perpendicular and grid alignment." enabled={config.features.snapping} onClick={() => toggleFeature('snapping')} />
-                
-                {/* 3D & Computation */}
-                <FeatureToggle icon={<Box className="w-4 h-4"/>} title="2D-to-3D Extrusion" desc="Shapely + Three.js dynamic mesh building." enabled={config.features.extrusion} onClick={() => toggleFeature('extrusion')} />
-                <FeatureToggle icon={<Sun className="w-4 h-4"/>} title="Solar & Shadow Sim" desc="Real-world sun angles via SunCalc." enabled={config.features.solar} onClick={() => toggleFeature('solar')} />
-                <FeatureToggle icon={<AlertTriangle className="w-4 h-4"/>} title="3D Clash Detection" desc="AABB collision & swing clearance." enabled={config.features.clashDetection} onClick={() => toggleFeature('clashDetection')} />
-                <FeatureToggle icon={<Calculator className="w-4 h-4"/>} title="Live Cost Takeoff" desc="Real-time volume and material pricing." enabled={config.features.costEstimation} onClick={() => toggleFeature('costEstimation')} />
-                
-                {/* Advanced / Output */}
-                <FeatureToggle icon={<MessageSquare className="w-4 h-4"/>} title="RAG Compliance Agent" desc="Llama 3 + ChromaDB building code chat." enabled={config.features.compliance} onClick={() => toggleFeature('compliance')} />
-                <FeatureToggle icon={<ImageIcon className="w-4 h-4"/>} title="Concept Visualizer" desc="ControlNet photorealistic renders." enabled={config.features.conceptViz} onClick={() => toggleFeature('conceptViz')} />
-                <FeatureToggle icon={<FileText className="w-4 h-4"/>} title="Automated PDF Reports" desc="Export views and costs to jsPDF." enabled={config.features.pdfReports} onClick={() => toggleFeature('pdfReports')} />
-              </div>
-
-              <div className="pt-4 border-t border-zinc-900">
-                <button 
-                  disabled={isGenerating}
+                  disabled={isGenerating || !config.name.trim()}
                   onClick={async () => {
                     setIsGenerating(true);
                     let initialElements = [];
@@ -282,47 +244,23 @@ export default function NewProject() {
                     navigate('/studio');
                   }}
                   className={`w-full py-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
-                    isGenerating ? 'bg-zinc-800 text-zinc-400 cursor-not-allowed' : 'bg-white text-black hover:bg-zinc-200'
+                    isGenerating || !config.name.trim() ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' : 'bg-white text-black hover:bg-zinc-200'
                   }`}
                 >
                   {isGenerating ? (
                     <>
                       <div className="w-4 h-4 border-2 border-zinc-400 border-t-white rounded-full animate-spin"></div>
-                      Generating AI Blueprint...
+                      Generating Layout...
                     </>
                   ) : (
-                    <>Launch Studio Engine <Check className="w-4 h-4" /></>
+                    <>Launch Studio Engine <ArrowRight className="w-4 h-4" /></>
                   )}
                 </button>
               </div>
+
             </div>
           )}
-
         </div>
-      </div>
-    </div>
-  );
-}
-
-function FeatureToggle({ icon, title, desc, enabled, onClick }) {
-  return (
-    <div 
-      onClick={onClick}
-      className={`p-4 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${
-        enabled ? 'border-white bg-zinc-900' : 'border-zinc-800 bg-black hover:border-zinc-700'
-      }`}
-    >
-      <div className={`mt-0.5 ${enabled ? 'text-white' : 'text-zinc-500'}`}>
-        {icon}
-      </div>
-      <div className="flex-1">
-        <h4 className={`font-semibold text-xs mb-1 ${enabled ? 'text-white' : 'text-zinc-300'}`}>{title}</h4>
-        <p className="text-[10px] text-zinc-500 leading-relaxed">{desc}</p>
-      </div>
-      <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
-        enabled ? 'border-white bg-white text-black' : 'border-zinc-700'
-      }`}>
-        {enabled && <Check className="w-2.5 h-2.5" />}
       </div>
     </div>
   );
