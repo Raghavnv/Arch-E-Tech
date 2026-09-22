@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 import jwt
 import datetime
+import json
 from pydantic import BaseModel
 
 import models
@@ -127,8 +128,7 @@ def update_project(project_id: int, project_update: ProjectUpdate, db: Session =
     db.commit()
     return {"status": "success"}
 
-import google.generativeai as genai
-import json
+from groq import Groq
 
 # -----------------------------------------------------------------
 # AI GENERATIVE ENDPOINT (Text-to-Blueprint)
@@ -138,18 +138,10 @@ class AIPrompt(BaseModel):
 
 @app.post("/api/ai/generate-plan")
 async def generate_floor_plan(payload: AIPrompt):
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        raise HTTPException(status_code=500, detail="Gemini API Key is not configured.")
-        
-    genai.configure(api_key=api_key)
-    
-    generation_config = {
-      "temperature": 0.4, # Slightly higher for creativity in floor plans
-      "response_mime_type": "application/json",
-    }
-    
-    model = genai.GenerativeModel("gemini-3.5-flash", generation_config=generation_config)
+        print("Warning: GROQ_API_KEY not found. Ensure it is set in the environment variables.")
+        # We will attempt to proceed in case it's injected elsewhere, but it will likely trigger the fallback.
     
     system_prompt = f"""You are an expert architectural AI that designs 2D floor plans.
     The user will provide a description of a house or layout.
@@ -161,43 +153,48 @@ async def generate_floor_plan(payload: AIPrompt):
     Standard door width = 60
     Standard window width = 80
     
-    Your JSON MUST match this exact schema:
-    [
-      {{ "type": "wall", "left": X, "top": Y, "width": length, "height": 8, "angle": rotation_in_degrees }},
-      {{ "type": "door", "left": X, "top": Y, "width": length, "height": 4, "angle": rotation_in_degrees }}
-    ]
+    You must output valid JSON. The JSON must be an object containing a single key "elements", which is an array of layout objects.
+    Match this schema exactly:
+    {{
+      "elements": [
+        {{ "type": "wall", "left": 100, "top": 100, "width": 400, "height": 8, "angle": 0 }},
+        {{ "type": "door", "left": 250, "top": 400, "width": 60, "height": 4, "angle": 180 }}
+      ]
+    }}
     
     "left" and "top" represent the starting X and Y coordinate of the element.
     Walls must form connected rooms. 
     Angles should typically be 0, 90, 180, or 270.
-    DO NOT wrap your response in markdown code blocks. Return strictly the raw JSON array.
-    
-    User prompt: '{payload.prompt}'
+    Output ONLY the JSON object, nothing else.
     """
     
-    response = None
     try:
-        response = model.generate_content(system_prompt)
+        client = Groq(api_key=api_key)
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": system_prompt,
+                },
+                {
+                    "role": "user",
+                    "content": payload.prompt,
+                }
+            ],
+            model="llama3-70b-8192",
+            temperature=0.3,
+            response_format={"type": "json_object"}
+        )
         
-        # Clean up potential markdown formatting that breaks JSON parsing
-        raw_text = response.text.strip()
-        if raw_text.startswith("```json"):
-            raw_text = raw_text[7:]
-        if raw_text.startswith("```"):
-            raw_text = raw_text[3:]
-        if raw_text.endswith("```"):
-            raw_text = raw_text[:-3]
-            
-        elements = json.loads(raw_text.strip())
+        raw_text = chat_completion.choices[0].message.content
+        data = json.loads(raw_text)
         
         return {
             "status": "success",
-            "elements": elements
+            "elements": data.get("elements", [])
         }
     except Exception as e:
-        print(f"Gemini API Error: {str(e)}")
-        if response and hasattr(response, 'text'):
-            print(f"Raw response was: {response.text}")
+        print(f"Groq API Error: {str(e)}")
             
         # Fallback to mock if API fails/hallucinates
         return {

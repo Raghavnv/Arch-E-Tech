@@ -300,7 +300,7 @@ export default function Dashboard() {
                   <div className="flex items-start justify-between border-b border-zinc-800 pb-6">
                     <div>
                       <h3 className="text-sm font-medium text-white mb-1 flex items-center gap-2">
-                        Google Gemini API 
+                        Groq API (Llama 3) 
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">System Default</span>
                       </h3>
                       <p className="text-xs text-zinc-500 max-w-md">Powers the architectural layout generation and the Code Compliance RAG chatbot.</p>
