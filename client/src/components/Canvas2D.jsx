@@ -170,6 +170,56 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements }) {
     hasLoadedElements.current = true;
   }, [elements]);
 
+  // Handle Dynamic Addition of Furniture
+  useEffect(() => {
+    const handleAddFurniture = (e) => {
+      const type = e.detail;
+      const canvas = fabricRef.current;
+      if (!canvas) return;
+      
+      let width, height, fill;
+      if (type === 'furniture_bed') { width = 120; height = 160; fill = '#cbd5e1'; } // slate-300
+      else if (type === 'furniture_sofa') { width = 160; height = 70; fill = '#818cf8'; } // indigo-400
+      else if (type === 'furniture_table') { width = 140; height = 90; fill = '#fbbf24'; } // amber-400
+      
+      const rect = new fabric.Rect({
+        id: Math.random().toString(36).substr(2, 9),
+        left: canvas.width / 2 - width/2,
+        top: canvas.height / 2 - height/2,
+        width, height, fill,
+        type: type,
+        originX: 'left',
+        originY: 'center',
+        selectable: true,
+        evented: true,
+        cornerColor: '#ffffff',
+        borderColor: '#ffffff',
+        transparentCorners: false,
+        cornerSize: 8,
+      });
+      
+      canvas.add(rect);
+      canvas.setActiveObject(rect);
+      canvas.renderAll();
+      
+      // Manually trigger sync
+      const currentElements = canvas.getObjects().filter(obj => !obj.isGrid).map(obj => ({
+        id: obj.id,
+        type: obj.type,
+        left: obj.left,
+        top: obj.top,
+        width: obj.width * (obj.scaleX || 1),
+        height: obj.height * (obj.scaleY || 1),
+        angle: obj.angle,
+        material: obj.material || null
+      }));
+      setCanvasElements(currentElements);
+    };
+    
+    window.addEventListener('add-furniture', handleAddFurniture);
+    return () => window.removeEventListener('add-furniture', handleAddFurniture);
+  }, [setCanvasElements]);
+
   // Handle Drawing Mode Changes
   useEffect(() => {
     const canvas = fabricRef.current;

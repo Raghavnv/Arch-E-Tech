@@ -18,6 +18,7 @@ export default function Studio() {
 
   const [drawingMode, setDrawingMode] = useState(null);
   const [activeTab, setActiveTab] = useState('2D');
+  const [showFurnitureCatalog, setShowFurnitureCatalog] = useState(false);
   const [activeFloor, setActiveFloor] = useState(1);
   const [canvasElements, setCanvasElements] = useState([]);
   const [timeOfDay, setTimeOfDay] = useState(12); // Default to Noon
@@ -402,6 +403,15 @@ export default function Studio() {
           </button>
           
           <div className="w-px h-6 bg-zinc-800 mx-1"></div>
+
+          <button 
+            onClick={() => setShowFurnitureCatalog(!showFurnitureCatalog)}
+            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${showFurnitureCatalog ? 'bg-emerald-400 text-black' : 'bg-zinc-800 text-emerald-400/70 hover:bg-zinc-700 hover:text-emerald-400'}`}
+          >
+            <Home className="w-3.5 h-3.5" /> Furniture
+          </button>
+          
+          <div className="w-px h-6 bg-zinc-800 mx-1"></div>
           
           <button 
             onClick={saveProject}
@@ -431,6 +441,51 @@ export default function Studio() {
         <div className={activeTab === '3D' ? 'absolute inset-0' : 'hidden'}>
           <Canvas3D elements={canvasElements} timeOfDay={timeOfDay} onPaint={handlePaintWall} />
         </div>
+
+        {/* 2D Furniture Catalog Overlay */}
+        {activeTab === '2D' && showFurnitureCatalog && (
+          <div className="absolute top-24 left-6 w-64 bg-zinc-950/90 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl p-4 z-20">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-sm font-bold text-white">Furniture Catalog</h3>
+              <button onClick={() => setShowFurnitureCatalog(false)} className="text-zinc-500 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-[10px] text-zinc-400 mb-3">Click to drop into center, then drag to arrange.</p>
+            <div className="flex flex-col gap-2">
+              <button 
+                onClick={() => window.dispatchEvent(new CustomEvent('add-furniture', { detail: 'furniture_bed' }))}
+                className="flex items-center gap-3 p-3 bg-zinc-900 hover:bg-zinc-800 rounded-xl border border-zinc-800 transition-colors text-left"
+              >
+                <div className="w-8 h-8 rounded bg-slate-800 flex items-center justify-center text-slate-300">🛏️</div>
+                <div>
+                  <div className="text-xs font-semibold text-white">Queen Bed</div>
+                  <div className="text-[10px] text-zinc-500">60" x 80"</div>
+                </div>
+              </button>
+              <button 
+                onClick={() => window.dispatchEvent(new CustomEvent('add-furniture', { detail: 'furniture_sofa' }))}
+                className="flex items-center gap-3 p-3 bg-zinc-900 hover:bg-zinc-800 rounded-xl border border-zinc-800 transition-colors text-left"
+              >
+                <div className="w-8 h-8 rounded bg-indigo-900 flex items-center justify-center text-indigo-300">🛋️</div>
+                <div>
+                  <div className="text-xs font-semibold text-white">Lounge Sofa</div>
+                  <div className="text-[10px] text-zinc-500">80" x 35"</div>
+                </div>
+              </button>
+              <button 
+                onClick={() => window.dispatchEvent(new CustomEvent('add-furniture', { detail: 'furniture_table' }))}
+                className="flex items-center gap-3 p-3 bg-zinc-900 hover:bg-zinc-800 rounded-xl border border-zinc-800 transition-colors text-left"
+              >
+                <div className="w-8 h-8 rounded bg-amber-900 flex items-center justify-center text-amber-400">🪑</div>
+                <div>
+                  <div className="text-xs font-semibold text-white">Dining Table</div>
+                  <div className="text-[10px] text-zinc-500">70" x 45"</div>
+                </div>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* 3D Material Painter Overlay */}
         {activeTab === '3D' && (
