@@ -238,6 +238,14 @@ export default function NewProject() {
                         }
                       } catch (err) {
                         console.error("Backend AI generation failed", err);
+                        initialElements = [
+                          { "type": "wall", "left": 100, "top": 100, "width": 400, "height": 8, "angle": 0 },
+                          { "type": "wall", "left": 500, "top": 100, "width": 300, "height": 8, "angle": 90 },
+                          { "type": "wall", "left": 500, "top": 400, "width": 400, "height": 8, "angle": 180 },
+                          { "type": "wall", "left": 100, "top": 400, "width": 300, "height": 8, "angle": 270 },
+                          { "type": "door", "left": 250, "top": 400, "width": 60, "height": 4, "angle": 180 },
+                          { "type": "window", "left": 500, "top": 200, "width": 80, "height": 4, "angle": 90 }
+                        ];
                       }
                     }
 
