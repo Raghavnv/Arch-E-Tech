@@ -58,13 +58,13 @@ function ExtrudedElement({ el }) {
 }
 
 export default function Canvas3D({ elements = [], timeOfDay = 12 }) {
-  // Use SunCalc to calculate sun position (using New York approx coordinates)
+  // Use SunCalc to calculate sun position (using Bangalore, India coordinates)
   const date = new Date();
   const hours = Math.floor(timeOfDay);
   const minutes = Math.floor((timeOfDay - hours) * 60);
   date.setHours(hours, minutes, 0, 0);
 
-  const sunPos = SunCalc.getPosition(date, 40.7128, -74.0060);
+  const sunPos = SunCalc.getPosition(date, 12.9716, 77.5946);
   
   // Convert spherical (azimuth/altitude) to Cartesian (x,y,z) for directional light
   const distance = 50;
