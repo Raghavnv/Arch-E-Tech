@@ -71,6 +71,28 @@ export default function Studio() {
   }, [projectId]);
 
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [selectedMaterial, setSelectedMaterial] = useState(null);
+
+  // High-Quality Seamless Texture Library
+  const TEXTURE_LIBRARY = [
+    { id: 't1', name: 'Exposed Red Brick', category: 'Brick', url: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?q=80&w=512&auto=format&fit=crop' },
+    { id: 't2', name: 'Whitewash Brick', category: 'Brick', url: 'https://images.unsplash.com/photo-1517825738774-7de9363ef735?q=80&w=512&auto=format&fit=crop' },
+    { id: 't3', name: 'Raw Concrete', category: 'Concrete', url: 'https://images.unsplash.com/photo-1518241416805-4c60bc577033?q=80&w=512&auto=format&fit=crop' },
+    { id: 't4', name: 'Polished Concrete', category: 'Concrete', url: 'https://images.unsplash.com/photo-1563229646-d2485fc3fce5?q=80&w=512&auto=format&fit=crop' },
+    { id: 't5', name: 'Walnut Hardwood', category: 'Wood', url: 'https://images.unsplash.com/photo-1518174299623-286a11e86014?q=80&w=512&auto=format&fit=crop' },
+    { id: 't6', name: 'Light Oak Board', category: 'Wood', url: 'https://images.unsplash.com/photo-1550993070-5b5c777242d5?q=80&w=512&auto=format&fit=crop' },
+    { id: 't7', name: 'Calacatta Marble', category: 'Stone', url: 'https://images.unsplash.com/photo-1596489370617-64903ff6fb0f?q=80&w=512&auto=format&fit=crop' },
+    { id: 't8', name: 'Dark Slate', category: 'Stone', url: 'https://images.unsplash.com/photo-1584282136015-6d601b38cf78?q=80&w=512&auto=format&fit=crop' },
+    { id: 't9', name: 'Ceramic Hex Tile', category: 'Tile', url: 'https://images.unsplash.com/photo-1515903028308-2c069b1285ee?q=80&w=512&auto=format&fit=crop' },
+    { id: 't10', name: 'Plaster Wall', category: 'Plaster', url: 'https://images.unsplash.com/photo-1587321528620-3b91a78fbff2?q=80&w=512&auto=format&fit=crop' },
+  ];
+
+  const handlePaintWall = (elementId) => {
+    if (!selectedMaterial) return;
+    setCanvasElements(prev => prev.map(el => 
+      el.id === elementId ? { ...el, material: selectedMaterial.url } : el
+    ));
+  };
 
   const generatePDFReport = async () => {
     if (canvasElements.length === 0) {
@@ -391,13 +413,63 @@ export default function Studio() {
           </button>
         </div>
 
-        {/* Conditional Rendering of Canvas Engine using CSS to retain state */}
+        {/* 2D / 3D Canvas Renders */}
         <div className={activeTab === '2D' ? 'absolute inset-0' : 'hidden'}>
           <Canvas2D drawingMode={drawingMode} setCanvasElements={setCanvasElements} />
         </div>
         <div className={activeTab === '3D' ? 'absolute inset-0' : 'hidden'}>
-          <Canvas3D elements={canvasElements} timeOfDay={timeOfDay} />
+          <Canvas3D elements={canvasElements} timeOfDay={timeOfDay} onPaint={handlePaintWall} />
         </div>
+
+        {/* 3D Material Painter Overlay */}
+        {activeTab === '3D' && (
+          <div className="absolute top-24 right-6 w-64 bg-zinc-950/90 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col z-20">
+            <div className="p-4 border-b border-zinc-800">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                Material Painter
+              </h3>
+              <p className="text-[10px] text-zinc-400 mt-1">Select a material, then click a wall to paint.</p>
+            </div>
+            
+            {selectedMaterial && (
+              <div className="p-3 bg-zinc-900 border-b border-zinc-800 flex items-center gap-3">
+                <div className="w-10 h-10 rounded border-2 border-indigo-500 overflow-hidden shrink-0">
+                  <img src={selectedMaterial.url} className="w-full h-full object-cover" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-white">Active Brush</p>
+                  <p className="text-[10px] text-zinc-400">{selectedMaterial.name}</p>
+                </div>
+                <button 
+                  onClick={() => setSelectedMaterial(null)}
+                  className="ml-auto p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            <div className="p-3 h-80 overflow-y-auto custom-scrollbar">
+              <div className="grid grid-cols-2 gap-2">
+                {TEXTURE_LIBRARY.map((mat) => (
+                  <button
+                    key={mat.id}
+                    onClick={() => setSelectedMaterial(mat)}
+                    className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all ${
+                      selectedMaterial?.id === mat.id ? 'border-indigo-500 scale-95' : 'border-zinc-800 hover:border-zinc-500'
+                    }`}
+                  >
+                    <img src={mat.url} alt={mat.name} className="w-full h-full object-cover" />
+                    <div className="absolute inset-x-0 bottom-0 bg-black/60 backdrop-blur-sm p-1.5">
+                      <p className="text-[9px] font-semibold text-white truncate">{mat.name}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* AI Copilot Floating Widget */}
         <div className="absolute bottom-6 right-6 z-40 flex flex-col items-end">

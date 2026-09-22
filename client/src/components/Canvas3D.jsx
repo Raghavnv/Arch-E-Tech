@@ -1,8 +1,10 @@
+import { useState, useEffect } from 'react';
+import * as THREE from 'three';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Grid, Environment } from '@react-three/drei';
 import * as SunCalc from 'suncalc';
 
-function ExtrudedElement({ el }) {
+function ExtrudedElement({ el, onPaint }) {
   // Scale factor to convert pixel units to 3D space units
   const scale = 0.05;
   const length = el.width * scale;
@@ -11,16 +13,39 @@ function ExtrudedElement({ el }) {
   // Height configurations based on element type
   let height = 3; // default wall height (approx 3m)
   let yPos = height / 2;
-  let material;
 
   if (el.type === 'door') {
     height = 2.2; 
     yPos = height / 2;
-    material = <meshStandardMaterial color="#78350f" roughness={0.9} />; // Rich dark wood
   } else if (el.type === 'window') {
     height = 1.2; 
     yPos = 1.5; // Raised off the ground
-    material = (
+  } else if (el.type === 'stairs') {
+    height = 0.5;
+    yPos = height / 2;
+  }
+
+  // Handle Texture Loading dynamically without Suspense crashes
+  const [texture, setTexture] = useState(null);
+  
+  useEffect(() => {
+    if (el.material && el.type === 'wall') {
+      const loader = new THREE.TextureLoader();
+      loader.load(el.material, (tex) => {
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(length / 2, height / 2); // Dynamic scaling based on wall size
+        setTexture(tex);
+      });
+    } else {
+      setTexture(null);
+    }
+  }, [el.material, length, height]);
+
+  let materialProps;
+  if (el.type === 'door') {
+    materialProps = <meshStandardMaterial color="#78350f" roughness={0.9} />;
+  } else if (el.type === 'window') {
+    materialProps = (
       <meshPhysicalMaterial 
         transmission={0.95} 
         opacity={1} 
@@ -29,14 +54,16 @@ function ExtrudedElement({ el }) {
         thickness={0.5} 
         color="#e0f2fe" 
       />
-    ); // Realistic architectural glass
+    );
   } else if (el.type === 'stairs') {
-    height = 0.5;
-    yPos = height / 2;
-    material = <meshStandardMaterial color="#52525b" roughness={0.8} metalness={0.2} />; // Concrete/Steel
+    materialProps = <meshStandardMaterial color="#52525b" roughness={0.8} metalness={0.2} />;
   } else {
-    // Wall
-    material = <meshStandardMaterial color="#fafafa" roughness={1} />; // Matte white plaster
+    // Wall (Textured or Matte)
+    if (texture) {
+      materialProps = <meshStandardMaterial map={texture} roughness={0.7} />;
+    } else {
+      materialProps = <meshStandardMaterial color="#fafafa" roughness={1} />;
+    }
   }
 
   // Convert Fabric.js origin (left-center) to Three.js origin (center-center)
@@ -50,14 +77,20 @@ function ExtrudedElement({ el }) {
       rotation={[0, rotationRad, 0]} 
       castShadow 
       receiveShadow
+      onClick={(e) => {
+        if (el.type === 'wall') {
+          e.stopPropagation();
+          onPaint(el.id);
+        }
+      }}
     >
       <boxGeometry args={[length, height, depth]} />
-      {material}
+      {materialProps}
     </mesh>
   );
 }
 
-export default function Canvas3D({ elements = [], timeOfDay = 12 }) {
+export default function Canvas3D({ elements = [], timeOfDay = 12, onPaint }) {
   // Use SunCalc to calculate sun position (using Bangalore, India coordinates)
   const date = new Date();
   const hours = Math.floor(timeOfDay);
@@ -112,7 +145,7 @@ export default function Canvas3D({ elements = [], timeOfDay = 12 }) {
 
         {/* Dynamically extrude all 2D elements */}
         {elements.map((el, i) => (
-          <ExtrudedElement key={i} el={el} />
+          <ExtrudedElement key={i} el={el} onPaint={onPaint} />
         ))}
         
       </Canvas>
