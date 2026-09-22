@@ -426,7 +426,7 @@ export default function Studio() {
 
         {/* 2D / 3D Canvas Renders */}
         <div className={activeTab === '2D' ? 'absolute inset-0' : 'hidden'}>
-          <Canvas2D drawingMode={drawingMode} setCanvasElements={setCanvasElements} />
+          <Canvas2D elements={canvasElements} drawingMode={drawingMode} setCanvasElements={setCanvasElements} />
         </div>
         <div className={activeTab === '3D' ? 'absolute inset-0' : 'hidden'}>
           <Canvas3D elements={canvasElements} timeOfDay={timeOfDay} onPaint={handlePaintWall} />

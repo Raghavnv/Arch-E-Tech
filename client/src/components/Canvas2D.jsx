@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { fabric } from 'fabric';
 
-export default function Canvas2D({ drawingMode, setCanvasElements }) {
+export default function Canvas2D({ elements, drawingMode, setCanvasElements }) {
   const canvasRef = useRef(null);
   const fabricRef = useRef(null);
   const isDrawing = useRef(false);
@@ -10,6 +10,7 @@ export default function Canvas2D({ drawingMode, setCanvasElements }) {
   const lastPosY = useRef(0);
   const currentLine = useRef(null);
   const startPos = useRef({ x: 0, y: 0 });
+  const hasLoadedElements = useRef(false);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -42,43 +43,6 @@ export default function Canvas2D({ drawingMode, setCanvasElements }) {
       }));
     }
 
-    // Load AI Generative / Upload Draft Elements
-    const draft = localStorage.getItem('draftElements');
-    if (draft) {
-      try {
-        const elements = JSON.parse(draft);
-        elements.forEach(el => {
-          let strokeColor = '#ffffff';
-          if (el.type === 'wall') strokeColor = '#e4e4e7';
-          else if (el.type === 'door') strokeColor = '#facc15';
-          else if (el.type === 'window') strokeColor = '#60a5fa';
-          else if (el.type === 'stairs') strokeColor = '#c084fc';
-
-          const rect = new fabric.Rect({
-            left: el.left,
-            top: el.top,
-            width: el.width,
-            height: el.height,
-            angle: el.angle,
-            fill: strokeColor,
-            originX: 'left',
-            originY: 'center',
-            selectable: true,
-            evented: true,
-            type: el.type,
-            cornerColor: '#ffffff',
-            borderColor: '#ffffff',
-            transparentCorners: false,
-            cornerSize: 8,
-          });
-          canvas.add(rect);
-        });
-        setCanvasElements(elements);
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
     const handleResize = () => {
       canvas.setWidth(window.innerWidth - 320);
       canvas.setHeight(window.innerHeight);
@@ -86,15 +50,17 @@ export default function Canvas2D({ drawingMode, setCanvasElements }) {
     };
 
     const syncElements = () => {
-      const elements = canvas.getObjects().filter(obj => !obj.isGrid).map(obj => ({
+      const currentElements = canvas.getObjects().filter(obj => !obj.isGrid).map(obj => ({
+        id: obj.id || Math.random().toString(36).substr(2, 9), // Keep ID for material mapping
         type: obj.type,
         left: obj.left,
         top: obj.top,
         width: obj.width * (obj.scaleX || 1),
         height: obj.height * (obj.scaleY || 1),
-        angle: obj.angle
+        angle: obj.angle,
+        material: obj.material || null
       }));
-      setCanvasElements(elements);
+      setCanvasElements(currentElements);
     };
 
     canvas.on('object:modified', syncElements);
@@ -166,6 +132,43 @@ export default function Canvas2D({ drawingMode, setCanvasElements }) {
       canvas.dispose();
     };
   }, [setCanvasElements]);
+
+  // Synchronize incoming elements (e.g. from DB or AI) into Fabric once
+  useEffect(() => {
+    const canvas = fabricRef.current;
+    if (!canvas || !elements || elements.length === 0 || hasLoadedElements.current) return;
+
+    elements.forEach(el => {
+      let strokeColor = '#ffffff';
+      if (el.type === 'wall') strokeColor = '#e4e4e7';
+      else if (el.type === 'door') strokeColor = '#facc15';
+      else if (el.type === 'window') strokeColor = '#60a5fa';
+      else if (el.type === 'stairs') strokeColor = '#c084fc';
+
+      const rect = new fabric.Rect({
+        id: el.id || Math.random().toString(36).substr(2, 9),
+        left: el.left,
+        top: el.top,
+        width: el.width,
+        height: el.height,
+        angle: el.angle,
+        fill: strokeColor,
+        originX: 'left',
+        originY: 'center',
+        selectable: true,
+        evented: true,
+        type: el.type,
+        material: el.material || null,
+        cornerColor: '#ffffff',
+        borderColor: '#ffffff',
+        transparentCorners: false,
+        cornerSize: 8,
+      });
+      canvas.add(rect);
+    });
+    canvas.renderAll();
+    hasLoadedElements.current = true;
+  }, [elements]);
 
   // Handle Drawing Mode Changes
   useEffect(() => {
