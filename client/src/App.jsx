@@ -7,6 +7,7 @@ import Auth from './components/Auth';
 import OnboardingCinematic from './components/OnboardingCinematic';
 import HowItWorks from './components/HowItWorks';
 import RenderStudio from './components/RenderStudio';
+import WarRoom from './components/WarRoom';
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
           <Route path="/new-project" element={<NewProject />} />
           <Route path="/studio" element={<Studio />} />
           <Route path="/render-studio" element={<RenderStudio />} />
+          <Route path="/war-room" element={<WarRoom />} />
         </Routes>
       </div>
     </Router>

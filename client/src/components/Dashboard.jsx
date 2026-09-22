@@ -176,9 +176,14 @@ export default function Dashboard() {
                         <span className="bg-zinc-800 text-zinc-300 text-xs font-medium px-2.5 py-1 rounded-full">
                           {project.status || "Draft"}
                         </span>
-                        <Link to={`/studio?projectId=${project.id}`} className="text-xs font-medium text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                          Open Studio →
-                        </Link>
+                        <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Link to={`/war-room?projectId=${project.id}`} className="text-xs font-medium text-zinc-400 hover:text-white transition-colors">
+                            War Room
+                          </Link>
+                          <Link to={`/studio?projectId=${project.id}`} className="text-xs font-medium text-white">
+                            Open Studio →
+                          </Link>
+                        </div>
                       </div>
                     </div>
                   ))}
