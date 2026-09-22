@@ -76,22 +76,20 @@ export default function Studio() {
 
   // High-Quality Seamless Texture Library
   const TEXTURE_LIBRARY = [
-    { id: 't1', name: 'Exposed Red Brick', category: 'Brick', url: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?q=80&w=512&auto=format&fit=crop' },
-    { id: 't2', name: 'Whitewash Brick', category: 'Brick', url: 'https://images.unsplash.com/photo-1517825738774-7de9363ef735?q=80&w=512&auto=format&fit=crop' },
-    { id: 't3', name: 'Raw Concrete', category: 'Concrete', url: 'https://images.unsplash.com/photo-1518241416805-4c60bc577033?q=80&w=512&auto=format&fit=crop' },
-    { id: 't4', name: 'Polished Concrete', category: 'Concrete', url: 'https://images.unsplash.com/photo-1563229646-d2485fc3fce5?q=80&w=512&auto=format&fit=crop' },
-    { id: 't5', name: 'Walnut Hardwood', category: 'Wood', url: 'https://images.unsplash.com/photo-1518174299623-286a11e86014?q=80&w=512&auto=format&fit=crop' },
-    { id: 't6', name: 'Light Oak Board', category: 'Wood', url: 'https://images.unsplash.com/photo-1550993070-5b5c777242d5?q=80&w=512&auto=format&fit=crop' },
-    { id: 't7', name: 'Calacatta Marble', category: 'Stone', url: 'https://images.unsplash.com/photo-1596489370617-64903ff6fb0f?q=80&w=512&auto=format&fit=crop' },
-    { id: 't8', name: 'Dark Slate', category: 'Stone', url: 'https://images.unsplash.com/photo-1584282136015-6d601b38cf78?q=80&w=512&auto=format&fit=crop' },
-    { id: 't9', name: 'Ceramic Hex Tile', category: 'Tile', url: 'https://images.unsplash.com/photo-1515903028308-2c069b1285ee?q=80&w=512&auto=format&fit=crop' },
-    { id: 't10', name: 'Plaster Wall', category: 'Plaster', url: 'https://images.unsplash.com/photo-1587321528620-3b91a78fbff2?q=80&w=512&auto=format&fit=crop' },
+    { id: 't1', name: 'Red Brick', url: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/brick_diffuse.jpg', color: '#b91c1c' },
+    { id: 't2', name: 'Hardwood Floor', url: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/hardwood2_diffuse.jpg', color: '#b45309' },
+    { id: 't3', name: 'Checkerboard Tile', url: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/floors/FloorsCheckerboard_S_Diffuse.jpg', color: '#52525b' },
+    { id: 't4', name: 'Raw Concrete', color: '#94a3b8' },
+    { id: 't5', name: 'White Plaster', color: '#f8fafc' },
+    { id: 't6', name: 'Dark Slate', color: '#334155' },
+    { id: 't7', name: 'Navy Blue Paint', color: '#1e3a8a' },
+    { id: 't8', name: 'Forest Green Paint', color: '#14532d' },
   ];
 
   const handlePaintWall = (elementId) => {
     if (!selectedMaterial) return;
     setCanvasElements(prev => prev.map(el => 
-      el.id === elementId ? { ...el, material: selectedMaterial.url } : el
+      el.id === elementId ? { ...el, material: selectedMaterial.url || selectedMaterial.color, isColor: !selectedMaterial.url } : el
     ));
   };
 
@@ -457,7 +455,7 @@ export default function Studio() {
                 onClick={() => window.dispatchEvent(new CustomEvent('add-furniture', { detail: 'furniture_bed' }))}
                 className="flex items-center gap-3 p-3 bg-zinc-900 hover:bg-zinc-800 rounded-xl border border-zinc-800 transition-colors text-left"
               >
-                <div className="w-8 h-8 rounded bg-slate-800 flex items-center justify-center text-slate-300">🛏️</div>
+                <div className="w-8 h-8 rounded bg-slate-800 flex items-center justify-center text-slate-300 text-xs font-bold">QB</div>
                 <div>
                   <div className="text-xs font-semibold text-white">Queen Bed</div>
                   <div className="text-[10px] text-zinc-500">60" x 80"</div>
@@ -467,7 +465,7 @@ export default function Studio() {
                 onClick={() => window.dispatchEvent(new CustomEvent('add-furniture', { detail: 'furniture_sofa' }))}
                 className="flex items-center gap-3 p-3 bg-zinc-900 hover:bg-zinc-800 rounded-xl border border-zinc-800 transition-colors text-left"
               >
-                <div className="w-8 h-8 rounded bg-indigo-900 flex items-center justify-center text-indigo-300">🛋️</div>
+                <div className="w-8 h-8 rounded bg-indigo-900 flex items-center justify-center text-indigo-300 text-xs font-bold">LS</div>
                 <div>
                   <div className="text-xs font-semibold text-white">Lounge Sofa</div>
                   <div className="text-[10px] text-zinc-500">80" x 35"</div>
@@ -477,7 +475,7 @@ export default function Studio() {
                 onClick={() => window.dispatchEvent(new CustomEvent('add-furniture', { detail: 'furniture_table' }))}
                 className="flex items-center gap-3 p-3 bg-zinc-900 hover:bg-zinc-800 rounded-xl border border-zinc-800 transition-colors text-left"
               >
-                <div className="w-8 h-8 rounded bg-amber-900 flex items-center justify-center text-amber-400">🪑</div>
+                <div className="w-8 h-8 rounded bg-amber-900 flex items-center justify-center text-amber-400 text-xs font-bold">DT</div>
                 <div>
                   <div className="text-xs font-semibold text-white">Dining Table</div>
                   <div className="text-[10px] text-zinc-500">70" x 45"</div>
@@ -500,8 +498,11 @@ export default function Studio() {
             
             {selectedMaterial && (
               <div className="p-3 bg-zinc-900 border-b border-zinc-800 flex items-center gap-3">
-                <div className="w-10 h-10 rounded border-2 border-indigo-500 overflow-hidden shrink-0">
-                  <img src={selectedMaterial.url} className="w-full h-full object-cover" />
+                <div 
+                  className="w-10 h-10 rounded border-2 border-indigo-500 overflow-hidden shrink-0"
+                  style={{ backgroundColor: selectedMaterial.color || '#000' }}
+                >
+                  {selectedMaterial.url && <img src={selectedMaterial.url} className="w-full h-full object-cover" />}
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-white">Active Brush</p>
@@ -522,13 +523,14 @@ export default function Studio() {
                   <button
                     key={mat.id}
                     onClick={() => setSelectedMaterial(mat)}
+                    style={{ backgroundColor: mat.color || '#333' }}
                     className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all ${
                       selectedMaterial?.id === mat.id ? 'border-indigo-500 scale-95' : 'border-zinc-800 hover:border-zinc-500'
                     }`}
                   >
-                    <img src={mat.url} alt={mat.name} className="w-full h-full object-cover" />
-                    <div className="absolute inset-x-0 bottom-0 bg-black/60 backdrop-blur-sm p-1.5">
-                      <p className="text-[9px] font-semibold text-white truncate">{mat.name}</p>
+                    {mat.url && <img src={mat.url} alt={mat.name} className="w-full h-full object-cover" />}
+                    <div className="absolute inset-x-0 bottom-0 bg-black/70 backdrop-blur-md p-1.5 border-t border-white/10">
+                      <p className="text-[9px] font-semibold text-white truncate text-center">{mat.name}</p>
                     </div>
                   </button>
                 ))}

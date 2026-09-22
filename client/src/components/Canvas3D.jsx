@@ -30,16 +30,24 @@ function ExtrudedElement({ el, onPaint }) {
   
   useEffect(() => {
     if (el.material && el.type === 'wall') {
-      const loader = new THREE.TextureLoader();
-      loader.load(el.material, (tex) => {
-        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-        tex.repeat.set(length / 2, height / 2); // Dynamic scaling based on wall size
-        setTexture(tex);
-      });
+      if (el.isColor || !el.material.startsWith('http')) {
+        setTexture(null);
+      } else {
+        const loader = new THREE.TextureLoader();
+        loader.setCrossOrigin('anonymous');
+        loader.load(el.material, (tex) => {
+          tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+          tex.repeat.set(length / 2, height / 2); // Dynamic scaling based on wall size
+          setTexture(tex);
+        }, undefined, (err) => {
+          console.error("Texture load failed", err);
+          setTexture(null);
+        });
+      }
     } else {
       setTexture(null);
     }
-  }, [el.material, length, height]);
+  }, [el.material, length, height, el.isColor]);
 
   let materialProps;
   if (el.type === 'door') {
@@ -61,6 +69,8 @@ function ExtrudedElement({ el, onPaint }) {
     // Wall (Textured or Matte)
     if (texture) {
       materialProps = <meshStandardMaterial map={texture} roughness={0.7} />;
+    } else if (el.isColor && el.material) {
+      materialProps = <meshStandardMaterial color={el.material} roughness={1} />;
     } else {
       materialProps = <meshStandardMaterial color="#fafafa" roughness={1} />;
     }
