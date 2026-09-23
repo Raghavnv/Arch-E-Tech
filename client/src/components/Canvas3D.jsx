@@ -7,8 +7,8 @@ import * as SunCalc from 'suncalc';
 function ExtrudedElement({ el, onPaint }) {
   // Scale factor to convert pixel units to 3D space units
   const scale = 0.05;
-  const length = el.width * scale;
-  const depth = el.height * scale;
+  const length = (el?.width || 0) * scale;
+  const depth = (el?.height || 0) * scale;
   
   // Height configurations based on element type
   let height = 3; // default wall height (approx 3m)
@@ -77,9 +77,9 @@ function ExtrudedElement({ el, onPaint }) {
   }
 
   // Convert Fabric.js origin (left-center) to Three.js origin (center-center)
-  const rotationRad = -(el.angle * Math.PI) / 180; // Fabric rotation is inverted in 3D Z-plane
-  const centerX = (el.left * scale) + (length / 2) * Math.cos(-rotationRad);
-  const centerZ = (el.top * scale) + (length / 2) * Math.sin(-rotationRad);
+  const rotationRad = -((el?.angle || 0) * Math.PI) / 180; // Fabric rotation is inverted in 3D Z-plane
+  const centerX = ((el?.left || 0) * scale) + (length / 2) * Math.cos(-rotationRad);
+  const centerZ = ((el?.top || 0) * scale) + (length / 2) * Math.sin(-rotationRad);
 
   return (
     <mesh 
@@ -102,13 +102,13 @@ function ExtrudedElement({ el, onPaint }) {
 
 function ProceduralFurniture({ el }) {
   const scale = 0.05;
-  const w = el.width * scale;
-  const d = el.height * scale;
-  const rotationRad = -(el.angle * Math.PI) / 180;
+  const w = (el?.width || 0) * scale;
+  const d = (el?.height || 0) * scale;
+  const rotationRad = -((el?.angle || 0) * Math.PI) / 180;
   
   // Fabric origin mapping
-  const centerX = (el.left * scale) + (w / 2) * Math.cos(-rotationRad) - (d / 2) * Math.sin(-rotationRad);
-  const centerZ = (el.top * scale) + (w / 2) * Math.sin(-rotationRad) + (d / 2) * Math.cos(-rotationRad);
+  const centerX = ((el?.left || 0) * scale) + (w / 2) * Math.cos(-rotationRad) - (d / 2) * Math.sin(-rotationRad);
+  const centerZ = ((el?.top || 0) * scale) + (w / 2) * Math.sin(-rotationRad) + (d / 2) * Math.cos(-rotationRad);
 
   if (el.type === 'furniture_bed') {
     return (
@@ -209,13 +209,14 @@ export default function Canvas3D({ elements = [], timeOfDay = 12, onPaint }) {
         <OrbitControls makeDefault />
 
         {/* Dynamically extrude all 2D elements */}
-        {elements.map((el, i) => (
-          el.type.startsWith('furniture_') ? (
+        {elements.map((el, i) => {
+          if (!el) return null;
+          return el.type && el.type.startsWith('furniture_') ? (
             <ProceduralFurniture key={i} el={el} />
           ) : (
             <ExtrudedElement key={i} el={el} onPaint={onPaint} />
           )
-        ))}
+        })}
         
       </Canvas>
     </div>

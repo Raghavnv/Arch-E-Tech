@@ -8,8 +8,8 @@ import { ArrowLeft, CloudRain, Snowflake, Sun, Cloud, Moon, Image as ImageIcon }
 // Isolated high-fidelity element renderer
 function HighFidelityElement({ el }) {
   const scale = 0.05;
-  const length = el.width * scale;
-  const depth = el.height * scale;
+  const length = (el?.width || 0) * scale;
+  const depth = (el?.height || 0) * scale;
   
   let height = 3;
   let yPos = height / 2;
@@ -59,9 +59,9 @@ function HighFidelityElement({ el }) {
     }
   }
 
-  const rotationRad = -(el.angle * Math.PI) / 180;
-  const centerX = (el.left * scale) + (length / 2) * Math.cos(-rotationRad);
-  const centerZ = (el.top * scale) + (length / 2) * Math.sin(-rotationRad);
+  const rotationRad = -((el?.angle || 0) * Math.PI) / 180;
+  const centerX = ((el?.left || 0) * scale) + (length / 2) * Math.cos(-rotationRad);
+  const centerZ = ((el?.top || 0) * scale) + (length / 2) * Math.sin(-rotationRad);
 
   return (
     <mesh position={[centerX, yPos, centerZ]} rotation={[0, rotationRad, 0]} castShadow receiveShadow>
@@ -73,13 +73,13 @@ function HighFidelityElement({ el }) {
 
 function ProceduralFurniture({ el }) {
   const scale = 0.05;
-  const w = el.width * scale;
-  const d = el.height * scale;
-  const rotationRad = -(el.angle * Math.PI) / 180;
+  const w = (el?.width || 0) * scale;
+  const d = (el?.height || 0) * scale;
+  const rotationRad = -((el?.angle || 0) * Math.PI) / 180;
   
   // Fabric origin mapping
-  const centerX = (el.left * scale) + (w / 2) * Math.cos(-rotationRad) - (d / 2) * Math.sin(-rotationRad);
-  const centerZ = (el.top * scale) + (w / 2) * Math.sin(-rotationRad) + (d / 2) * Math.cos(-rotationRad);
+  const centerX = ((el?.left || 0) * scale) + (w / 2) * Math.cos(-rotationRad) - (d / 2) * Math.sin(-rotationRad);
+  const centerZ = ((el?.top || 0) * scale) + (w / 2) * Math.sin(-rotationRad) + (d / 2) * Math.cos(-rotationRad);
 
   if (el.type === 'furniture_bed') {
     return (
@@ -224,13 +224,14 @@ export default function ImmersiveView() {
 
         {/* Render House */}
         <group position={[-20, 0, -15]}>
-          {elements.map((el, i) => (
-            el.type && el.type.startsWith('furniture_') ? (
+          {elements.map((el, i) => {
+            if (!el) return null;
+            return el.type && el.type.startsWith('furniture_') ? (
               <ProceduralFurniture key={i} el={el} />
             ) : (
               <HighFidelityElement key={i} el={el} />
             )
-          ))}
+          })}
         </group>
       </Canvas>
 
