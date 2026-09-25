@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
@@ -40,6 +40,70 @@ export default function Studio() {
   const [isTyping, setIsTyping] = useState(false);
 
   // Fetch project from database or local storage
+  
+  // History & Hotkeys (Undo/Redo)
+  const [history, setHistory] = useState([]);
+  const [historyPointer, setHistoryPointer] = useState(-1);
+  const isUndoing = useRef(false);
+
+  useEffect(() => {
+    if (isUndoing.current) {
+      isUndoing.current = false;
+      return;
+    }
+    // Only save history if it changed
+    if (historyPointer >= 0 && JSON.stringify(history[historyPointer]) === JSON.stringify(canvasElements)) return;
+    
+    setHistory(h => {
+      const newHistory = h.slice(0, historyPointer + 1);
+      newHistory.push(canvasElements);
+      return newHistory.slice(-30); // Store 30 states
+    });
+    setHistoryPointer(p => Math.min(p + 1, 29));
+  }, [canvasElements]);
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+      
+      // Undo / Redo
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          // Redo
+          if (historyPointer < history.length - 1) {
+            isUndoing.current = true;
+            const nextPtr = historyPointer + 1;
+            setHistoryPointer(nextPtr);
+            setCanvasElements(history[nextPtr]);
+          }
+        } else {
+          // Undo
+          if (historyPointer > 0) {
+            isUndoing.current = true;
+            const prevPtr = historyPointer - 1;
+            setHistoryPointer(prevPtr);
+            setCanvasElements(history[prevPtr]);
+          }
+        }
+      }
+      
+      // Hotkeys
+      if (e.key.toLowerCase() === 'w') {
+        setDrawingMode(prev => prev === 'wall' ? null : 'wall');
+      } else if (e.key.toLowerCase() === 'd') {
+        setDrawingMode(prev => prev === 'door' ? null : 'door');
+      } else if (e.key === 'Escape') {
+        setDrawingMode(null);
+      } else if (e.key === ' ') {
+        e.preventDefault();
+        setActiveTab(prev => prev === '2D' ? '3D' : '2D');
+      }
+    };
+    
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [history, historyPointer]);
   
   const calculateCosts = () => {
     let total = 0;
@@ -229,6 +293,33 @@ export default function Studio() {
 
   // Save project to database
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const elementsRef = useRef(canvasElements);
+  
+  useEffect(() => {
+    elementsRef.current = canvasElements;
+  }, [canvasElements]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    const interval = setInterval(async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      try {
+        await fetch(`${API_URL}/api/projects/${projectId}`, {
+          method: 'PUT',
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ elements_data: elementsRef.current })
+        });
+      } catch (e) {
+        // silent fail for autosave
+      }
+    }, 30000); // Auto-save every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [projectId]);
   
   const saveProject = async () => {
     if (!projectId) {

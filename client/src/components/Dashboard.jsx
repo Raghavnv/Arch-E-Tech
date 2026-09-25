@@ -38,6 +38,20 @@ export default function Dashboard() {
   const [activeMenu, setActiveMenu] = useState(null);
   const menuRef = useRef(null);
 
+  // Settings State
+  const [settings, setSettings] = useState({
+    measurement: localStorage.getItem('pref_measurement') || 'metric',
+    currency: localStorage.getItem('pref_currency') || 'INR'
+  });
+  const [saveSettingsSuccess, setSaveSettingsSuccess] = useState(false);
+
+  const handleSaveSettings = () => {
+    localStorage.setItem('pref_measurement', settings.measurement);
+    localStorage.setItem('pref_currency', settings.currency);
+    setSaveSettingsSuccess(true);
+    setTimeout(() => setSaveSettingsSuccess(false), 2000);
+  };
+
   // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -304,17 +318,25 @@ export default function Dashboard() {
                 <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 grid grid-cols-2 gap-6">
                   <div>
                     <label className="block text-xs font-medium text-zinc-500 mb-2">Measurement System</label>
-                    <select className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500 transition-colors appearance-none">
-                      <option>Imperial (Feet & Inches)</option>
-                      <option>Metric (Meters & Centimeters)</option>
+                    <select 
+                      value={settings.measurement}
+                      onChange={(e) => setSettings({...settings, measurement: e.target.value})}
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500 transition-colors appearance-none"
+                    >
+                      <option value="metric">Metric (Meters & Centimeters)</option>
+                      <option value="imperial">Imperial (Feet & Inches)</option>
                     </select>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-zinc-500 mb-2">Default Currency (Cost Estimation)</label>
-                    <select className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500 transition-colors appearance-none">
-                      <option>USD ($)</option>
-                      <option>EUR (€)</option>
-                      <option>INR (₹)</option>
+                    <select 
+                      value={settings.currency}
+                      onChange={(e) => setSettings({...settings, currency: e.target.value})}
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500 transition-colors appearance-none"
+                    >
+                      <option value="INR">INR (₹)</option>
+                      <option value="USD">USD ($)</option>
+                      <option value="EUR">EUR (€)</option>
                     </select>
                   </div>
                 </div>
@@ -354,7 +376,12 @@ export default function Dashboard() {
               </section>
               
               <div className="flex justify-end pt-4">
-                <button className="bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-2.5 rounded-lg font-medium transition-colors shadow-lg">Save Changes</button>
+                <button 
+                  onClick={handleSaveSettings}
+                  className={`px-6 py-2.5 rounded-lg font-medium transition-colors shadow-lg ${saveSettingsSuccess ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-indigo-500 hover:bg-indigo-600 text-white'}`}
+                >
+                  {saveSettingsSuccess ? 'Saved!' : 'Save Changes'}
+                </button>
               </div>
             </div>
           </>
