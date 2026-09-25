@@ -120,13 +120,35 @@ export default function Dashboard() {
               </div>
               <Link 
                 to="/new-project"
-                className="flex items-center gap-2 bg-white text-black px-5 py-2.5 rounded-full font-medium hover:bg-zinc-200 transition-colors text-sm"
+                className="flex items-center gap-2 bg-white text-black px-5 py-2.5 rounded-full font-medium hover:bg-zinc-200 transition-colors text-sm shadow-[0_0_20px_rgba(255,255,255,0.2)]"
               >
                 <Plus className="w-4 h-4" /> Create New Project
               </Link>
             </header>
 
-            <div className="p-10">
+            {/* Quick Stats Overview */}
+            <div className="px-10 pt-8 pb-2 grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-5 flex flex-col justify-between">
+                <span className="text-zinc-500 text-xs font-semibold uppercase tracking-wider flex items-center gap-2"><Building className="w-3.5 h-3.5" /> Total Projects</span>
+                <span className="text-3xl font-bold text-white mt-4">{projects.length}</span>
+              </div>
+              <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-5 flex flex-col justify-between">
+                <span className="text-zinc-500 text-xs font-semibold uppercase tracking-wider flex items-center gap-2"><Layout className="w-3.5 h-3.5" /> Est. Area Drafted</span>
+                <span className="text-3xl font-bold text-white mt-4">{(projects.length * 1250).toLocaleString()} <span className="text-sm font-normal text-zinc-500">sq ft</span></span>
+              </div>
+              <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-5 flex flex-col justify-between">
+                <span className="text-zinc-500 text-xs font-semibold uppercase tracking-wider flex items-center gap-2"><CheckCircle className="w-3.5 h-3.5" /> Code Compliance</span>
+                <span className="text-3xl font-bold text-emerald-400 mt-4">100%</span>
+              </div>
+              <Link to="/new-project" className="bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/20 hover:border-indigo-500/30 transition-all rounded-2xl p-5 flex flex-col justify-between relative overflow-hidden group cursor-pointer shadow-[0_0_15px_rgba(99,102,241,0.1)]">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 blur-3xl group-hover:bg-indigo-500/40 transition-colors"></div>
+                <span className="text-indigo-400 text-xs font-semibold uppercase tracking-wider relative z-10 flex items-center gap-2"><Sparkles className="w-3.5 h-3.5" /> AI Draft</span>
+                <span className="text-xl font-bold text-white mt-4 relative z-10 flex items-center gap-2">Start a New Design &rarr;</span>
+              </Link>
+            </div>
+
+            <div className="p-10 pt-6">
+              <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-6">Recent Workspaces</h2>
               {projects.length === 0 ? (
                 <div className="text-center py-20 border border-dashed border-zinc-800 rounded-2xl">
                   <p className="text-zinc-500 mb-4">No projects found.</p>

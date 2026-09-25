@@ -228,12 +228,18 @@ export default function Studio() {
   };
 
   // Save project to database
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  
   const saveProject = async () => {
-    if (!projectId) return;
+    if (!projectId) {
+      alert("This is an unsaved draft. Generate this from the Dashboard to save to the cloud.");
+      return;
+    }
     setIsSaving(true);
+    setSaveSuccess(false);
     const token = localStorage.getItem('token');
     try {
-      await fetch(`${API_URL}/api/projects/${projectId}`, {
+      const res = await fetch(`${API_URL}/api/projects/${projectId}`, {
         method: 'PUT',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -241,8 +247,13 @@ export default function Studio() {
         },
         body: JSON.stringify({ elements_data: canvasElements })
       });
+      if (res.ok) {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      }
     } catch (e) {
       console.error(e);
+      alert("Failed to save project.");
     } finally {
       setIsSaving(false);
     }
@@ -470,10 +481,10 @@ export default function Studio() {
           <button 
             onClick={saveProject}
             disabled={isSaving}
-            className="flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors bg-white/10 hover:bg-white/20 text-white"
+            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${saveSuccess ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-white/10 hover:bg-white/20 text-white'}`}
           >
-            <Save className="w-3.5 h-3.5" />
-            {isSaving ? 'Saving...' : 'Save Cloud'}
+            {saveSuccess ? <CheckCircle className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+            {isSaving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Cloud'}
           </button>
           
           <button 

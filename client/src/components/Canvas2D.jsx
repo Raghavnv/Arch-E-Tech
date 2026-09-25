@@ -335,12 +335,15 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
       
       // Sync state to parent
       const elements = canvas.getObjects().filter(obj => !obj.isGrid).map(obj => ({
+        id: obj.id || Math.random().toString(36).substr(2, 9),
         type: obj.type,
         left: obj.left,
         top: obj.top,
         width: obj.width * (obj.scaleX || 1),
         height: obj.height * (obj.scaleY || 1),
-        angle: obj.angle
+        angle: obj.angle,
+        material: obj.material || null,
+        isColor: obj.isColor || false
       }));
       setCanvasElements(elements);
     };
