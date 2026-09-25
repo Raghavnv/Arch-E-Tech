@@ -22,39 +22,8 @@ export default function LandingPage() {
         ease: 'power3.out',
         delay: 0.1
       });
-
-      // Features stagger reveal
-      gsap.fromTo('.feature-card', 
-        { y: 50, opacity: 0 },
-        {
-          scrollTrigger: {
-            trigger: '#features',
-            start: 'top 90%',
-          },
-          y: 0,
-          opacity: 1,
-          duration: 0.8,
-          stagger: 0.1,
-          ease: 'power2.out'
-        }
-      );
-
-      // Docs section reveal
-      gsap.fromTo('.tech-step', 
-        { opacity: 0, y: 40, scale: 0.95 },
-        {
-          scrollTrigger: {
-            trigger: '#technology',
-            start: 'top 80%',
-          },
-          opacity: 1,
-          y: 0,
-          scale: 1,
-          duration: 0.8,
-          stagger: 0.2,
-          ease: 'back.out(1.2)'
-        }
-      );
+      
+      // Removed ScrollTrigger for .feature-card and .tech-step because it often fails to fire on smaller screens or when scrolling fast, leaving the cards permanently invisible (opacity 0). 
     });
   }, { scope: containerRef });
 
