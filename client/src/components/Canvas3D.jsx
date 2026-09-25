@@ -5,10 +5,13 @@ import { OrbitControls, Grid, Environment } from '@react-three/drei';
 import * as SunCalc from 'suncalc';
 
 function ExtrudedElement({ el, onPaint }) {
-  // Scale factor to convert pixel units to 3D space units
   const scale = 0.05;
   const length = (el?.width || 0) * scale;
-  const depth = (el?.height || 0) * scale;
+  let depth = (el?.height || 0) * scale;
+  
+  if (el.type === 'door' || el.type === 'window') {
+    depth = depth * 1.5; // Stick out so they don't z-fight with the wall!
+  }
   
   // Height configurations based on element type
   let height = 3; // default wall height (approx 3m)
@@ -55,12 +58,14 @@ function ExtrudedElement({ el, onPaint }) {
   } else if (el.type === 'window') {
     materialProps = (
       <meshPhysicalMaterial 
-        transmission={0.95} 
-        opacity={1} 
-        roughness={0.05} 
+        transmission={0.5} 
+        opacity={0.9} 
+        transparent={true}
+        roughness={0.1} 
+        metalness={0.5}
         ior={1.5} 
         thickness={0.5} 
-        color="#e0f2fe" 
+        color="#60a5fa" 
       />
     );
   } else if (el.type === 'stairs') {

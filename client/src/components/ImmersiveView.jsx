@@ -5,11 +5,14 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Environment, ContactShadows } from '@react-three/drei';
 import { ArrowLeft, CloudRain, Snowflake, Sun, Cloud, Moon, Image as ImageIcon } from 'lucide-react';
 
-// Isolated high-fidelity element renderer
 function HighFidelityElement({ el }) {
   const scale = 0.05;
   const length = (el?.width || 0) * scale;
-  const depth = (el?.height || 0) * scale;
+  let depth = (el?.height || 0) * scale;
+  
+  if (el.type === 'door' || el.type === 'window') {
+    depth = depth * 1.5;
+  }
   
   let height = 3;
   let yPos = height / 2;
@@ -46,7 +49,7 @@ function HighFidelityElement({ el }) {
   } else if (el.type === 'window') {
     materialProps = (
       <meshPhysicalMaterial 
-        transmission={0.98} opacity={1} roughness={0} ior={1.52} thickness={0.5} color="#e0f2fe" 
+        transmission={0.4} opacity={0.9} transparent={true} roughness={0.1} metalness={0.5} ior={1.52} thickness={0.5} color="#3b82f6" 
       />
     );
   } else {

@@ -140,24 +140,21 @@ class AIPrompt(BaseModel):
 async def generate_floor_plan(payload: AIPrompt):
     api_key = os.getenv("GROQ_API_KEY")
     
-    # -----------------------------------------------------------------
-    # PHASE 1: The AI "Lead Architect" (Prompt -> Room Graph)
-    # -----------------------------------------------------------------
-    system_prompt = """You are an expert AI Architectural Interpreter. 
-    The user will give you a prompt for a building. It might be detailed, or it might be absolute nonsense.
-    Your ONLY job is to determine a logical list of rooms needed based on their request.
+    system_prompt = """You are an expert AI Architectural Draftsman.
+    The user will describe a floor plan.
+    Determine the best architectural layout (e.g., 'rectangular', 'l-shaped', 'u-shaped', or 'square') and the exact list of rooms needed based on their request.
     
     Rules:
-    - If they ask for a "3 bedroom house", you need 3 beds + 1 bath + 1 living/kitchen = 5 rooms.
-    - If they type gibberish (e.g. "asdfasdf"), default to a basic 1-bed apartment (2 rooms).
-    - Cap the maximum number of rooms at 12 so it fits on our drafting grid.
+    - If they ask for an "L-shaped house", set shape to "l-shaped".
+    - Cap the maximum number of rooms at 12.
+    - If they type gibberish, default to a 'square' 1-bed apartment (Living Room, Bedroom, Bathroom).
     
     You must output strictly valid JSON matching this schema:
-    { "rooms": ["Living Room", "Kitchen", "Master Bedroom", "Bathroom"] }
-    Output ONLY the JSON object.
+    { "shape": "l-shaped", "rooms": ["Living Room", "Kitchen", "Master Bedroom", "Bathroom"] }
     """
     
-    room_names = ["Main Area"] # Fallback default
+    room_names = ["Main Area"] 
+    shape = "rectangular"
     
     if api_key:
         try:
@@ -175,61 +172,74 @@ async def generate_floor_plan(payload: AIPrompt):
             data = json.loads(raw_text)
             if "rooms" in data and isinstance(data["rooms"], list) and len(data["rooms"]) > 0:
                 room_names = data["rooms"]
+            if "shape" in data:
+                shape = data["shape"]
         except Exception as e:
             print(f"Groq AI Logic Error: {str(e)}")
-            # If AI fails, fallback to a standard 4-room layout
             room_names = ["Living Room", "Kitchen", "Bedroom", "Bathroom"]
 
-    # -----------------------------------------------------------------
-    # PHASE 2: The Python "Draftsman" (Binary Space Partitioning Algorithm)
-    # -----------------------------------------------------------------
+    import uuid
     num_rooms = len(room_names)
     
-    # Base layout dimensions
-    W, H = 800, 600
-    # Start with one giant master rectangle centered on the canvas
-    rects = [{"x": 100, "y": 100, "w": W, "h": H, "name": room_names[0]}]
+    # Base layout dimensions based on shape
+    rects = []
+    
+    if shape == "l-shaped":
+        # Create an L-shape by starting with two large rectangles
+        rects = [
+            {"x": 100, "y": 100, "w": 400, "h": 600, "name": "Wing A"},
+            {"x": 500, "y": 400, "w": 400, "h": 300, "name": "Wing B"}
+        ]
+    elif shape == "u-shaped":
+        rects = [
+            {"x": 100, "y": 100, "w": 200, "h": 600, "name": "Left Wing"},
+            {"x": 300, "y": 500, "w": 400, "h": 200, "name": "Center"},
+            {"x": 700, "y": 100, "w": 200, "h": 600, "name": "Right Wing"}
+        ]
+    else:
+        # Default rectangular
+        rects = [{"x": 100, "y": 100, "w": 800, "h": 600, "name": "Main Building"}]
     
     # Recursively split the largest room until we have enough rooms
-    room_idx = 1
+    room_idx = 0
+    
+    # Assign names to initial rects
+    for i, r in enumerate(rects):
+        if room_idx < len(room_names):
+            r["name"] = room_names[room_idx]
+            room_idx += 1
+            
     while len(rects) < num_rooms:
-        # Find the largest rectangle by area
         rects.sort(key=lambda r: r["w"] * r["h"], reverse=True)
         largest = rects.pop(0)
         
-        # Determine split direction based on aspect ratio
         if largest["w"] > largest["h"]:
-            # Split vertically
             w1 = largest["w"] / 2
             rects.append({"x": largest["x"], "y": largest["y"], "w": w1, "h": largest["h"], "name": largest["name"]})
             rects.append({"x": largest["x"] + w1, "y": largest["y"], "w": w1, "h": largest["h"], "name": room_names[room_idx]})
         else:
-            # Split horizontally
             h1 = largest["h"] / 2
             rects.append({"x": largest["x"], "y": largest["y"], "w": largest["w"], "h": h1, "name": largest["name"]})
             rects.append({"x": largest["x"], "y": largest["y"] + h1, "w": largest["w"], "h": h1, "name": room_names[room_idx]})
         room_idx += 1
 
-    # Convert the partitioned rectangles into physical wall, door, and window elements
     elements = []
     
     for r in rects:
         x, y, w, h = r["x"], r["y"], r["w"], r["h"]
         
-        # Draw the 4 walls of the room
-        elements.append({"type": "wall", "left": x, "top": y, "width": w, "height": 8, "angle": 0})          # Top
-        elements.append({"type": "wall", "left": x, "top": y + h, "width": w, "height": 8, "angle": 0})      # Bottom
-        elements.append({"type": "wall", "left": x, "top": y, "width": h, "height": 8, "angle": 90})         # Left
-        elements.append({"type": "wall", "left": x + w, "top": y, "width": h, "height": 8, "angle": 90})     # Right
+        elements.append({"id": str(uuid.uuid4())[:8], "type": "wall", "left": x, "top": y, "width": w, "height": 8, "angle": 0})
+        elements.append({"id": str(uuid.uuid4())[:8], "type": "wall", "left": x, "top": y + h, "width": w, "height": 8, "angle": 0})
+        elements.append({"id": str(uuid.uuid4())[:8], "type": "wall", "left": x, "top": y, "width": h, "height": 8, "angle": 90})
+        elements.append({"id": str(uuid.uuid4())[:8], "type": "wall", "left": x + w, "top": y, "width": h, "height": 8, "angle": 90})
         
-        # Place an interior door on the bottom wall (slightly off-center to look natural)
-        elements.append({"type": "door", "left": x + (w / 2) - 30, "top": y + h, "width": 60, "height": 4, "angle": 0})
+        elements.append({"id": str(uuid.uuid4())[:8], "type": "door", "left": x + (w / 2) - 30, "top": y + h, "width": 60, "height": 4, "angle": 0})
         
-        # Add exterior windows if the room touches the outside boundary of the house
-        if y == 100: # Top outer edge
-            elements.append({"type": "window", "left": x + (w / 2) - 40, "top": y, "width": 80, "height": 4, "angle": 0})
-        if x == 100: # Left outer edge
-            elements.append({"type": "window", "left": x, "top": y + (h / 2) - 40, "width": 80, "height": 4, "angle": 90})
+        # Add exterior windows heuristically
+        if y == 100:
+            elements.append({"id": str(uuid.uuid4())[:8], "type": "window", "left": x + (w / 2) - 40, "top": y, "width": 80, "height": 4, "angle": 0})
+        if x == 100:
+            elements.append({"id": str(uuid.uuid4())[:8], "type": "window", "left": x, "top": y + (h / 2) - 40, "width": 80, "height": 4, "angle": 90})
 
     return {
         "status": "success",
