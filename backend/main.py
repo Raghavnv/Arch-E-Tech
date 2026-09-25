@@ -408,3 +408,4 @@ async def generate_report_narrative(payload: ReportRequest):
     except Exception as e:
         print(f"Groq Report Error: {str(e)}")
         return {"status": "error", "narrative": "Failed to generate report narrative."}
+# Trigger Render deployment after rollback
