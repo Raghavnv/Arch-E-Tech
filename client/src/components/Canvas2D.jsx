@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { fabric } from 'fabric';
 
-export default function Canvas2D({ elements, drawingMode, setCanvasElements }) {
+export default function Canvas2D({ elements, drawingMode, setCanvasElements, blueprintMode }) {
   const canvasRef = useRef(null);
   const fabricRef = useRef(null);
   const isDrawing = useRef(false);
@@ -11,6 +11,35 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements }) {
   const currentLine = useRef(null);
   const startPos = useRef({ x: 0, y: 0 });
   const hasLoadedElements = useRef(false);
+  
+  // Update Background and Styles on blueprintMode change
+  useEffect(() => {
+    if (fabricRef.current) {
+      const canvas = fabricRef.current;
+      canvas.backgroundColor = blueprintMode ? '#1e3a8a' : '#09090b';
+      
+      canvas.getObjects().forEach(obj => {
+        if (obj.isGrid) {
+          obj.set('stroke', blueprintMode ? '#3b82f6' : '#18181b');
+          obj.set('opacity', blueprintMode ? 0.3 : 1);
+        } else if (obj.type === 'wall') {
+          obj.set('fill', blueprintMode ? 'transparent' : '#e4e4e7');
+          obj.set('stroke', blueprintMode ? '#ffffff' : '#e4e4e7');
+          obj.set('strokeWidth', blueprintMode ? 2 : 1);
+        } else if (obj.type === 'door') {
+          obj.set('fill', blueprintMode ? 'transparent' : '#facc15');
+          obj.set('stroke', blueprintMode ? '#facc15' : '#facc15');
+          obj.set('strokeWidth', blueprintMode ? 2 : 1);
+        } else if (obj.type === 'window') {
+          obj.set('fill', blueprintMode ? 'transparent' : '#60a5fa');
+          obj.set('stroke', blueprintMode ? '#60a5fa' : '#60a5fa');
+          obj.set('strokeWidth', blueprintMode ? 2 : 1);
+        }
+      });
+      
+      canvas.renderAll();
+    }
+  }, [blueprintMode, elements]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -19,7 +48,7 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements }) {
     fabricRef.current = new fabric.Canvas(canvasRef.current, {
       width: window.innerWidth - 320,
       height: window.innerHeight,
-      backgroundColor: '#09090b',
+      backgroundColor: blueprintMode ? '#1e3a8a' : '#09090b',
       selectionColor: 'rgba(255,255,255,0.1)',
       selectionBorderColor: 'rgba(255,255,255,0.3)',
       selectionLineWidth: 1,

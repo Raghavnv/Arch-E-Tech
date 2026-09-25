@@ -26,6 +26,11 @@ export default function Studio() {
   const [isSaving, setIsSaving] = useState(false);
   const [complianceResult, setComplianceResult] = useState(null);
   
+  // New Features State
+  const [showCostModal, setShowCostModal] = useState(false);
+  const [blueprintMode, setBlueprintMode] = useState(false);
+  const [walkthroughMode, setWalkthroughMode] = useState(false);
+  
   // Chat Copilot State
   const [chatOpen, setChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
@@ -35,6 +40,54 @@ export default function Studio() {
   const [isTyping, setIsTyping] = useState(false);
 
   // Fetch project from database or local storage
+  
+  const calculateCosts = () => {
+    let total = 0;
+    const breakdown = [];
+    
+    const rates = {
+      wall: 120, // per meter
+      door: 350,
+      window: 250,
+      furniture_bed: 800,
+      furniture_sofa: 1200,
+      furniture_table: 600,
+      stairs: 2500
+    };
+
+    let counts = {};
+    canvasElements.forEach(el => {
+      if (el.isGrid) return;
+      const type = el.type || 'unknown';
+      if (!counts[type]) counts[type] = { count: 0, length: 0, cost: 0 };
+      
+      let itemCost = 0;
+      if (type === 'wall') {
+        const lengthMeters = (el.width || 0) * 0.05;
+        itemCost = lengthMeters * rates.wall;
+        counts[type].length += lengthMeters;
+      } else {
+        itemCost = rates[type] || 100;
+        counts[type].count += 1;
+      }
+      
+      counts[type].cost += itemCost;
+      total += itemCost;
+    });
+
+    Object.keys(counts).forEach(key => {
+      breakdown.push({
+        type: key.replace('furniture_', '').toUpperCase(),
+        qty: key === 'wall' ? `${counts[key].length.toFixed(1)}m` : counts[key].count,
+        cost: Math.round(counts[key].cost)
+      });
+    });
+
+    return { total: Math.round(total), breakdown };
+  };
+
+  const costData = calculateCosts();
+
   useEffect(() => {
     const loadData = async () => {
       // First try to load draft if it exists (prioritize freshly generated AI drafts)
@@ -337,9 +390,12 @@ export default function Studio() {
                 <span className="flex items-center gap-2 text-zinc-300"><MessageSquare className="w-4 h-4 text-white" /> Code Compliance RAG</span>
                 <ChevronRight className="w-3 h-3 text-zinc-600" />
               </button>
-              <button className="w-full flex items-center justify-between bg-zinc-900 hover:bg-zinc-800 transition-colors p-3 rounded-lg border border-zinc-800 text-left text-xs">
+              <button 
+                onClick={() => setShowCostModal(true)}
+                className="w-full flex items-center justify-between bg-zinc-900 hover:bg-zinc-800 transition-colors p-3 rounded-lg border border-zinc-800 text-left text-xs"
+              >
                 <span className="flex items-center gap-2 text-zinc-300"><Calculator className="w-4 h-4 text-white" /> Live Cost Takeoff</span>
-                <span className="text-emerald-400 font-mono">$0</span>
+                <span className="text-emerald-400 font-mono">${costData.total.toLocaleString()}</span>
               </button>
             </div>
           </div>
@@ -432,12 +488,32 @@ export default function Studio() {
           </button>
         </div>
 
+        {/* Dynamic Feature Toggles */}
+        <div className="absolute bottom-6 left-6 z-20 flex gap-2">
+          {activeTab === '2D' && (
+            <button
+              onClick={() => setBlueprintMode(!blueprintMode)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${blueprintMode ? 'bg-blue-600 text-white border border-blue-500 shadow-[0_0_15px_rgba(37,99,235,0.5)]' : 'bg-zinc-900 text-zinc-400 border border-zinc-800 hover:text-white'}`}
+            >
+              <FileText className="w-4 h-4" /> Blueprint Mode
+            </button>
+          )}
+          {activeTab === '3D' && (
+            <button
+              onClick={() => setWalkthroughMode(!walkthroughMode)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${walkthroughMode ? 'bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'bg-zinc-900 text-zinc-400 border border-zinc-800 hover:text-white'}`}
+            >
+              <Eye className="w-4 h-4" /> First-Person Walkthrough
+            </button>
+          )}
+        </div>
+
         {/* 2D / 3D Canvas Renders */}
         <div className={activeTab === '2D' ? 'absolute inset-0' : 'hidden'}>
-          <Canvas2D elements={canvasElements} drawingMode={drawingMode} setCanvasElements={setCanvasElements} />
+          <Canvas2D elements={canvasElements} drawingMode={drawingMode} setCanvasElements={setCanvasElements} blueprintMode={blueprintMode} />
         </div>
         <div className={activeTab === '3D' ? 'absolute inset-0' : 'hidden'}>
-          <Canvas3D elements={canvasElements} timeOfDay={timeOfDay} onPaint={handlePaintWall} />
+          <Canvas3D elements={canvasElements} timeOfDay={timeOfDay} onPaint={handlePaintWall} walkthroughMode={walkthroughMode} />
         </div>
 
         {/* 2D Furniture Catalog Overlay */}
@@ -629,6 +705,65 @@ export default function Studio() {
           </button>
         </div>
       </main>
+
+      {/* Cost Takeoff Modal */}
+      {showCostModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-md p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-start justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                  <Calculator className="w-5 h-5 text-emerald-500" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Cost Breakdown</h3>
+                  <p className="text-xs text-zinc-400">Live Bill of Quantities</p>
+                </div>
+              </div>
+              <button onClick={() => setShowCostModal(false)} className="text-zinc-500 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="bg-zinc-900 rounded-lg p-4 max-h-60 overflow-y-auto custom-scrollbar">
+              {costData.breakdown.length === 0 ? (
+                <p className="text-zinc-500 text-sm text-center py-4">No elements added to the design yet.</p>
+              ) : (
+                <table className="w-full text-sm text-left text-zinc-300">
+                  <thead className="text-xs text-zinc-500 uppercase border-b border-zinc-800">
+                    <tr>
+                      <th className="pb-2 font-medium">Element</th>
+                      <th className="pb-2 font-medium text-right">Qty</th>
+                      <th className="pb-2 font-medium text-right">Cost</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/50">
+                    {costData.breakdown.map((item, idx) => (
+                      <tr key={idx}>
+                        <td className="py-3 font-medium text-zinc-200">{item.type}</td>
+                        <td className="py-3 text-right text-zinc-400">{item.qty}</td>
+                        <td className="py-3 text-right text-emerald-400 font-mono">${item.cost.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            
+            <div className="mt-4 pt-4 border-t border-zinc-800 flex justify-between items-center">
+              <span className="text-zinc-400 text-sm font-medium">Total Estimated Cost</span>
+              <span className="text-2xl font-bold text-white tracking-tight">${costData.total.toLocaleString()}</span>
+            </div>
+            
+            <button 
+              onClick={() => setShowCostModal(false)}
+              className="w-full mt-6 py-3 rounded-xl bg-white text-black font-semibold hover:bg-zinc-200 transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Compliance Modal */}
       {complianceResult && (

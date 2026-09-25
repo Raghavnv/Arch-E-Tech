@@ -160,13 +160,12 @@ function ProceduralFurniture({ el }) {
   return null;
 }
 
-export default function Canvas3D({ elements = [], timeOfDay = 12, onPaint }) {
+export default function Canvas3D({ elements = [], timeOfDay = 12, onPaint, walkthroughMode = false }) {
   // Use SunCalc to calculate sun position (using Bangalore, India coordinates)
   const date = new Date();
   const hours = Math.floor(timeOfDay);
   const minutes = Math.floor((timeOfDay - hours) * 60);
   date.setHours(hours, minutes, 0, 0);
-
   const sunPos = SunCalc.getPosition(date, 12.9716, 77.5946);
   
   // Convert spherical (azimuth/altitude) to Cartesian (x,y,z) for directional light
@@ -182,7 +181,13 @@ export default function Canvas3D({ elements = [], timeOfDay = 12, onPaint }) {
   
   return (
     <div className="absolute inset-0 bg-zinc-950">
-      <Canvas camera={{ position: [0, 20, 20], fov: 50 }} shadows>
+      <Canvas 
+        camera={{ 
+          position: walkthroughMode ? [0, 1.7, 5] : [0, 20, 20], 
+          fov: walkthroughMode ? 75 : 50 
+        }} 
+        shadows
+      >
         <color attach="background" args={['#09090b']} />
         
         <ambientLight intensity={sunPos.altitude > 0 ? 0.4 : 0.1} />
@@ -211,7 +216,19 @@ export default function Canvas3D({ elements = [], timeOfDay = 12, onPaint }) {
           cellSize={0.5}
         />
         
-        <OrbitControls makeDefault />
+        {walkthroughMode ? (
+          <OrbitControls 
+            makeDefault 
+            target={[0, 1.7, 0]} 
+            maxPolarAngle={Math.PI / 2} 
+            minPolarAngle={Math.PI / 2.5}
+            minDistance={0.1}
+            maxDistance={100}
+            enablePan={true}
+          />
+        ) : (
+          <OrbitControls makeDefault />
+        )}
 
         {/* Dynamically extrude all 2D elements */}
         {elements.map((el, i) => {
