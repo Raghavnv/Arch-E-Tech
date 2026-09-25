@@ -54,11 +54,11 @@ function HighFidelityElement({ el }) {
     );
   } else {
     if (texture) {
-      materialProps = <meshStandardMaterial map={texture} roughness={0.8} />;
+      materialProps = <meshStandardMaterial key={texture.uuid} map={texture} roughness={0.8} />;
     } else if (el.isColor && el.material) {
-      materialProps = <meshStandardMaterial color={el.material} roughness={1} />;
+      materialProps = <meshStandardMaterial key={el.material} color={el.material} roughness={1} />;
     } else {
-      materialProps = <meshStandardMaterial color="#f4f4f5" roughness={1} />;
+      materialProps = <meshStandardMaterial key="default" color="#f4f4f5" roughness={1} />;
     }
   }
 

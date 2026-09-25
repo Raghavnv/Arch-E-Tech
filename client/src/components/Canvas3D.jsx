@@ -73,11 +73,11 @@ function ExtrudedElement({ el, onPaint }) {
   } else {
     // Wall (Textured or Matte)
     if (texture) {
-      materialProps = <meshStandardMaterial map={texture} roughness={0.7} />;
+      materialProps = <meshStandardMaterial key={texture.uuid} map={texture} roughness={0.7} />;
     } else if (el.isColor && el.material) {
-      materialProps = <meshStandardMaterial color={el.material} roughness={1} />;
+      materialProps = <meshStandardMaterial key={el.material} color={el.material} roughness={1} />;
     } else {
-      materialProps = <meshStandardMaterial color="#fafafa" roughness={1} />;
+      materialProps = <meshStandardMaterial key="default" color="#fafafa" roughness={1} />;
     }
   }
 

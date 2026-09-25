@@ -30,6 +30,9 @@ export default function Studio() {
   const [showCostModal, setShowCostModal] = useState(false);
   const [blueprintMode, setBlueprintMode] = useState(false);
   const [walkthroughMode, setWalkthroughMode] = useState(false);
+  const prefCurrency = localStorage.getItem("pref_currency") || "INR";
+  const prefMeasurement = localStorage.getItem("pref_measurement") || "metric";
+  const currencySymbol = prefCurrency === "USD" ? "$" : prefCurrency === "EUR" ? "€" : "₹";
   
   // Chat Copilot State
   const [chatOpen, setChatOpen] = useState(false);
@@ -109,14 +112,16 @@ export default function Studio() {
     let total = 0;
     const breakdown = [];
     
+    const multiplier = prefCurrency === 'INR' ? 83 : prefCurrency === 'EUR' ? 0.9 : 1;
+
     const rates = {
-      wall: 120, // per meter
-      door: 350,
-      window: 250,
-      furniture_bed: 800,
-      furniture_sofa: 1200,
-      furniture_table: 600,
-      stairs: 2500
+      wall: 120 * multiplier, // per meter
+      door: 350 * multiplier,
+      window: 250 * multiplier,
+      furniture_bed: 800 * multiplier,
+      furniture_sofa: 1200 * multiplier,
+      furniture_table: 600 * multiplier,
+      stairs: 2500 * multiplier
     };
 
     let counts = {};
@@ -140,9 +145,12 @@ export default function Studio() {
     });
 
     Object.keys(counts).forEach(key => {
+      const unit = prefMeasurement === 'imperial' ? 'ft' : 'm';
+      const wallQty = prefMeasurement === 'imperial' ? (counts[key].length * 3.28084).toFixed(1) : counts[key].length.toFixed(1);
+      
       breakdown.push({
         type: key.replace('furniture_', '').toUpperCase(),
-        qty: key === 'wall' ? `${counts[key].length.toFixed(1)}m` : counts[key].count,
+        qty: key === 'wall' ? `${wallQty}${unit}` : counts[key].count,
         cost: Math.round(counts[key].cost)
       });
     });
@@ -844,7 +852,7 @@ export default function Studio() {
                       <tr key={idx}>
                         <td className="py-3 font-medium text-zinc-200">{item.type}</td>
                         <td className="py-3 text-right text-zinc-400">{item.qty}</td>
-                        <td className="py-3 text-right text-emerald-400 font-mono">${item.cost.toLocaleString()}</td>
+                        <td className="py-3 text-right text-emerald-400 font-mono">{currencySymbol}{item.cost.toLocaleString()}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -854,7 +862,7 @@ export default function Studio() {
             
             <div className="mt-4 pt-4 border-t border-zinc-800 flex justify-between items-center">
               <span className="text-zinc-400 text-sm font-medium">Total Estimated Cost</span>
-              <span className="text-2xl font-bold text-white tracking-tight">${costData.total.toLocaleString()}</span>
+              <span className="text-2xl font-bold text-white tracking-tight">{currencySymbol}{costData.total.toLocaleString()}</span>
             </div>
             
             <button 
