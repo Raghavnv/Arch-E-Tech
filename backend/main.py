@@ -164,7 +164,7 @@ async def generate_floor_plan(payload: AIPrompt):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": payload.prompt}
                 ],
-                model="llama3-70b-8192",
+                model="openai/gpt-oss-20b",
                 temperature=0.2,
                 response_format={"type": "json_object"}
             )
