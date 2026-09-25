@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, LayoutDashboard, Settings, LogOut, Clock, MoreVertical, Layout, Building, Trash2, Copy, FileText, Share2, Edit2, Eye, Key, Globe, User } from 'lucide-react';
+import { Plus, LayoutDashboard, Settings, LogOut, Clock, MoreVertical, Layout, Building, Trash2, Copy, FileText, Share2, Edit2, Eye, Key, Globe, User, CheckCircle, Sparkles } from 'lucide-react';
 
 export default function Dashboard() {
   const navigate = useNavigate();

@@ -106,7 +106,7 @@ export default function Auth() {
       )}
 
       {/* Left Panel: Graphic/Branding */}
-      <div className="hidden lg:flex flex-1 relative bg-zinc-950 flex-col items-center justify-center border-r border-zinc-900 overflow-hidden">
+      <div className="hidden lg:flex flex-1 relative bg-transparent/20 backdrop-blur-md flex-col items-center justify-center border-r border-zinc-900 overflow-hidden">
         {/* Abstract Architectural Grid Background */}
         <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(#18181b 1px, transparent 1px), linear-gradient(90deg, #18181b 1px, transparent 1px)', backgroundSize: '40px 40px', opacity: 0.5 }}></div>
         
