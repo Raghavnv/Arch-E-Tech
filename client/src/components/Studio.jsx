@@ -260,7 +260,7 @@ export default function Studio() {
   };
 
   return (
-    <div className="h-screen w-screen flex overflow-hidden font-sans bg-black text-zinc-100">
+    <div className="h-screen w-screen flex overflow-hidden font-sans bg-transparent text-zinc-100">
       
       {/* Left Sidebar - Project Metrics & Tools */}
       <aside className="w-80 bg-zinc-950 border-r border-zinc-800 flex flex-col z-10 shrink-0">

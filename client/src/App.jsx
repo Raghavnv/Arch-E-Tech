@@ -9,11 +9,13 @@ import HowItWorks from './components/HowItWorks';
 import RenderStudio from './components/RenderStudio';
 import WarRoom from './components/WarRoom';
 import ImmersiveView from './components/ImmersiveView';
+import BackgroundPattern from './components/BackgroundPattern';
 
 function App() {
   return (
     <Router>
-      <div className="min-h-screen bg-black text-zinc-100 font-sans selection:bg-white selection:text-black">
+      <div className="min-h-screen bg-transparent text-zinc-100 font-sans selection:bg-white selection:text-black">
+        <BackgroundPattern />
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/how-it-works" element={<HowItWorks />} />

@@ -119,7 +119,7 @@ export default function WarRoom() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-zinc-950 text-zinc-100 font-sans overflow-hidden">
+    <div className="flex flex-col h-screen bg-transparent text-zinc-100 font-sans overflow-hidden">
       
       {/* Top Navigation */}
       <header className="h-16 border-b border-zinc-800 bg-black flex items-center justify-between px-6 z-20 shrink-0">

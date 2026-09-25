@@ -90,7 +90,7 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-zinc-100 flex font-sans relative">
+    <div className="min-h-screen bg-transparent text-zinc-100 flex font-sans relative">
       
       {/* Custom Error Toast */}
       {error && (

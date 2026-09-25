@@ -35,7 +35,7 @@ export default function NewProject() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-zinc-100 flex items-center justify-center p-6 font-sans">
+    <div className="min-h-screen bg-transparent text-zinc-100 flex items-center justify-center p-6 font-sans">
       <div className="max-w-4xl w-full">
         <button 
           type="button"

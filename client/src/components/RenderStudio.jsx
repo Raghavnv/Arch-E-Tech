@@ -49,7 +49,7 @@ export default function RenderStudio() {
   };
 
   return (
-    <div className="flex h-screen bg-black text-zinc-100 font-sans overflow-hidden">
+    <div className="flex h-screen bg-transparent text-zinc-100 font-sans overflow-hidden">
       
       {/* Sidebar Controls */}
       <aside className="w-80 border-r border-zinc-800 bg-zinc-950 flex flex-col z-20">

@@ -69,7 +69,7 @@ export default function HowItWorks() {
   }, []);
 
   return (
-    <div className="bg-black min-h-screen text-white font-sans overflow-hidden">
+    <div className="bg-transparent min-h-screen text-white font-sans overflow-hidden">
       
       {/* Navigation */}
       <nav className="fixed top-0 w-full p-6 z-50 flex items-center justify-between pointer-events-none">

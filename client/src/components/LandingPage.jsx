@@ -102,7 +102,7 @@ export default function LandingPage() {
   ];
 
   return (
-    <div ref={containerRef} className="min-h-screen bg-black text-zinc-300 font-sans selection:bg-zinc-800">
+    <div ref={containerRef} className="min-h-screen bg-transparent text-zinc-300 font-sans selection:bg-zinc-800">
       {/* Navigation */}
       <nav className="flex items-center justify-between px-8 py-6 border-b border-white/10 backdrop-blur-md fixed top-0 w-full z-50">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>

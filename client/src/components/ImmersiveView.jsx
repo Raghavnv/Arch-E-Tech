@@ -202,7 +202,7 @@ export default function ImmersiveView() {
   ];
 
   return (
-    <div className="w-screen h-screen bg-black relative overflow-hidden font-sans">
+    <div className="w-screen h-screen bg-transparent relative overflow-hidden font-sans">
       
       {/* 3D Canvas */}
       <Canvas camera={{ position: [0, 5, 20], fov: 60 }} shadows>
