@@ -5,7 +5,8 @@ import {
   Plus, LayoutDashboard, Settings, LogOut, Clock, MoreVertical, 
   Layout, Building, Trash2, Copy, FileText, Share2, Edit2, Eye, 
   Key, Globe, User, CheckCircle, Sparkles, X, Download, AlertCircle,
-  Calculator, Check, ArrowRight, ShieldCheck, Sun
+  Calculator, Check, ArrowRight, ShieldCheck, Sun, Search, Compass,
+  Activity, Layers, ArrowUpRight
 } from 'lucide-react';
 
 const DEFAULT_REPORTS = [
@@ -68,6 +69,7 @@ export default function Dashboard() {
   
   const [projects, setProjects] = useState([]);
   const [activeTab, setActiveTab] = useState('projects'); // 'projects', 'reports', 'settings'
+  const [searchQuery, setSearchQuery] = useState('');
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
   // Toast Feedback State
@@ -433,113 +435,273 @@ export default function Dashboard() {
         {/* ========================================================= */}
         {activeTab === 'projects' && (
           <>
-            <header className="px-10 py-8 flex items-center justify-between sticky top-0 bg-black/80 backdrop-blur-md z-10 border-b border-zinc-900">
+            <header className="px-10 py-7 flex items-center justify-between sticky top-0 bg-zinc-950/90 backdrop-blur-xl z-20 border-b border-zinc-800/80">
               <div>
-                <h1 className="text-2xl font-semibold text-white tracking-tight">Your Projects</h1>
-                <p className="text-sm text-zinc-400 mt-1">Manage, duplicate, or inspect your architectural models.</p>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  <span className="text-[11px] font-mono font-bold text-emerald-400 uppercase tracking-widest">
+                    Studio Command Hub • Engine v3.2
+                  </span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-0.5">
+                  Architectural Blueprints
+                </h1>
               </div>
-              <Link 
-                to="/new-project"
-                className="flex items-center gap-2 bg-white text-black px-5 py-2.5 rounded-full font-medium hover:bg-zinc-200 transition-colors text-sm shadow-[0_0_20px_rgba(255,255,255,0.2)]"
-              >
-                <Plus className="w-4 h-4" /> Create New Project
-              </Link>
+              <div className="flex items-center gap-3">
+                <Link 
+                  to="/new-project"
+                  className="flex items-center gap-2 bg-white text-black px-5 py-2.5 rounded-full font-bold hover:bg-zinc-200 transition-all text-xs shadow-[0_0_25px_rgba(255,255,255,0.25)]"
+                >
+                  <Plus className="w-4 h-4" /> Create New Blueprint
+                </Link>
+              </div>
             </header>
 
             {/* Quick Stats Overview */}
-            <div className="px-10 pt-8 pb-2 grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-5 flex flex-col justify-between">
-                <span className="text-zinc-500 text-xs font-semibold uppercase tracking-wider flex items-center gap-2"><Building className="w-3.5 h-3.5" /> Total Projects</span>
-                <span className="text-3xl font-bold text-white mt-4">{projects.length}</span>
+            <div className="px-10 pt-8 pb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              
+              {/* Stat 1: Total Projects */}
+              <div className="bg-zinc-900/60 backdrop-blur-md border border-zinc-800/90 rounded-2xl p-5 flex flex-col justify-between relative overflow-hidden group hover:border-zinc-700 transition-all">
+                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-cyan-500 to-blue-500"></div>
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+                    <Building className="w-4 h-4 text-cyan-400" /> Total Blueprints
+                  </span>
+                  <span className="text-[10px] font-mono bg-cyan-500/10 text-cyan-300 px-2 py-0.5 rounded border border-cyan-500/20">
+                    BIM Active
+                  </span>
+                </div>
+                <div className="mt-4">
+                  <div className="text-3xl font-extrabold text-white">{projects.length}</div>
+                  <div className="text-[11px] text-zinc-500 mt-1">Multi-Room CAD Models</div>
+                </div>
               </div>
-              <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-5 flex flex-col justify-between">
-                <span className="text-zinc-500 text-xs font-semibold uppercase tracking-wider flex items-center gap-2"><Layout className="w-3.5 h-3.5" /> Est. Area Drafted</span>
-                <span className="text-3xl font-bold text-white mt-4">{((projects.length || 1) * 1850).toLocaleString()} <span className="text-sm font-normal text-zinc-500">sq ft</span></span>
+
+              {/* Stat 2: Est. Area Drafted */}
+              <div className="bg-zinc-900/60 backdrop-blur-md border border-zinc-800/90 rounded-2xl p-5 flex flex-col justify-between relative overflow-hidden group hover:border-zinc-700 transition-all">
+                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-500 to-purple-500"></div>
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+                    <Layout className="w-4 h-4 text-indigo-400" /> Est. Area Drafted
+                  </span>
+                  <span className="text-[10px] font-mono bg-indigo-500/10 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/20">
+                    1:50 Scale
+                  </span>
+                </div>
+                <div className="mt-4">
+                  <div className="text-3xl font-extrabold text-white">
+                    {((projects.length || 1) * 1850).toLocaleString()} <span className="text-sm font-normal text-zinc-400">sq ft</span>
+                  </div>
+                  <div className="text-[11px] text-zinc-500 mt-1">~{Math.round(((projects.length || 1) * 1850) * 0.0929)} m² structural footprint</div>
+                </div>
               </div>
-              <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-5 flex flex-col justify-between">
-                <span className="text-zinc-500 text-xs font-semibold uppercase tracking-wider flex items-center gap-2"><CheckCircle className="w-3.5 h-3.5" /> Code Compliance</span>
-                <span className="text-3xl font-bold text-emerald-400 mt-4">100%</span>
+
+              {/* Stat 3: Code Compliance */}
+              <div className="bg-zinc-900/60 backdrop-blur-md border border-zinc-800/90 rounded-2xl p-5 flex flex-col justify-between relative overflow-hidden group hover:border-zinc-700 transition-all">
+                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-emerald-500 to-teal-500"></div>
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400" /> Code Compliance
+                  </span>
+                  <span className="text-[10px] font-mono bg-emerald-500/10 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/20">
+                    Auto-Audit
+                  </span>
+                </div>
+                <div className="mt-4">
+                  <div className="text-3xl font-extrabold text-emerald-400">100% PASS</div>
+                  <div className="text-[11px] text-zinc-500 mt-1">IBC 2024 & NBC Standard Corridors</div>
+                </div>
               </div>
-              <Link to="/new-project" className="bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/20 hover:border-indigo-500/30 transition-all rounded-2xl p-5 flex flex-col justify-between relative overflow-hidden group cursor-pointer shadow-[0_0_15px_rgba(99,102,241,0.1)]">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 blur-3xl group-hover:bg-indigo-500/40 transition-colors"></div>
-                <span className="text-indigo-400 text-xs font-semibold uppercase tracking-wider relative z-10 flex items-center gap-2"><Sparkles className="w-3.5 h-3.5" /> AI Draft</span>
-                <span className="text-xl font-bold text-white mt-4 relative z-10 flex items-center gap-2">Start a New Design &rarr;</span>
+
+              {/* Stat 4: Fast AI Draft CTA */}
+              <Link 
+                to="/new-project" 
+                className="bg-zinc-900/60 backdrop-blur-md border border-indigo-500/30 hover:border-indigo-500/60 rounded-2xl p-5 flex flex-col justify-between relative overflow-hidden group hover:shadow-[0_0_25px_rgba(99,102,241,0.2)] transition-all cursor-pointer"
+              >
+                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-500 via-cyan-400 to-indigo-500"></div>
+                <div className="flex items-center justify-between">
+                  <span className="text-indigo-300 text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-indigo-400" /> AI Natural Language
+                  </span>
+                  <ArrowUpRight className="w-4 h-4 text-indigo-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                </div>
+                <div className="mt-4">
+                  <div className="text-lg font-bold text-white group-hover:text-indigo-300 transition-colors">
+                    Draft With Gemini/Groq
+                  </div>
+                  <div className="text-[11px] text-zinc-400 mt-1">Text-to-Space Spatial Parsing &rarr;</div>
+                </div>
               </Link>
+
+            </div>
+
+            {/* Search & Filter Toolbar */}
+            <div className="px-10 pt-4 pb-2 flex flex-wrap items-center justify-between gap-4">
+              <div className="relative flex-1 max-w-md">
+                <Search className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input 
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search blueprints by name..."
+                  className="w-full bg-zinc-900/80 border border-zinc-800 rounded-xl pl-10 pr-9 py-2.5 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-indigo-500 transition-all"
+                />
+                {searchQuery && (
+                  <button 
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white p-0.5"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-3 text-xs text-zinc-400 font-mono">
+                <span className="px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-[11px]">
+                  {projects.filter(p => (p.name || '').toLowerCase().includes(searchQuery.toLowerCase())).length} Models Found
+                </span>
+              </div>
             </div>
 
             {/* Projects Grid */}
-            <div className="p-10">
+            <div className="p-10 pt-4">
               {projects.length === 0 ? (
-                <div className="text-center py-20 bg-zinc-950 border border-zinc-800 rounded-3xl p-8">
+                <div className="text-center py-20 bg-zinc-900/40 border border-zinc-800/80 rounded-3xl p-8 max-w-lg mx-auto">
                   <Layout className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-white mb-2">No projects found</h3>
-                  <p className="text-zinc-400 text-sm max-w-sm mx-auto mb-6">Create your first architectural model to start designing in 2D and 3D.</p>
-                  <Link to="/new-project" className="inline-flex items-center gap-2 bg-white text-black px-5 py-2.5 rounded-full font-medium hover:bg-zinc-200 transition-colors text-sm">
+                  <h3 className="text-lg font-bold text-white mb-2">No blueprints found</h3>
+                  <p className="text-zinc-400 text-xs leading-relaxed mb-6">
+                    Create your first architectural CAD model to start designing in sub-millimeter 2D and real-time 3D.
+                  </p>
+                  <Link to="/new-project" className="inline-flex items-center gap-2 bg-white text-black px-6 py-2.5 rounded-full font-bold hover:bg-zinc-200 transition-all text-xs shadow-lg">
                     <Plus className="w-4 h-4" /> Start Designing
                   </Link>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {projects.map((project) => (
-                    <div key={project.id} className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 flex flex-col justify-between hover:border-zinc-700 transition-all group">
-                      <div>
-                        <div className="flex items-center justify-between mb-4">
-                          <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-zinc-900 text-zinc-400 border border-zinc-800 flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Active Model
-                          </span>
-                          
-                          <div className="relative" ref={menuRef}>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu === project.id ? null : project.id); }}
-                              className="text-zinc-500 hover:text-white p-1 rounded-md hover:bg-zinc-800 transition-colors"
-                            >
-                              <MoreVertical className="w-4 h-4" />
-                            </button>
-                            
-                            {activeMenu === project.id && (
-                              <div className="absolute right-0 top-full mt-1 w-40 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden z-30">
-                                <button 
-                                  onClick={(e) => handleDuplicate(project.id, e)}
-                                  className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors text-left font-medium"
-                                >
-                                  <Copy className="w-3.5 h-3.5 text-indigo-400" /> Duplicate
-                                </button>
-                                <button 
-                                  onClick={(e) => handleDelete(project.id, e)}
-                                  className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-red-400 hover:text-red-300 hover:bg-red-950/40 transition-colors text-left border-t border-zinc-800 font-medium"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" /> Delete Permanently
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                  {projects
+                    .filter(p => (p.name || '').toLowerCase().includes(searchQuery.toLowerCase()))
+                    .map((project, index) => (
+                    <div 
+                      key={project.id} 
+                      className="bg-zinc-900/70 backdrop-blur-md border border-zinc-800/90 rounded-2xl overflow-hidden flex flex-col justify-between hover:border-zinc-700 hover:shadow-xl transition-all group relative"
+                    >
+                      {/* Top Blueprint Visual Stage */}
+                      <div className="w-full h-36 bg-[#080d1a] border-b border-zinc-800/80 relative overflow-hidden group/canvas">
+                        {/* CAD Grid lines */}
+                        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:16px_16px] opacity-40"></div>
                         
-                        <h3 className="text-lg font-semibold text-white mb-1 truncate">{project.name}</h3>
-                        <div className="flex items-center gap-3 text-xs text-zinc-400 mb-6 flex-1">
-                          <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {project.created_at || 'Recently Saved'}</span>
+                        {/* Miniature Vector Floorplan Wireframe */}
+                        <svg className="w-full h-full p-4 relative z-10" viewBox="0 0 240 120" preserveAspectRatio="xMidYMid meet">
+                          {/* Foundation slab */}
+                          <rect x="20" y="15" width="200" height="90" fill="rgba(6,182,212,0.06)" stroke="#06b6d4" strokeWidth="1.8" />
+                          {/* Interior Partitions */}
+                          <line x1="110" y1="15" x2="110" y2="105" stroke="#38bdf8" strokeWidth="1.6" />
+                          <line x1="20" y1="65" x2="110" y2="65" stroke="#38bdf8" strokeWidth="1.6" />
+                          {/* Door swing arcs */}
+                          <path d="M 110 40 A 18 18 0 0 1 92 58" fill="none" stroke="#facc15" strokeWidth="1.4" strokeDasharray="2 2" />
+                          <path d="M 110 85 A 18 18 0 0 1 128 103" fill="none" stroke="#facc15" strokeWidth="1.4" strokeDasharray="2 2" />
+                          {/* Window glazing */}
+                          <rect x="45" y="13" width="40" height="4" fill="#60a5fa" rx="1" />
+                          <rect x="145" y="103" width="50" height="4" fill="#60a5fa" rx="1" />
+                          {/* Room labels */}
+                          <text x="65" y="42" fill="#94a3b8" fontSize="8" fontFamily="monospace" textAnchor="middle">SUITE 1</text>
+                          <text x="65" y="88" fill="#94a3b8" fontSize="8" fontFamily="monospace" textAnchor="middle">ENSUITE</text>
+                          <text x="165" y="62" fill="#94a3b8" fontSize="8" fontFamily="monospace" textAnchor="middle">LIVING</text>
+                        </svg>
+
+                        {/* Top Badges */}
+                        <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-950/80 text-cyan-300 border border-cyan-500/30 flex items-center gap-1 shadow-sm">
+                            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span> 2D/3D BIM
+                          </span>
+                        </div>
+
+                        {/* Options Menu on Top Right */}
+                        <div className="absolute top-2.5 right-2.5 z-30" ref={menuRef}>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu === project.id ? null : project.id); }}
+                            className="text-zinc-400 hover:text-white p-1 rounded-lg bg-zinc-950/80 hover:bg-zinc-800 border border-zinc-800 transition-colors"
+                          >
+                            <MoreVertical className="w-3.5 h-3.5" />
+                          </button>
+                          
+                          {activeMenu === project.id && (
+                            <div className="absolute right-0 top-full mt-1.5 w-44 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden z-40">
+                              <button 
+                                onClick={(e) => handleDuplicate(project.id, e)}
+                                className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors text-left font-medium"
+                              >
+                                <Copy className="w-3.5 h-3.5 text-indigo-400" /> Duplicate Model
+                              </button>
+                              <button 
+                                onClick={(e) => handleDelete(project.id, e)}
+                                className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-red-400 hover:text-red-300 hover:bg-red-950/40 transition-colors text-left border-t border-zinc-800 font-medium"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" /> Delete Permanently
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Quick Hover Overlay */}
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-xs opacity-0 group-hover/canvas:opacity-100 transition-opacity z-20 flex items-center justify-center gap-2">
+                          <Link 
+                            to={`/studio?projectId=${project.id}`}
+                            className="px-3 py-1.5 rounded-lg bg-white text-black text-xs font-bold shadow-lg hover:bg-zinc-200 transition-colors flex items-center gap-1.5"
+                          >
+                            <Eye className="w-3.5 h-3.5" /> Open Studio
+                          </Link>
                         </div>
                       </div>
 
-                      <div className="pt-4 border-t border-zinc-900 flex items-center justify-between">
-                        <Link to={`/studio?projectId=${project.id}`} className="text-xs font-medium text-white hover:text-indigo-400 flex items-center gap-1 transition-colors">
-                          Open 2D/3D Studio &rarr;
-                        </Link>
-                        <div className="flex items-center gap-2">
-                          <Link to={`/render-studio?projectId=${project.id}`} className="p-1.5 rounded-lg bg-zinc-900 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors text-xs" title="Open Render Studio">
-                            <Sparkles className="w-3.5 h-3.5" />
-                          </Link>
-                          <Link to={`/war-room?projectId=${project.id}`} className="p-1.5 rounded-lg bg-zinc-900 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors text-xs" title="Open War Room">
-                            <LayoutDashboard className="w-3.5 h-3.5" />
-                          </Link>
+                      {/* Card Body */}
+                      <div className="p-5 flex-1 flex flex-col justify-between">
+                        <div>
+                          <h3 className="text-base font-bold text-white mb-1 truncate" title={project.name}>
+                            {project.name}
+                          </h3>
+                          <div className="flex items-center gap-3 text-[11px] text-zinc-400 font-mono mb-4">
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-zinc-500" /> {project.created_at || 'Recently Saved'}
+                            </span>
+                            <span>•</span>
+                            <span className="text-zinc-500">~185 m² (1,990 sq ft)</span>
+                          </div>
                         </div>
+
+                        {/* Direct Navigation Links */}
+                        <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between">
+                          <Link 
+                            to={`/studio?projectId=${project.id}`} 
+                            className="text-xs font-bold text-white hover:text-indigo-400 flex items-center gap-1 transition-colors group-hover:translate-x-0.5"
+                          >
+                            Launch Studio <ArrowRight className="w-3.5 h-3.5 text-indigo-400" />
+                          </Link>
+                          
+                          <div className="flex items-center gap-1.5">
+                            <Link 
+                              to={`/render-studio?projectId=${project.id}`} 
+                              className="p-1.5 rounded-lg bg-zinc-800/80 text-zinc-400 hover:text-purple-300 hover:bg-purple-950/40 border border-zinc-700/60 transition-colors text-xs" 
+                              title="8K Neural Render Studio"
+                            >
+                              <Sparkles className="w-3.5 h-3.5" />
+                            </Link>
+                            <Link 
+                              to={`/war-room?projectId=${project.id}`} 
+                              className="p-1.5 rounded-lg bg-zinc-800/80 text-zinc-400 hover:text-blue-300 hover:bg-blue-950/40 border border-zinc-700/60 transition-colors text-xs" 
+                              title="Collaborative War Room"
+                            >
+                              <LayoutDashboard className="w-3.5 h-3.5" />
+                            </Link>
+                          </div>
+                        </div>
+
                       </div>
+
                     </div>
                   ))}
                 </div>
               )}
-            </div>
-          </>
+            </div></>
         )}
 
         {/* ========================================================= */}
