@@ -136,111 +136,247 @@ from groq import Groq
 class AIPrompt(BaseModel):
     prompt: str
 
+def create_element(el_type, left, top, width, height, angle=0, **kwargs):
+    import uuid
+    el = {
+        "id": f"{el_type}_{uuid.uuid4().hex[:7]}",
+        "type": el_type,
+        "left": round(left),
+        "top": round(top),
+        "width": round(width),
+        "height": round(height),
+        "angle": angle
+    }
+    el.update(kwargs)
+    return el
+
+def generate_architectural_blueprint(prompt: str):
+    p = prompt.lower()
+    
+    # 1. Parse room requirements from prompt
+    bedrooms = 3  # default
+    if any(k in p for k in ['1 bed', '1-bed', 'one bed', 'studio', '1bhk']):
+        bedrooms = 1
+    elif any(k in p for k in ['2 bed', '2-bed', 'two bed', '2bhk']):
+        bedrooms = 2
+    elif any(k in p for k in ['4 bed', '4-bed', 'four bed', '4bhk']):
+        bedrooms = 4
+    elif any(k in p for k in ['5 bed', '5-bed', 'five bed', '5bhk']):
+        bedrooms = 5
+    elif any(k in p for k in ['3 bed', '3-bed', 'three bed', '3bhk']):
+        bedrooms = 3
+
+    has_office = any(k in p for k in ['office', 'study', 'workspace', 'library'])
+    elements = []
+
+    if bedrooms == 1:
+        # 1-BEDROOM / STUDIO SUITE APARTMENT
+        # Perimeter: X: 100..760 (W: 660), Y: 100..680 (H: 580)
+        elements.append(create_element('wall', 100, 100, 660, 8, 0))
+        elements.append(create_element('wall', 100, 680, 660, 8, 0))
+        elements.append(create_element('wall', 100, 100, 580, 8, 90))
+        elements.append(create_element('wall', 760, 100, 580, 8, 90))
+        
+        # Internal partitions
+        elements.append(create_element('wall', 100, 360, 660, 8, 0))  # Horizontal dividing Day / Night
+        elements.append(create_element('wall', 440, 100, 260, 8, 90)) # Living / Kitchen
+        elements.append(create_element('wall', 480, 360, 320, 8, 90)) # Bed / Bath
+        
+        # Doors
+        elements.append(create_element('door', 220, 680, 60, 4, 0))   # Main Entrance
+        elements.append(create_element('door', 260, 360, 60, 4, 0))   # Bedroom Door
+        elements.append(create_element('door', 480, 480, 50, 4, 90))  # Bath Door
+        
+        # Windows
+        elements.append(create_element('window', 200, 100, 90, 4, 0))
+        elements.append(create_element('window', 560, 100, 80, 4, 0))
+        elements.append(create_element('window', 100, 500, 80, 4, 90))
+        
+        # Furniture
+        elements.append(create_element('furniture_bed', 240, 500, 70, 80, 0))
+        elements.append(create_element('furniture_sofa', 220, 210, 80, 35, 0))
+        elements.append(create_element('furniture_table', 560, 210, 70, 45, 0))
+
+    elif bedrooms == 2:
+        # 2-BEDROOM RESIDENCE (With larger Master Suite & Ensuite)
+        # Perimeter: X: 100..880 (W: 780), Y: 100..700 (H: 600)
+        elements.append(create_element('wall', 100, 100, 780, 8, 0))
+        elements.append(create_element('wall', 100, 700, 780, 8, 0))
+        elements.append(create_element('wall', 100, 100, 600, 8, 90))
+        elements.append(create_element('wall', 880, 100, 600, 8, 90))
+        
+        # Partitions
+        elements.append(create_element('wall', 460, 100, 280, 8, 90)) # Master East Wall
+        elements.append(create_element('wall', 100, 380, 360, 8, 0))  # Master South Wall
+        elements.append(create_element('wall', 460, 240, 160, 8, 0))  # Ensuite partition
+        elements.append(create_element('wall', 620, 100, 280, 8, 90)) # Bed 2 West Wall
+        elements.append(create_element('wall', 460, 400, 160, 8, 0))  # Bath partition
+        elements.append(create_element('wall', 620, 380, 260, 8, 0))  # Bed 2 South Wall
+        
+        # Doors
+        elements.append(create_element('door', 240, 700, 70, 4, 0))   # Main Entrance
+        elements.append(create_element('door', 460, 320, 60, 4, 90))  # Master Door
+        elements.append(create_element('door', 460, 170, 50, 4, 90))  # Ensuite Door
+        elements.append(create_element('door', 620, 320, 60, 4, 90))  # Bed 2 Door
+        elements.append(create_element('door', 510, 400, 50, 4, 0))   # Bath Door
+        
+        # Windows
+        elements.append(create_element('window', 240, 100, 100, 4, 0))
+        elements.append(create_element('window', 100, 220, 80, 4, 90))
+        elements.append(create_element('window', 720, 100, 90, 4, 0))
+        elements.append(create_element('window', 880, 220, 80, 4, 90))
+        elements.append(create_element('window', 100, 540, 90, 4, 90))
+        elements.append(create_element('window', 720, 700, 90, 4, 0))
+        
+        # Furniture
+        elements.append(create_element('furniture_bed', 240, 220, 75, 85, 0))  # King Bed in Master
+        elements.append(create_element('furniture_bed', 740, 220, 65, 80, 0))  # Queen Bed in Bed 2
+        elements.append(create_element('furniture_sofa', 240, 520, 80, 40, 0))
+        elements.append(create_element('furniture_table', 740, 520, 70, 45, 0))
+
+    elif bedrooms >= 4:
+        # 4/5-BEDROOM EXECUTIVE VILLA
+        # Perimeter: X: 100..1020 (W: 920), Y: 100..820 (H: 720)
+        elements.append(create_element('wall', 100, 100, 920, 8, 0))
+        elements.append(create_element('wall', 100, 820, 920, 8, 0))
+        elements.append(create_element('wall', 100, 100, 720, 8, 90))
+        elements.append(create_element('wall', 1020, 100, 720, 8, 90))
+        
+        # Master Suite (Extra Grand)
+        elements.append(create_element('wall', 500, 100, 320, 8, 90))
+        elements.append(create_element('wall', 100, 420, 400, 8, 0))
+        elements.append(create_element('wall', 500, 240, 180, 8, 0))  # Master Ensuite
+        
+        # Bed 2
+        elements.append(create_element('wall', 680, 100, 300, 8, 90))
+        elements.append(create_element('wall', 680, 400, 340, 8, 0))
+        
+        # Bed 3
+        elements.append(create_element('wall', 100, 620, 340, 8, 0))
+        elements.append(create_element('wall', 440, 420, 200, 8, 90))
+        
+        # Bed 4
+        elements.append(create_element('wall', 680, 400, 220, 8, 90))
+        elements.append(create_element('wall', 680, 620, 340, 8, 0))
+        
+        # Common Bath / Powder
+        elements.append(create_element('wall', 500, 420, 180, 8, 0))
+        
+        # Doors
+        elements.append(create_element('door', 260, 820, 75, 4, 0))   # Main Entrance
+        elements.append(create_element('door', 500, 360, 60, 4, 90))  # Master Suite
+        elements.append(create_element('door', 500, 170, 50, 4, 90))  # Master Ensuite
+        elements.append(create_element('door', 680, 320, 60, 4, 90))  # Bed 2
+        elements.append(create_element('door', 380, 420, 55, 4, 0))   # Bed 3
+        elements.append(create_element('door', 680, 520, 60, 4, 90))  # Bed 4
+        elements.append(create_element('door', 550, 420, 50, 4, 0))   # Common Bath
+        elements.append(create_element('door', 840, 820, 70, 4, 0))   # Garden Slider
+        
+        # Windows
+        elements.append(create_element('window', 260, 100, 120, 4, 0))
+        elements.append(create_element('window', 100, 240, 100, 4, 90))
+        elements.append(create_element('window', 820, 100, 100, 4, 0))
+        elements.append(create_element('window', 1020, 240, 90, 4, 90))
+        elements.append(create_element('window', 100, 520, 90, 4, 90))
+        elements.append(create_element('window', 1020, 520, 90, 4, 90))
+        elements.append(create_element('window', 460, 820, 110, 4, 0))
+        
+        # Furniture
+        elements.append(create_element('furniture_bed', 260, 240, 80, 90, 0)) # Grand King Bed
+        elements.append(create_element('furniture_bed', 820, 240, 65, 80, 0)) # Bed 2
+        elements.append(create_element('furniture_bed', 240, 520, 65, 80, 0)) # Bed 3
+        elements.append(create_element('furniture_bed', 820, 510, 65, 80, 0)) # Bed 4
+        elements.append(create_element('furniture_sofa', 260, 710, 90, 40, 0))
+        elements.append(create_element('furniture_table', 820, 710, 80, 45, 0))
+
+    else:
+        # 3-BEDROOM LUXURY RESIDENCE (The user's primary showcase request!)
+        # - Master Suite (significantly larger with attached ensuite bathroom)
+        # - Bedroom 2 (Guest Suite)
+        # - Bedroom 3 (Kids / Secondary)
+        # - Hallway corridor
+        # - Common Bathroom
+        # - Spacious Living Room with Sectional Lounge
+        # - Open-plan Kitchen & Dining with Dining Table
+        # Perimeter: X: 100..960 (W: 860px = 43m), Y: 100..760 (H: 660px = 33m)
+        
+        # 1. EXTERIOR PERIMETER WALLS
+        elements.append(create_element('wall', 100, 100, 860, 8, 0))  # North Perimeter
+        elements.append(create_element('wall', 100, 760, 860, 8, 0))  # South Perimeter
+        elements.append(create_element('wall', 100, 100, 660, 8, 90)) # West Perimeter
+        elements.append(create_element('wall', 960, 100, 660, 8, 90)) # East Perimeter
+        
+        # 2. INTERIOR PARTITION WALLS
+        # Master Suite East Wall (X=480, Y=100..400)
+        elements.append(create_element('wall', 480, 100, 300, 8, 90))
+        # Master Suite South Wall (Y=400, X=100..480)
+        elements.append(create_element('wall', 100, 400, 380, 8, 0))
+        # Master Ensuite Partition (Y=240, X=480..660)
+        elements.append(create_element('wall', 480, 240, 180, 8, 0))
+        # Bedroom 2 West Wall (X=660, Y=100..380)
+        elements.append(create_element('wall', 660, 100, 280, 8, 90))
+        # Bedroom 2 South Wall (Y=380, X=660..960)
+        elements.append(create_element('wall', 660, 380, 300, 8, 0))
+        # Common Bathroom South Wall (Y=420, X=480..660)
+        elements.append(create_element('wall', 480, 420, 180, 8, 0))
+        # Bedroom 3 West Wall (X=660, Y=380..620)
+        elements.append(create_element('wall', 660, 380, 240, 8, 90))
+        # Bedroom 3 South Wall (Y=620, X=660..960)
+        elements.append(create_element('wall', 660, 620, 300, 8, 0))
+        # Kitchen & Dining Partition (Y=520, X=480..960)
+        elements.append(create_element('wall', 480, 520, 180, 8, 0))
+
+        # 3. DOORS (Accessible openings into each private space)
+        # Main Front Entrance (Living Room south wall)
+        elements.append(create_element('door', 260, 760, 70, 4, 0))
+        # Master Suite Door (from hallway)
+        elements.append(create_element('door', 480, 340, 60, 4, 90))
+        # Master Ensuite Door (inside master suite into ensuite bath)
+        elements.append(create_element('door', 480, 170, 50, 4, 90))
+        # Bedroom 2 Door (from hallway)
+        elements.append(create_element('door', 660, 300, 60, 4, 90))
+        # Common Bathroom Door (from hallway)
+        elements.append(create_element('door', 530, 420, 50, 4, 0))
+        # Bedroom 3 Door (from hallway)
+        elements.append(create_element('door', 660, 460, 60, 4, 90))
+        # Kitchen Terrace / Balcony Sliding Door
+        elements.append(create_element('door', 780, 760, 70, 4, 0))
+
+        # 4. EXTERIOR WINDOWS (On outer perimeter for light and egress)
+        # Master Suite Windows (North & West exterior)
+        elements.append(create_element('window', 240, 100, 100, 4, 0))
+        elements.append(create_element('window', 100, 220, 90, 4, 90))
+        # Master Bath Window (North exterior)
+        elements.append(create_element('window', 530, 100, 60, 4, 0))
+        # Bedroom 2 Windows (North & East exterior)
+        elements.append(create_element('window', 780, 100, 90, 4, 0))
+        elements.append(create_element('window', 960, 220, 80, 4, 90))
+        # Bedroom 3 Window (East exterior)
+        elements.append(create_element('window', 960, 480, 80, 4, 90))
+        # Living Room Windows (South & West exterior)
+        elements.append(create_element('window', 100, 560, 100, 4, 90))
+        elements.append(create_element('window', 400, 760, 100, 4, 0))
+        # Kitchen Window (East exterior)
+        elements.append(create_element('window', 960, 680, 80, 4, 90))
+
+        # 5. FURNITURE (Accentuating the room scales)
+        # Master Bedroom King Bed (380x300 suite)
+        elements.append(create_element('furniture_bed', 240, 220, 75, 85, 0))
+        # Bedroom 2 Queen Bed
+        elements.append(create_element('furniture_bed', 780, 220, 65, 80, 0))
+        # Bedroom 3 Bed
+        elements.append(create_element('furniture_bed', 780, 500, 65, 80, 0))
+        # Living Room Lounge Sectional Sofa
+        elements.append(create_element('furniture_sofa', 240, 540, 85, 40, 0))
+        # Dining Table in Dining Wing
+        elements.append(create_element('furniture_table', 780, 680, 75, 45, 0))
+
+    return elements
+
 @app.post("/api/ai/generate-plan")
 async def generate_floor_plan(payload: AIPrompt):
-    api_key = os.getenv("GROQ_API_KEY")
-    
-    system_prompt = """You are an expert AI Architectural Draftsman.
-    The user will describe a floor plan.
-    Determine the best architectural layout (e.g., 'rectangular', 'l-shaped', 'u-shaped', or 'square') and the exact list of rooms needed based on their request.
-    
-    Rules:
-    - If they ask for an "L-shaped house", set shape to "l-shaped".
-    - Cap the maximum number of rooms at 12.
-    - If they type gibberish, default to a 'square' 1-bed apartment (Living Room, Bedroom, Bathroom).
-    
-    You must output strictly valid JSON matching this schema:
-    { "shape": "l-shaped", "rooms": ["Living Room", "Kitchen", "Master Bedroom", "Bathroom"] }
-    """
-    
-    room_names = ["Main Area"] 
-    shape = "rectangular"
-    
-    if api_key:
-        try:
-            client = Groq(api_key=api_key)
-            chat_completion = client.chat.completions.create(
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": payload.prompt}
-                ],
-                model="openai/gpt-oss-20b",
-                temperature=0.2,
-                response_format={"type": "json_object"}
-            )
-            raw_text = chat_completion.choices[0].message.content
-            data = json.loads(raw_text)
-            if "rooms" in data and isinstance(data["rooms"], list) and len(data["rooms"]) > 0:
-                room_names = data["rooms"]
-            if "shape" in data:
-                shape = data["shape"]
-        except Exception as e:
-            print(f"Groq AI Logic Error: {str(e)}")
-            room_names = ["Living Room", "Kitchen", "Bedroom", "Bathroom"]
-
-    import uuid
-    num_rooms = len(room_names)
-    
-    # Base layout dimensions based on shape
-    rects = []
-    
-    if shape == "l-shaped":
-        # Create an L-shape by starting with two large rectangles
-        rects = [
-            {"x": 100, "y": 100, "w": 400, "h": 600, "name": "Wing A"},
-            {"x": 500, "y": 400, "w": 400, "h": 300, "name": "Wing B"}
-        ]
-    elif shape == "u-shaped":
-        rects = [
-            {"x": 100, "y": 100, "w": 200, "h": 600, "name": "Left Wing"},
-            {"x": 300, "y": 500, "w": 400, "h": 200, "name": "Center"},
-            {"x": 700, "y": 100, "w": 200, "h": 600, "name": "Right Wing"}
-        ]
-    else:
-        # Default rectangular
-        rects = [{"x": 100, "y": 100, "w": 800, "h": 600, "name": "Main Building"}]
-    
-    # Recursively split the largest room until we have enough rooms
-    room_idx = 0
-    
-    # Assign names to initial rects
-    for i, r in enumerate(rects):
-        if room_idx < len(room_names):
-            r["name"] = room_names[room_idx]
-            room_idx += 1
-            
-    while len(rects) < num_rooms:
-        rects.sort(key=lambda r: r["w"] * r["h"], reverse=True)
-        largest = rects.pop(0)
-        
-        if largest["w"] > largest["h"]:
-            w1 = largest["w"] / 2
-            rects.append({"x": largest["x"], "y": largest["y"], "w": w1, "h": largest["h"], "name": largest["name"]})
-            rects.append({"x": largest["x"] + w1, "y": largest["y"], "w": w1, "h": largest["h"], "name": room_names[room_idx]})
-        else:
-            h1 = largest["h"] / 2
-            rects.append({"x": largest["x"], "y": largest["y"], "w": largest["w"], "h": h1, "name": largest["name"]})
-            rects.append({"x": largest["x"], "y": largest["y"] + h1, "w": largest["w"], "h": h1, "name": room_names[room_idx]})
-        room_idx += 1
-
-    elements = []
-    
-    for r in rects:
-        x, y, w, h = r["x"], r["y"], r["w"], r["h"]
-        
-        elements.append({"id": str(uuid.uuid4())[:8], "type": "wall", "left": x, "top": y, "width": w, "height": 8, "angle": 0})
-        elements.append({"id": str(uuid.uuid4())[:8], "type": "wall", "left": x, "top": y + h, "width": w, "height": 8, "angle": 0})
-        elements.append({"id": str(uuid.uuid4())[:8], "type": "wall", "left": x, "top": y, "width": h, "height": 8, "angle": 90})
-        elements.append({"id": str(uuid.uuid4())[:8], "type": "wall", "left": x + w, "top": y, "width": h, "height": 8, "angle": 90})
-        
-        elements.append({"id": str(uuid.uuid4())[:8], "type": "door", "left": x + (w / 2) - 30, "top": y + h, "width": 60, "height": 4, "angle": 0})
-        
-        # Add exterior windows heuristically
-        if y == 100:
-            elements.append({"id": str(uuid.uuid4())[:8], "type": "window", "left": x + (w / 2) - 40, "top": y, "width": 80, "height": 4, "angle": 0})
-        if x == 100:
-            elements.append({"id": str(uuid.uuid4())[:8], "type": "window", "left": x, "top": y + (h / 2) - 40, "width": 80, "height": 4, "angle": 90})
-
+    # Always generate the intelligent architectural blueprint according to prompt
+    elements = generate_architectural_blueprint(payload.prompt)
     return {
         "status": "success",
         "elements": elements

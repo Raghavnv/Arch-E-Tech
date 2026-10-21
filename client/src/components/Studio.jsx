@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
+import { ARCHITECTURAL_TEXTURES } from '../utils/textureLibrary';
 
 export default function Studio() {
   const navigate = useNavigate();
@@ -185,8 +186,8 @@ export default function Studio() {
           });
           if (res.ok) {
             const data = await res.json();
-            // Only overwrite if we didn't just load a fresh AI draft, or if the DB has actual data
-            if (data.elements_data && data.elements_data.length > 0) {
+            // Accept any valid array from DB, including empty designs []
+            if (Array.isArray(data.elements_data)) {
               setCanvasElements(data.elements_data);
             }
           }
@@ -201,23 +202,36 @@ export default function Studio() {
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState(null);
 
-  // High-Quality Seamless Texture Library
-  const TEXTURE_LIBRARY = [
-    { id: 't1', name: 'Red Brick', url: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/brick_diffuse.jpg', color: '#b91c1c' },
-    { id: 't2', name: 'Hardwood Floor', url: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/hardwood2_diffuse.jpg', color: '#b45309' },
-    { id: 't3', name: 'Checkerboard Tile', url: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/floors/FloorsCheckerboard_S_Diffuse.jpg', color: '#52525b' },
-    { id: 't4', name: 'Raw Concrete', color: '#94a3b8' },
-    { id: 't5', name: 'White Plaster', color: '#f8fafc' },
-    { id: 't6', name: 'Dark Slate', color: '#334155' },
-    { id: 't7', name: 'Navy Blue Paint', color: '#1e3a8a' },
-    { id: 't8', name: 'Forest Green Paint', color: '#14532d' },
-  ];
+  // High-Quality Seamless Texture Library from textureLibrary.js
+  const TEXTURE_LIBRARY = ARCHITECTURAL_TEXTURES;
 
   const handlePaintWall = (elementId) => {
     if (!selectedMaterial) return;
-    setCanvasElements(prev => prev.map(el => 
-      el.id === elementId ? { ...el, material: selectedMaterial.url || selectedMaterial.color, isColor: !selectedMaterial.url } : el
-    ));
+    setCanvasElements(prev => prev.map((el, idx) => {
+      const matchId = el.id || `wall_${idx}`;
+      if (matchId === elementId || el.id === elementId) {
+        return { 
+          ...el, 
+          material: selectedMaterial.url || selectedMaterial.color, 
+          isColor: !selectedMaterial.url 
+        };
+      }
+      return el;
+    }));
+  };
+
+  const handlePaintAllWalls = () => {
+    if (!selectedMaterial) return;
+    setCanvasElements(prev => prev.map(el => {
+      if (el.type === 'wall') {
+        return {
+          ...el,
+          material: selectedMaterial.url || selectedMaterial.color,
+          isColor: !selectedMaterial.url
+        };
+      }
+      return el;
+    }));
   };
 
   const generatePDFReport = async () => {
@@ -349,13 +363,54 @@ export default function Studio() {
   }, [projectId]);
   
   const saveProject = async () => {
-    if (!projectId) {
-      alert("This is an unsaved draft. Generate this from the Dashboard to save to the cloud.");
-      return;
-    }
     setIsSaving(true);
     setSaveSuccess(false);
     const token = localStorage.getItem('token');
+
+    // Case 1: Unauthenticated or Draft without Project ID
+    if (!projectId) {
+      if (!token) {
+        // Save to browser storage so user never loses work
+        localStorage.setItem('draftElements', JSON.stringify(canvasElements));
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+        setIsSaving(false);
+        return;
+      }
+      try {
+        const createRes = await fetch(`${API_URL}/api/projects`, {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            name: `Project — ${new Date().toLocaleDateString()}`,
+            elements_data: canvasElements
+          })
+        });
+        if (createRes.ok) {
+          const newProject = await createRes.json();
+          setSaveSuccess(true);
+          setTimeout(() => setSaveSuccess(false), 3000);
+          navigate(`/studio?projectId=${newProject.id}`, { replace: true });
+        } else {
+          localStorage.setItem('draftElements', JSON.stringify(canvasElements));
+          setSaveSuccess(true);
+          setTimeout(() => setSaveSuccess(false), 3000);
+        }
+      } catch (e) {
+        console.warn("Cloud save failed, saved locally", e);
+        localStorage.setItem('draftElements', JSON.stringify(canvasElements));
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      } finally {
+        setIsSaving(false);
+      }
+      return;
+    }
+
+    // Case 2: Existing project (even if canvasElements is empty [])
     try {
       const res = await fetch(`${API_URL}/api/projects/${projectId}`, {
         method: 'PUT',
@@ -368,10 +423,16 @@ export default function Studio() {
       if (res.ok) {
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
+      } else {
+        localStorage.setItem('draftElements', JSON.stringify(canvasElements));
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
       }
     } catch (e) {
-      console.error(e);
-      alert("Failed to save project.");
+      console.warn("Cloud save failed, saved locally", e);
+      localStorage.setItem('draftElements', JSON.stringify(canvasElements));
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
     } finally {
       setIsSaving(false);
     }
@@ -721,22 +782,30 @@ export default function Studio() {
             </div>
             
             {selectedMaterial && (
-              <div className="p-3 bg-zinc-900 border-b border-zinc-800 flex items-center gap-3">
-                <div 
-                  className="w-10 h-10 rounded border-2 border-indigo-500 overflow-hidden shrink-0"
-                  style={{ backgroundColor: selectedMaterial.color || '#000' }}
-                >
-                  {selectedMaterial.url && <img src={selectedMaterial.url} className="w-full h-full object-cover" />}
+              <div className="p-3 bg-zinc-900 border-b border-zinc-800 flex flex-col gap-2">
+                <div className="flex items-center gap-3">
+                  <div 
+                    className="w-10 h-10 rounded border-2 border-indigo-500 overflow-hidden shrink-0"
+                    style={{ backgroundColor: selectedMaterial.color || '#000' }}
+                  >
+                    {selectedMaterial.url && <img src={selectedMaterial.url} className="w-full h-full object-cover" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-white truncate">Active Brush</p>
+                    <p className="text-[10px] text-zinc-400 truncate">{selectedMaterial.name}</p>
+                  </div>
+                  <button 
+                    onClick={() => setSelectedMaterial(null)}
+                    className="p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-white"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-                <div>
-                  <p className="text-xs font-semibold text-white">Active Brush</p>
-                  <p className="text-[10px] text-zinc-400">{selectedMaterial.name}</p>
-                </div>
-                <button 
-                  onClick={() => setSelectedMaterial(null)}
-                  className="ml-auto p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-white"
+                <button
+                  onClick={handlePaintAllWalls}
+                  className="w-full py-1.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition-all shadow-[0_0_12px_rgba(99,102,241,0.4)] flex items-center justify-center gap-1.5"
                 >
-                  <X className="w-4 h-4" />
+                  <Sparkles className="w-3.5 h-3.5" /> Apply to All Walls
                 </button>
               </div>
             )}

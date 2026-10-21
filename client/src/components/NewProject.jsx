@@ -200,14 +200,44 @@ export default function NewProject() {
                           initialElements = data.elements;
                         }
                       } catch (err) {
-                        console.error("Backend AI generation failed", err);
+                        console.error("Backend AI generation failed, using architectural fallback", err);
+                        // Rich 3-bedroom architectural fallback with larger master suite and ensuite bath
                         initialElements = [
-                          { "type": "wall", "left": 100, "top": 100, "width": 400, "height": 8, "angle": 0 },
-                          { "type": "wall", "left": 500, "top": 100, "width": 300, "height": 8, "angle": 90 },
-                          { "type": "wall", "left": 500, "top": 400, "width": 400, "height": 8, "angle": 180 },
-                          { "type": "wall", "left": 100, "top": 400, "width": 300, "height": 8, "angle": 270 },
-                          { "type": "door", "left": 250, "top": 400, "width": 60, "height": 4, "angle": 180 },
-                          { "type": "window", "left": 500, "top": 200, "width": 80, "height": 4, "angle": 90 }
+                          // Perimeter
+                          { id: 'w_p1', type: 'wall', left: 100, top: 100, width: 860, height: 8, angle: 0 },
+                          { id: 'w_p2', type: 'wall', left: 100, top: 760, width: 860, height: 8, angle: 0 },
+                          { id: 'w_p3', type: 'wall', left: 100, top: 100, width: 660, height: 8, angle: 90 },
+                          { id: 'w_p4', type: 'wall', left: 960, top: 100, width: 660, height: 8, angle: 90 },
+                          // Master Suite (larger) & Ensuite
+                          { id: 'w_m1', type: 'wall', left: 480, top: 100, width: 300, height: 8, angle: 90 },
+                          { id: 'w_m2', type: 'wall', left: 100, top: 400, width: 380, height: 8, angle: 0 },
+                          { id: 'w_m3', type: 'wall', left: 480, top: 240, width: 180, height: 8, angle: 0 },
+                          // Bedroom 2 & 3
+                          { id: 'w_b1', type: 'wall', left: 660, top: 100, width: 280, height: 8, angle: 90 },
+                          { id: 'w_b2', type: 'wall', left: 660, top: 380, width: 300, height: 8, angle: 0 },
+                          { id: 'w_b3', type: 'wall', left: 480, top: 420, width: 180, height: 8, angle: 0 },
+                          { id: 'w_b4', type: 'wall', left: 660, top: 380, width: 240, height: 8, angle: 90 },
+                          { id: 'w_b5', type: 'wall', left: 660, top: 620, width: 300, height: 8, angle: 0 },
+                          // Doors
+                          { id: 'd_1', type: 'door', left: 260, top: 760, width: 70, height: 4, angle: 0 },
+                          { id: 'd_2', type: 'door', left: 480, top: 340, width: 60, height: 4, angle: 90 },
+                          { id: 'd_3', type: 'door', left: 480, top: 170, width: 50, height: 4, angle: 90 },
+                          { id: 'd_4', type: 'door', left: 660, top: 300, width: 60, height: 4, angle: 90 },
+                          { id: 'd_5', type: 'door', left: 530, top: 420, width: 50, height: 4, angle: 0 },
+                          { id: 'd_6', type: 'door', left: 660, top: 460, width: 60, height: 4, angle: 90 },
+                          // Windows
+                          { id: 'win_1', type: 'window', left: 240, top: 100, width: 100, height: 4, angle: 0 },
+                          { id: 'win_2', type: 'window', left: 100, top: 220, width: 90, height: 4, angle: 90 },
+                          { id: 'win_3', type: 'window', left: 780, top: 100, width: 90, height: 4, angle: 0 },
+                          { id: 'win_4', type: 'window', left: 960, top: 220, width: 80, height: 4, angle: 90 },
+                          { id: 'win_5', type: 'window', left: 960, top: 480, width: 80, height: 4, angle: 90 },
+                          { id: 'win_6', type: 'window', left: 100, top: 560, width: 100, height: 4, angle: 90 },
+                          // Furniture
+                          { id: 'f_1', type: 'furniture_bed', left: 240, top: 220, width: 75, height: 85, angle: 0 },
+                          { id: 'f_2', type: 'furniture_bed', left: 780, top: 220, width: 65, height: 80, angle: 0 },
+                          { id: 'f_3', type: 'furniture_bed', left: 780, top: 500, width: 65, height: 80, angle: 0 },
+                          { id: 'f_4', type: 'furniture_sofa', left: 240, top: 540, width: 85, height: 40, angle: 0 },
+                          { id: 'f_5', type: 'furniture_table', left: 780, top: 680, width: 75, height: 45, angle: 0 }
                         ];
                       }
                     }

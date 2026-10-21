@@ -9,7 +9,11 @@ load_dotenv()
 
 logger = logging.getLogger("uvicorn")
 
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./archetech.db")
+DB_DIR = os.path.dirname(os.path.abspath(__file__))
+SQLITE_DB_PATH = os.path.join(DB_DIR, "archetech.db")
+SQLITE_URL = f"sqlite:///{SQLITE_DB_PATH}"
+
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", SQLITE_URL)
 
 # Resilient database connection with local SQLite fallback
 try:
@@ -26,8 +30,8 @@ try:
             connect_args={"check_same_thread": False} if "sqlite" in SQLALCHEMY_DATABASE_URL else {}
         )
 except Exception as e:
-    logger.warning(f"Remote database unavailable ({e}). Falling back to local SQLite (archetech.db)...")
-    engine = create_engine("sqlite:///./archetech.db", connect_args={"check_same_thread": False})
+    logger.warning(f"Remote database unavailable ({e}). Falling back to local SQLite ({SQLITE_DB_PATH})...")
+    engine = create_engine(SQLITE_URL, connect_args={"check_same_thread": False})
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

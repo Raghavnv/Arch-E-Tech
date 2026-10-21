@@ -32,7 +32,7 @@ function useProcessedArchitecture(elements) {
     // Calculate overall bounding box for Foundation and Roof
     let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
 
-    const wallData = walls.map(w => {
+    const wallData = walls.map((w, index) => {
       const length = (w.width || 100) * SCALE;
       const depth = Math.max((w.height || 8) * SCALE, 0.2);
       const angle = w.angle || 0;
@@ -54,7 +54,7 @@ function useProcessedArchitecture(elements) {
       maxZ = Math.max(maxZ, z0, z1);
 
       return {
-        id: w.id || Math.random().toString(),
+        id: w.id || `wall_${index}`,
         raw: w,
         length,
         depth,
@@ -186,7 +186,7 @@ function useWallMaterial(material, isColor, length, height) {
   const [texture, setTexture] = useState(null);
 
   useEffect(() => {
-    if (material && !isColor && material.startsWith('http')) {
+    if (material && !isColor && (material.startsWith('http') || material.startsWith('data:image'))) {
       const loader = new THREE.TextureLoader();
       loader.setCrossOrigin('anonymous');
       loader.load(
@@ -194,6 +194,7 @@ function useWallMaterial(material, isColor, length, height) {
         tex => {
           tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
           tex.repeat.set(Math.max(length / 2, 1), Math.max(height / 2, 1));
+          tex.colorSpace = THREE.SRGBColorSpace;
           setTexture(tex);
         },
         undefined,
@@ -204,13 +205,23 @@ function useWallMaterial(material, isColor, length, height) {
     }
   }, [material, isColor, length, height]);
 
+  // Return a props object so each mesh can create its own material element
   if (texture) {
-    return <meshStandardMaterial key={texture.uuid} map={texture} roughness={0.7} />;
+    return { map: texture, roughness: 0.7, key: texture.uuid };
   }
   if (isColor && material) {
-    return <meshStandardMaterial key={material} color={material} roughness={0.9} />;
+    return { color: material, roughness: 0.9, key: `color-${material}` };
   }
-  return <meshStandardMaterial key="default" color="#f4f4f5" roughness={0.85} />;
+  return { color: '#f4f4f5', roughness: 0.85, key: 'default' };
+}
+
+/**
+ * Renders a <meshStandardMaterial> from the props object returned by useWallMaterial.
+ * This ensures each mesh gets its own material instance.
+ */
+function WallMaterial({ matProps }) {
+  const { key: _key, ...props } = matProps;
+  return <meshStandardMaterial {...props} />;
 }
 
 // =================================================================
@@ -219,7 +230,7 @@ function useWallMaterial(material, isColor, length, height) {
 
 function ArchitecturalWall({ wall, onPaint }) {
   const { x0, z0, ux, uz, nx, nz, depth, length, angle, openings, id, material, isColor } = wall;
-  const wallMaterialElement = useWallMaterial(material, isColor, length, WALL_HEIGHT);
+  const matProps = useWallMaterial(material, isColor, length, WALL_HEIGHT);
   const rotY = -((angle || 0) * Math.PI) / 180;
 
   // Build segments
@@ -241,7 +252,7 @@ function ArchitecturalWall({ wall, onPaint }) {
           onClick={(e) => { e.stopPropagation(); onPaint?.(id); }}
         >
           <boxGeometry args={[segLen, WALL_HEIGHT, depth]} />
-          {wallMaterialElement}
+          <WallMaterial matProps={matProps} />
         </mesh>
       );
     }
@@ -264,7 +275,7 @@ function ArchitecturalWall({ wall, onPaint }) {
           receiveShadow
         >
           <boxGeometry args={[opLen, lintelHeight, depth]} />
-          {wallMaterialElement}
+          <WallMaterial matProps={matProps} />
         </mesh>
       );
 
@@ -315,7 +326,7 @@ function ArchitecturalWall({ wall, onPaint }) {
           receiveShadow
         >
           <boxGeometry args={[opLen, WINDOW_SILL_HEIGHT, depth]} />
-          {wallMaterialElement}
+          <WallMaterial matProps={matProps} />
         </mesh>
       );
 
@@ -330,7 +341,7 @@ function ArchitecturalWall({ wall, onPaint }) {
           receiveShadow
         >
           <boxGeometry args={[opLen, lintelHeight, depth]} />
-          {wallMaterialElement}
+          <WallMaterial matProps={matProps} />
         </mesh>
       );
 
@@ -379,7 +390,7 @@ function ArchitecturalWall({ wall, onPaint }) {
         onClick={(e) => { e.stopPropagation(); onPaint?.(id); }}
       >
         <boxGeometry args={[segLen, WALL_HEIGHT, depth]} />
-        {wallMaterialElement}
+        <WallMaterial matProps={matProps} />
       </mesh>
     );
   }
