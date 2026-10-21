@@ -99,6 +99,10 @@ export default function Studio() {
         setDrawingMode(prev => prev === 'wall' ? null : 'wall');
       } else if (e.key.toLowerCase() === 'd') {
         setDrawingMode(prev => prev === 'door' ? null : 'door');
+      } else if (e.key.toLowerCase() === 'n' || e.key.toLowerCase() === 'g') {
+        setDrawingMode(prev => prev === 'window' ? null : 'window');
+      } else if (e.key.toLowerCase() === 's') {
+        setDrawingMode(prev => prev === 'stairs' ? null : 'stairs');
       } else if (e.key === 'Escape') {
         setDrawingMode(null);
       } else if (e.key === ' ') {
@@ -736,6 +740,16 @@ export default function Studio() {
           >
             <Layers className="w-3.5 h-3.5 rotate-90" /> Stairs
           </button>
+
+          {drawingMode && (
+            <button
+              onClick={() => setDrawingMode(null)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 transition-colors shadow-sm animate-pulse"
+              title="Stop drawing and return to pointer cursor (ESC)"
+            >
+              <X className="w-3.5 h-3.5" /> Stop Drawing
+            </button>
+          )}
           
           <div className="w-px h-6 bg-zinc-800 mx-1"></div>
 

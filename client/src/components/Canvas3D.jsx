@@ -528,6 +528,61 @@ function ProceduralFurniture({ el }) {
 }
 
 // =================================================================
+// 5.5 PROCEDURAL ARCHITECTURAL STAIRCASE
+// =================================================================
+
+function ProceduralStairs({ el }) {
+  const length = Math.max((el.width || 60) * SCALE, 1.2);
+  const width = Math.max((el.height || 20) * SCALE, 0.9);
+  const angle = el.angle || 0;
+  const rotY = -(angle * Math.PI) / 180;
+  const startX = (el.left || 0) * SCALE;
+  const startZ = (el.top || 0) * SCALE;
+  
+  // Total stairs height = 3.0m (matching standard floor height)
+  const totalHeight = 3.0;
+  const numSteps = 14;
+  const stepHeight = totalHeight / numSteps;
+  const stepDepth = length / numSteps;
+
+  return (
+    <group position={[startX, 0, startZ]} rotation={[0, rotY, 0]}>
+      {Array.from({ length: numSteps }).map((_, i) => (
+        <group key={i} position={[(i + 0.5) * stepDepth, (i + 0.5) * stepHeight, 0]}>
+          {/* Step tread */}
+          <mesh castShadow receiveShadow>
+            <boxGeometry args={[stepDepth * 1.05, stepHeight, width]} />
+            <meshStandardMaterial color="#a855f7" roughness={0.6} metalness={0.15} />
+          </mesh>
+          {/* Nosing accent */}
+          <mesh position={[0, stepHeight * 0.46, 0]}>
+            <boxGeometry args={[stepDepth * 1.08, 0.03, width * 1.02]} />
+            <meshStandardMaterial color="#581c87" roughness={0.4} />
+          </mesh>
+        </group>
+      ))}
+      {/* Handrails */}
+      <mesh 
+        position={[length / 2, totalHeight / 2 + 0.45, -width / 2]} 
+        rotation={[0, 0, Math.atan2(totalHeight, length)]} 
+        castShadow
+      >
+        <boxGeometry args={[Math.sqrt(length * length + totalHeight * totalHeight), 0.05, 0.05]} />
+        <meshStandardMaterial color="#2e1065" metalness={0.8} roughness={0.3} />
+      </mesh>
+      <mesh 
+        position={[length / 2, totalHeight / 2 + 0.45, width / 2]} 
+        rotation={[0, 0, Math.atan2(totalHeight, length)]} 
+        castShadow
+      >
+        <boxGeometry args={[Math.sqrt(length * length + totalHeight * totalHeight), 0.05, 0.05]} />
+        <meshStandardMaterial color="#2e1065" metalness={0.8} roughness={0.3} />
+      </mesh>
+    </group>
+  );
+}
+
+// =================================================================
 // 6. AUTOMATIC FOUNDATION, INTERIOR SLAB & ROOF/CEILING (Feature B)
 // =================================================================
 
@@ -545,9 +600,9 @@ function ArchitecturalSlabs({ bounds, showCeiling }) {
         <meshStandardMaterial color="#27272a" roughness={0.9} />
       </mesh>
 
-      {/* 2. Interior Floor Surface (Warm Oak Hardwood / Travertine) */}
-      <mesh position={[centerX, 0.005, centerZ]} receiveShadow>
-        <planeGeometry args={[width + 0.4, depth + 0.4]} />
+      {/* 2. Interior Floor Surface (Warm Oak Hardwood / Travertine) - Horizontal floor slab */}
+      <mesh position={[centerX, 0.01, centerZ]} receiveShadow>
+        <boxGeometry args={[width + 0.4, 0.02, depth + 0.4]} />
         <meshStandardMaterial color="#d4b996" roughness={0.75} />
       </mesh>
 
@@ -831,6 +886,11 @@ export default function Canvas3D({
         {/* Procedural Furniture */}
         {furniture.map((item, i) => (
           <ProceduralFurniture key={item.id || i} el={item} />
+        ))}
+
+        {/* Procedural Architectural Stairs */}
+        {stairs && stairs.map((item, i) => (
+          <ProceduralStairs key={item.id || i} el={item} />
         ))}
 
         {/* Controls: First-Person Walkthrough (Feature A) vs Orbit Mode */}
