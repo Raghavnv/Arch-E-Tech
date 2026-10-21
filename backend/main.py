@@ -128,6 +128,32 @@ def update_project(project_id: int, project_update: ProjectUpdate, db: Session =
     db.commit()
     return {"status": "success"}
 
+@app.delete("/api/projects/{project_id}")
+def delete_project(project_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    project = db.query(models.Project).filter(models.Project.id == project_id, models.Project.owner_id == current_user.id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    db.delete(project)
+    db.commit()
+    return {"status": "success", "message": f"Project {project_id} permanently deleted"}
+
+@app.post("/api/projects/{project_id}/duplicate")
+def duplicate_project(project_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    project = db.query(models.Project).filter(models.Project.id == project_id, models.Project.owner_id == current_user.id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    new_project = models.Project(
+        name=f"{project.name} (Copy)",
+        owner_id=current_user.id,
+        elements_data=project.elements_data
+    )
+    db.add(new_project)
+    db.commit()
+    db.refresh(new_project)
+    return new_project
+
 from groq import Groq
 
 # -----------------------------------------------------------------
