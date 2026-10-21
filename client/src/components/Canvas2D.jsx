@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { fabric } from 'fabric';
 
-export default function Canvas2D({ elements, drawingMode, setCanvasElements, blueprintMode }) {
+export default function Canvas2D({ elements, drawingMode, setCanvasElements, blueprintMode, activeTab }) {
   const canvasRef = useRef(null);
   const fabricRef = useRef(null);
   const isDrawing = useRef(false);
@@ -11,6 +11,14 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
   const currentLine = useRef(null);
   const startPos = useRef({ x: 0, y: 0 });
   const hasLoadedElements = useRef(false);
+
+  // Recalculate canvas offset and rerender when tab activates
+  useEffect(() => {
+    if (activeTab === '2D' && fabricRef.current) {
+      fabricRef.current.calcOffset();
+      fabricRef.current.requestRenderAll();
+    }
+  }, [activeTab]);
   
   // Update Background and Styles on blueprintMode change
   useEffect(() => {
@@ -87,12 +95,15 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
         width: obj.width * (obj.scaleX || 1),
         height: obj.height * (obj.scaleY || 1),
         angle: obj.angle,
-        material: obj.material || null
+        material: obj.material || null,
+        isColor: obj.isColor || false,
+        fill: obj.fill || null
       }));
       setCanvasElements(currentElements);
     };
 
     canvas.on('object:modified', syncElements);
+    canvas.on('object:removed', syncElements);
 
     const handleKeyDown = (e) => {
       // Handle deletion of selected elements
@@ -162,41 +173,75 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
     };
   }, [setCanvasElements]);
 
-  // Synchronize incoming elements (e.g. from DB or AI) into Fabric once
+  // Synchronize incoming elements (e.g. from DB, AI, or storage) into Fabric canvas
   useEffect(() => {
     const canvas = fabricRef.current;
-    if (!canvas || !elements || elements.length === 0 || hasLoadedElements.current) return;
+    if (!canvas || !elements) return;
 
-    elements.forEach(el => {
-      let strokeColor = '#ffffff';
-      if (el.type === 'wall') strokeColor = '#e4e4e7';
-      else if (el.type === 'door') strokeColor = '#facc15';
-      else if (el.type === 'window') strokeColor = '#60a5fa';
-      else if (el.type === 'stairs') strokeColor = '#c084fc';
-
-      const rect = new fabric.Rect({
-        id: el.id || Math.random().toString(36).substr(2, 9),
-        left: el.left,
-        top: el.top,
-        width: el.width,
-        height: el.height,
-        angle: el.angle,
-        fill: strokeColor,
-        originX: 'left',
-        originY: 'center',
-        selectable: true,
-        evented: true,
-        type: el.type,
-        material: el.material || null,
-        cornerColor: '#ffffff',
-        borderColor: '#ffffff',
-        transparentCorners: false,
-        cornerSize: 8,
+    const existingObjs = canvas.getObjects().filter(o => !o.isGrid);
+    
+    // If fabric canvas already has these elements, check for property updates (like material/color) without full redraw
+    if (existingObjs.length > 0 && elements.length === existingObjs.length) {
+      let needsRerender = false;
+      elements.forEach(el => {
+        const match = existingObjs.find(o => o.id === el.id);
+        if (match) {
+          if (el.material && match.material !== el.material) {
+            match.material = el.material;
+            if (el.isColor) match.set('fill', el.material);
+            needsRerender = true;
+          }
+        }
       });
-      canvas.add(rect);
-    });
-    canvas.renderAll();
-    hasLoadedElements.current = true;
+      if (needsRerender) {
+        canvas.renderAll();
+      }
+      return;
+    }
+
+    if (elements.length > 0) {
+      // Clear previous elements to load updated set
+      existingObjs.forEach(o => canvas.remove(o));
+
+      elements.forEach(el => {
+        let strokeColor = '#ffffff';
+        if (el.type === 'wall') strokeColor = '#e4e4e7';
+        else if (el.type === 'door') strokeColor = '#facc15';
+        else if (el.type === 'window') strokeColor = '#60a5fa';
+        else if (el.type === 'stairs') strokeColor = '#c084fc';
+        else if (el.type === 'furniture_bed') strokeColor = '#cbd5e1';
+        else if (el.type === 'furniture_sofa') strokeColor = '#818cf8';
+        else if (el.type === 'furniture_table') strokeColor = '#fbbf24';
+
+        const rect = new fabric.Rect({
+          id: el.id || Math.random().toString(36).substr(2, 9),
+          left: el.left,
+          top: el.top,
+          width: el.width,
+          height: el.height,
+          angle: el.angle || 0,
+          fill: (el.isColor && el.material) ? el.material : (el.fill || strokeColor),
+          originX: 'left',
+          originY: 'center',
+          selectable: true,
+          evented: true,
+          type: el.type,
+          material: el.material || null,
+          isColor: el.isColor || false,
+          cornerColor: '#ffffff',
+          borderColor: '#ffffff',
+          transparentCorners: false,
+          cornerSize: 8,
+        });
+        canvas.add(rect);
+      });
+      canvas.renderAll();
+      hasLoadedElements.current = true;
+    } else if (elements.length === 0 && existingObjs.length > 0) {
+      // User cleared the canvas
+      existingObjs.forEach(o => canvas.remove(o));
+      canvas.renderAll();
+    }
   }, [elements]);
 
   // Handle Dynamic Addition of Furniture

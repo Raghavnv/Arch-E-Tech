@@ -163,18 +163,22 @@ export default function Studio() {
 
   const costData = calculateCosts();
 
+  // Real-time Local and Debounced Cloud Persistence
   useEffect(() => {
+    let isMounted = true;
     const loadData = async () => {
-      // First try to load draft if it exists (prioritize freshly generated AI drafts)
-      const draft = localStorage.getItem('draftElements');
-      if (draft) {
+      const projectKey = projectId ? `archetech_project_${projectId}` : 'archetech_draft_project';
+      const cached = localStorage.getItem(projectKey) || localStorage.getItem('draftElements');
+      let cachedElements = null;
+      
+      if (cached) {
         try {
-          const parsedDraft = JSON.parse(draft);
-          if (parsedDraft && parsedDraft.length > 0) {
-            setCanvasElements(parsedDraft);
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            cachedElements = parsed;
+            if (isMounted) setCanvasElements(parsed);
           }
-        } catch(e) {}
-        localStorage.removeItem('draftElements');
+        } catch (e) {}
       }
 
       // Then fetch project from DB if ID exists
@@ -184,19 +188,32 @@ export default function Studio() {
           const res = await fetch(`${API_URL}/api/projects/${projectId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
-          if (res.ok) {
+          if (res.ok && isMounted) {
             const data = await res.json();
-            // Accept any valid array from DB, including empty designs []
             if (Array.isArray(data.elements_data)) {
-              setCanvasElements(data.elements_data);
+              if (data.elements_data.length > 0) {
+                setCanvasElements(data.elements_data);
+                localStorage.setItem(projectKey, JSON.stringify(data.elements_data));
+              } else if (cachedElements && cachedElements.length > 0) {
+                // DB had empty array but local storage has user's recent drawings -> sync back to DB!
+                fetch(`${API_URL}/api/projects/${projectId}`, {
+                  method: 'PUT',
+                  headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({ elements_data: cachedElements })
+                }).catch(console.warn);
+              }
             }
           }
         } catch (e) {
-          console.error(e);
+          console.error("Cloud fetch failed, using local cache", e);
         }
       }
     };
     loadData();
+    return () => { isMounted = false; };
   }, [projectId]);
 
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
@@ -315,34 +332,64 @@ export default function Studio() {
     }
   };
 
-  const handleOpenRenderStudio = async () => {
-    setIsCapturingForRender(true);
-    try {
-      localStorage.setItem('renderStudioDraft', JSON.stringify(canvasElements));
-      const container = document.getElementById("studio-canvas-container");
-      if (container) {
-        const snap = await html2canvas(container, { backgroundColor: '#09090b', scale: 1 });
-        localStorage.setItem('renderStudioSnapshot', snap.toDataURL('image/png'));
-      }
-    } catch (e) {
-      console.warn("Could not capture studio snapshot", e);
-    } finally {
-      setIsCapturingForRender(false);
-      navigate(`/render-studio?projectId=${projectId || ''}`);
-    }
-  };
-
-  // Save project to database
+  // Save project state & elements reference
   const [saveSuccess, setSaveSuccess] = useState(false);
   const elementsRef = useRef(canvasElements);
   
   useEffect(() => {
     elementsRef.current = canvasElements;
-  }, [canvasElements]);
+    // Real-time Local Storage cache write on every canvas modification
+    const projectKey = projectId ? `archetech_project_${projectId}` : 'archetech_draft_project';
+    try {
+      localStorage.setItem(projectKey, JSON.stringify(canvasElements));
+      localStorage.setItem('draftElements', JSON.stringify(canvasElements));
+      localStorage.setItem('renderStudioDraft', JSON.stringify(canvasElements));
+      localStorage.setItem('immersiveDraft', JSON.stringify(canvasElements));
+      localStorage.setItem('archetech_last_save_time', Date.now().toString());
+    } catch (e) {
+      console.warn("Local storage cache write failed:", e);
+    }
+  }, [canvasElements, projectId]);
 
+  // Synchronous flush helper that guarantees data persistence before navigation
+  const flushSave = async (navTarget = null) => {
+    const curElements = elementsRef.current;
+    const projectKey = projectId ? `archetech_project_${projectId}` : 'archetech_draft_project';
+    try {
+      localStorage.setItem(projectKey, JSON.stringify(curElements));
+      localStorage.setItem('draftElements', JSON.stringify(curElements));
+      localStorage.setItem('renderStudioDraft', JSON.stringify(curElements));
+      localStorage.setItem('immersiveDraft', JSON.stringify(curElements));
+    } catch (e) {}
+
+    if (projectId) {
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          await fetch(`${API_URL}/api/projects/${projectId}`, {
+            method: 'PUT',
+            headers: { 
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ elements_data: curElements }),
+            keepalive: true
+          });
+        } catch (e) {
+          console.warn("Cloud flush save failed", e);
+        }
+      }
+    }
+
+    if (navTarget) {
+      navigate(navTarget);
+    }
+  };
+
+  // Fast debounced cloud autosave (1.5 seconds after drawing finishes)
   useEffect(() => {
-    if (!projectId) return;
-    const interval = setInterval(async () => {
+    if (!projectId || !canvasElements) return;
+    const timer = setTimeout(async () => {
       const token = localStorage.getItem('token');
       if (!token) return;
       try {
@@ -357,10 +404,39 @@ export default function Studio() {
       } catch (e) {
         // silent fail for autosave
       }
-    }, 30000); // Auto-save every 30 seconds
+    }, 1500);
     
-    return () => clearInterval(interval);
+    return () => clearTimeout(timer);
+  }, [canvasElements, projectId, API_URL]);
+
+  // Flush save on page refresh or browser close
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      flushSave();
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      flushSave();
+    };
   }, [projectId]);
+
+  const handleOpenRenderStudio = async () => {
+    setIsCapturingForRender(true);
+    try {
+      await flushSave();
+      const container = document.getElementById("studio-canvas-container");
+      if (container) {
+        const snap = await html2canvas(container, { backgroundColor: '#09090b', scale: 1 });
+        localStorage.setItem('renderStudioSnapshot', snap.toDataURL('image/png'));
+      }
+    } catch (e) {
+      console.warn("Could not capture studio snapshot", e);
+    } finally {
+      setIsCapturingForRender(false);
+      navigate(`/render-studio?projectId=${projectId || ''}`);
+    }
+  };
   
   const saveProject = async () => {
     setIsSaving(true);
@@ -371,7 +447,7 @@ export default function Studio() {
     if (!projectId) {
       if (!token) {
         // Save to browser storage so user never loses work
-        localStorage.setItem('draftElements', JSON.stringify(canvasElements));
+        await flushSave();
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
         setIsSaving(false);
@@ -391,17 +467,18 @@ export default function Studio() {
         });
         if (createRes.ok) {
           const newProject = await createRes.json();
+          await flushSave();
           setSaveSuccess(true);
           setTimeout(() => setSaveSuccess(false), 3000);
           navigate(`/studio?projectId=${newProject.id}`, { replace: true });
         } else {
-          localStorage.setItem('draftElements', JSON.stringify(canvasElements));
+          await flushSave();
           setSaveSuccess(true);
           setTimeout(() => setSaveSuccess(false), 3000);
         }
       } catch (e) {
         console.warn("Cloud save failed, saved locally", e);
-        localStorage.setItem('draftElements', JSON.stringify(canvasElements));
+        await flushSave();
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
       } finally {
@@ -410,29 +487,13 @@ export default function Studio() {
       return;
     }
 
-    // Case 2: Existing project (even if canvasElements is empty [])
+    // Case 2: Existing project
     try {
-      const res = await fetch(`${API_URL}/api/projects/${projectId}`, {
-        method: 'PUT',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ elements_data: canvasElements })
-      });
-      if (res.ok) {
-        setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 3000);
-      } else {
-        localStorage.setItem('draftElements', JSON.stringify(canvasElements));
-        setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 3000);
-      }
-    } catch (e) {
-      console.warn("Cloud save failed, saved locally", e);
-      localStorage.setItem('draftElements', JSON.stringify(canvasElements));
+      await flushSave();
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (e) {
+      console.warn("Save failed", e);
     } finally {
       setIsSaving(false);
     }
@@ -460,9 +521,14 @@ export default function Studio() {
                 <option key={i+1} value={i+1}>Floor {i+1}</option>
               ))}
             </select>
-            <Link to="/dashboard" className="text-zinc-500 hover:text-white transition-colors">
+            <button 
+              type="button"
+              onClick={() => flushSave('/dashboard')}
+              title="Save changes and return to Dashboard"
+              className="text-zinc-500 hover:text-white transition-colors"
+            >
               <Home className="w-4 h-4" />
-            </Link>
+            </button>
           </div>
         </div>
 
@@ -672,10 +738,7 @@ export default function Studio() {
           </button>
           
           <button 
-            onClick={() => {
-              localStorage.setItem('immersiveDraft', JSON.stringify(canvasElements));
-              navigate('/immersive');
-            }}
+            onClick={() => flushSave('/immersive')}
             className="flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors bg-indigo-500 hover:bg-indigo-600 text-white shadow-[0_0_15px_rgba(99,102,241,0.4)]"
           >
             <ImageIcon className="w-3.5 h-3.5" />
@@ -713,7 +776,7 @@ export default function Studio() {
 
         {/* 2D / 3D Canvas Renders */}
         <div className={activeTab === '2D' ? 'absolute inset-0' : 'hidden'}>
-          <Canvas2D elements={canvasElements} drawingMode={drawingMode} setCanvasElements={setCanvasElements} blueprintMode={blueprintMode} />
+          <Canvas2D elements={canvasElements} drawingMode={drawingMode} setCanvasElements={setCanvasElements} blueprintMode={blueprintMode} activeTab={activeTab} />
         </div>
         <div className={activeTab === '3D' ? 'absolute inset-0' : 'hidden'}>
           <Canvas3D 
