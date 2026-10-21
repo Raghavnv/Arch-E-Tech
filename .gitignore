@@ -8,3 +8,7 @@ node_modules/
 dist/
 .env
 .DS_Store
+*.db
+test_*.py
+create_test_user.py
+list_models.py

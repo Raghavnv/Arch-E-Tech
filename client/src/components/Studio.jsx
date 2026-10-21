@@ -30,6 +30,8 @@ export default function Studio() {
   const [showCostModal, setShowCostModal] = useState(false);
   const [blueprintMode, setBlueprintMode] = useState(false);
   const [walkthroughMode, setWalkthroughMode] = useState(false);
+  const [showCeiling, setShowCeiling] = useState(false);
+  const [isCapturingForRender, setIsCapturingForRender] = useState(false);
   const prefCurrency = localStorage.getItem("pref_currency") || "INR";
   const prefMeasurement = localStorage.getItem("pref_measurement") || "metric";
   const currencySymbol = prefCurrency === "USD" ? "$" : prefCurrency === "EUR" ? "€" : "₹";
@@ -299,6 +301,23 @@ export default function Studio() {
     }
   };
 
+  const handleOpenRenderStudio = async () => {
+    setIsCapturingForRender(true);
+    try {
+      localStorage.setItem('renderStudioDraft', JSON.stringify(canvasElements));
+      const container = document.getElementById("studio-canvas-container");
+      if (container) {
+        const snap = await html2canvas(container, { backgroundColor: '#09090b', scale: 1 });
+        localStorage.setItem('renderStudioSnapshot', snap.toDataURL('image/png'));
+      }
+    } catch (e) {
+      console.warn("Could not capture studio snapshot", e);
+    } finally {
+      setIsCapturingForRender(false);
+      navigate(`/render-studio?projectId=${projectId || ''}`);
+    }
+  };
+
   // Save project to database
   const [saveSuccess, setSaveSuccess] = useState(false);
   const elementsRef = useRef(canvasElements);
@@ -525,12 +544,17 @@ export default function Studio() {
               <><FileText className="w-3.5 h-3.5" /> PDF Report</>
             )}
           </button>
-          <Link 
-            to={`/render-studio?projectId=${projectId}`}
-            className="flex items-center justify-center gap-2 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-xs font-semibold text-white transition-colors shadow-[0_0_15px_rgba(99,102,241,0.3)]"
+          <button 
+            onClick={handleOpenRenderStudio}
+            disabled={isCapturingForRender}
+            className="flex items-center justify-center gap-2 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-xs font-semibold text-white transition-colors shadow-[0_0_15px_rgba(99,102,241,0.3)] disabled:opacity-50"
           >
-            <ImageIcon className="w-3.5 h-3.5" /> Photo Render
-          </Link>
+            {isCapturingForRender ? (
+              <span className="flex items-center gap-1.5 animate-pulse"><Sparkles className="w-3.5 h-3.5" /> Prepping...</span>
+            ) : (
+              <><ImageIcon className="w-3.5 h-3.5" /> Photo Render</>
+            )}
+          </button>
         </div>
       </aside>
 
@@ -609,12 +633,20 @@ export default function Studio() {
             </button>
           )}
           {activeTab === '3D' && (
-            <button
-              onClick={() => setWalkthroughMode(!walkthroughMode)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${walkthroughMode ? 'bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'bg-zinc-900 text-zinc-400 border border-zinc-800 hover:text-white'}`}
-            >
-              <Eye className="w-4 h-4" /> First-Person Walkthrough
-            </button>
+            <>
+              <button
+                onClick={() => setWalkthroughMode(!walkthroughMode)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${walkthroughMode ? 'bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'bg-zinc-900 text-zinc-400 border border-zinc-800 hover:text-white'}`}
+              >
+                <Eye className="w-4 h-4" /> {walkthroughMode ? 'Exit Walkthrough' : 'First-Person Walkthrough'}
+              </button>
+              <button
+                onClick={() => setShowCeiling(!showCeiling)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${showCeiling ? 'bg-indigo-600 text-white border border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'bg-zinc-900 text-zinc-400 border border-zinc-800 hover:text-white'}`}
+              >
+                <Layers className="w-4 h-4" /> {showCeiling ? 'Roof & Ceiling: ON' : 'Roof & Ceiling: OFF'}
+              </button>
+            </>
           )}
         </div>
 
@@ -623,7 +655,13 @@ export default function Studio() {
           <Canvas2D elements={canvasElements} drawingMode={drawingMode} setCanvasElements={setCanvasElements} blueprintMode={blueprintMode} />
         </div>
         <div className={activeTab === '3D' ? 'absolute inset-0' : 'hidden'}>
-          <Canvas3D elements={canvasElements} timeOfDay={timeOfDay} onPaint={handlePaintWall} walkthroughMode={walkthroughMode} />
+          <Canvas3D 
+            elements={canvasElements} 
+            timeOfDay={timeOfDay} 
+            onPaint={handlePaintWall} 
+            walkthroughMode={walkthroughMode}
+            showCeiling={showCeiling}
+          />
         </div>
 
         {/* 2D Furniture Catalog Overlay */}
