@@ -1,229 +1,374 @@
-import { useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { ArrowLeft, MessageSquare, Zap, PenTool, Box, CheckCircle, AlertTriangle, Image as ImageIcon, FileText, Calculator } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { 
+  ArrowLeft, MessageSquare, Zap, PenTool, Box, CheckCircle2, 
+  AlertTriangle, Image as ImageIcon, FileText, Calculator, 
+  Play, Pause, SkipForward, SkipBack, Sparkles, ShieldCheck,
+  Building, Check, ArrowRight
+} from 'lucide-react';
 
-gsap.registerPlugin(ScrollTrigger);
+const STAGES = [
+  {
+    step: '01',
+    title: 'Natural Language Prompting',
+    subtitle: 'From Plain English to Spatial Architecture',
+    desc: 'Input any residential or commercial brief. Our spatial NLP parser extracts bedroom counts, ensuite specifications, square footage allocations, and ceiling heights.',
+    badge: 'LLM Spatial Tokenizer',
+    icon: MessageSquare,
+    tag: 'Input Phase'
+  },
+  {
+    step: '02',
+    title: 'Neural Spatial Geometry',
+    subtitle: 'Topological Adjacency & Room Hierarchies',
+    desc: 'The generative engine calculates balanced spatial relationships: allocating a larger primary footprint to the master bedroom, placing the ensuite bath adjacent, and buffering private zones from public living pavilions.',
+    badge: 'Adjacency Graph Theory',
+    icon: Zap,
+    tag: 'Logic Phase'
+  },
+  {
+    step: '03',
+    title: 'Sub-Millimeter 2D CAD Drafting',
+    subtitle: 'Interactive Fabric.js Vector Blueprint',
+    desc: 'Coordinates translate into an interactive vector canvas featuring 45° and 90° angle snapping, door swing arcs, window placements, and dynamic dimension lines.',
+    badge: 'Vector Engine',
+    icon: PenTool,
+    tag: 'Drafting Phase'
+  },
+  {
+    step: '04',
+    title: 'Procedural 3D Mesh & Slabs',
+    subtitle: 'Physical Wall Openings & Slabs in Real-Time',
+    desc: 'Walls extrude instantly with realistic thickness, headers above doors, glazed window fenestration, and natural hardwood floor slabs. Simulated daylight matches true sun azimuth.',
+    badge: 'WebGL & Three.js',
+    icon: Box,
+    tag: 'Extrusion Phase'
+  },
+  {
+    step: '05',
+    title: 'Automated Code & Clash Audit',
+    subtitle: 'Real-Time IBC 2024 & NBC Validation',
+    desc: 'A bounding-box collision scanner sweeps the design to detect structural overlaps, verify minimum hallway egress clearances, and confirm 100% building code compliance.',
+    badge: 'BIM Audit',
+    icon: ShieldCheck,
+    tag: 'Compliance Phase'
+  },
+  {
+    step: '06',
+    title: '8K Photorealistic Interior Staging',
+    subtitle: 'Raytraced Architectural Visualization',
+    desc: 'Transforms 2D and 3D wireframes into 14mm ultra-wide panoramic renders complete with designer furnishings, ambient cove lighting, and natural daylighting in 3 seconds.',
+    badge: 'Neural Stager',
+    icon: Sparkles,
+    tag: 'Visualization Phase'
+  },
+  {
+    step: '07',
+    title: 'BIM Takeoffs & PDF Reports',
+    subtitle: 'Live Bill of Quantities & Contractor Estimates',
+    desc: 'Quantifies wall linear meters, door and window units, and finishes into a real-time contractor estimate in USD or INR, with one-click executive PDF exports.',
+    badge: 'Cost Estimation',
+    icon: Calculator,
+    tag: 'Output Phase'
+  }
+];
 
 export default function HowItWorks() {
-  const containerRef = useRef(null);
   const navigate = useNavigate();
+  const [activeStageIndex, setActiveStageIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [progress, setProgress] = useState(0);
+  const DURATION_MS = 4500;
+  const progressInterval = useRef(null);
 
   useEffect(() => {
-    // Scroll-based cinematic timeline
-    const tl = gsap.timeline({
-      scrollTrigger: {
-        trigger: containerRef.current,
-        start: "top top",
-        end: "+=8000",
-        scrub: 1,
-        pin: true,
-        anticipatePin: 1
+    if (!isPlaying) {
+      if (progressInterval.current) clearInterval(progressInterval.current);
+      return;
+    }
+
+    setProgress(0);
+    const start = Date.now();
+
+    progressInterval.current = setInterval(() => {
+      const elapsed = Date.now() - start;
+      const pct = Math.min((elapsed / DURATION_MS) * 100, 100);
+      setProgress(pct);
+
+      if (elapsed >= DURATION_MS) {
+        setActiveStageIndex(prev => (prev + 1) % STAGES.length);
       }
-    });
-
-    // Scene 0 to 1: Intro to Text Prompt
-    tl.to(".intro-text", { opacity: 0, y: -50, duration: 1 })
-      .fromTo(".scene-1", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 1 })
-      .to(".prompt-box", { width: "100%", duration: 1.5, ease: "power2.inOut" })
-      .to(".prompt-text", { opacity: 1, duration: 1, text: "A modern 3-bedroom layout with a large kitchen..." }, "+=0.5")
-      
-    // Scene 1 to 2: AI Processing (Gemini/YOLO)
-    tl.to(".scene-1", { opacity: 0, scale: 0.9, duration: 1 }, "+=1")
-      .fromTo(".scene-2", { opacity: 0, scale: 1.1 }, { opacity: 1, scale: 1, duration: 1 })
-      .to(".ai-node", { rotation: 360, duration: 2, ease: "none" })
-      .fromTo(".ai-code", { opacity: 0, y: 20 }, { opacity: 1, y: 0, stagger: 0.3, duration: 1 }, "-=1.5")
-      
-    // Scene 2 to 3: 2D Blueprint (FabricJS)
-    tl.to(".scene-2", { opacity: 0, x: -100, duration: 1 }, "+=1")
-      .fromTo(".scene-3", { opacity: 0, x: 100 }, { opacity: 1, x: 0, duration: 1 })
-      .fromTo(".blueprint-line", { strokeDashoffset: 1000 }, { strokeDashoffset: 0, duration: 2, ease: "power2.out" })
-      
-    // Scene 3 to 4: 3D Extrusion
-    tl.to(".scene-3", { opacity: 0, rotationX: 45, duration: 1 }, "+=1")
-      .fromTo(".scene-4", { opacity: 0, rotationX: -45 }, { opacity: 1, rotationX: 0, duration: 1 })
-      .fromTo(".box-3d", { scaleZ: 0.1, y: 50 }, { scaleZ: 1, y: 0, duration: 2, ease: "bounce.out" })
-
-    // Scene 4 to 5: Clash Detection & Compliance
-    tl.to(".scene-4", { opacity: 0, scale: 0.8, duration: 1 }, "+=1.5")
-      .fromTo(".scene-5", { opacity: 0, scale: 1.2 }, { opacity: 1, scale: 1, duration: 1 })
-      .fromTo(".scanner-line", { top: "-10%" }, { top: "110%", duration: 1.5, ease: "linear", yoyo: true, repeat: 1 })
-      .fromTo(".clash-alert", { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.5, ease: "back.out" }, "-=1")
-      .to(".clash-alert", { opacity: 0, duration: 0.5 }, "+=1")
-      .fromTo(".compliance-check", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.5 })
-
-    // Scene 5 to 6: Concept Visualizer (Photorealistic)
-    tl.to(".scene-5", { opacity: 0, x: -100, duration: 1 }, "+=1.5")
-      .fromTo(".scene-6", { opacity: 0, x: 100 }, { opacity: 1, x: 0, duration: 1 })
-      .to(".viz-overlay", { opacity: 1, duration: 2, ease: "power2.inOut" })
-
-    // Scene 6 to 7: Reports & Takeoffs
-    tl.to(".scene-6", { opacity: 0, y: -50, duration: 1 }, "+=1.5")
-      .fromTo(".scene-7", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 1 })
-      .fromTo(".report-item", { opacity: 0, x: -20 }, { opacity: 1, x: 0, stagger: 0.2, duration: 1 });
+    }, 50);
 
     return () => {
-      ScrollTrigger.getAll().forEach(t => t.kill());
+      if (progressInterval.current) clearInterval(progressInterval.current);
     };
-  }, []);
+  }, [activeStageIndex, isPlaying]);
+
+  const activeStage = STAGES[activeStageIndex];
 
   return (
-    <div className="bg-transparent min-h-screen text-white font-sans overflow-hidden">
+    <div className="bg-zinc-950 min-h-screen text-white font-sans overflow-x-hidden selection:bg-indigo-500 selection:text-white">
       
       {/* Navigation */}
-      <nav className="fixed top-0 w-full p-6 z-50 flex items-center justify-between pointer-events-none">
+      <nav className="fixed top-0 w-full p-6 z-50 flex items-center justify-between backdrop-blur-xl bg-zinc-950/70 border-b border-zinc-800/80">
         <button 
           onClick={() => navigate('/')}
-          className="pointer-events-auto flex items-center gap-2 text-zinc-400 hover:text-white transition-colors bg-zinc-900/50 px-4 py-2 rounded-full backdrop-blur-md border border-zinc-800"
+          className="flex items-center gap-2 text-zinc-300 hover:text-white transition-colors bg-zinc-900/80 hover:bg-zinc-800 px-4 py-2 rounded-full border border-zinc-700/80 text-xs font-semibold"
         >
           <ArrowLeft className="w-4 h-4" /> Back to Home
         </button>
-        <div className="px-4 py-2 bg-indigo-500/20 text-indigo-400 rounded-full border border-indigo-500/30 text-xs font-bold tracking-widest uppercase backdrop-blur-md">
-          Scroll to explore
+
+        <div className="flex items-center gap-3">
+          <div className="px-3 py-1 bg-indigo-500/10 text-indigo-400 rounded-full border border-indigo-500/20 text-xs font-bold tracking-widest uppercase">
+            Interactive Video Tour
+          </div>
+          <Link
+            to="/auth"
+            className="bg-white text-black font-semibold text-xs px-5 py-2 rounded-full hover:bg-zinc-200 transition-colors shadow-lg"
+          >
+            Launch Studio Free
+          </Link>
         </div>
       </nav>
 
-      {/* Cinematic Pinned Container */}
-      <div ref={containerRef} className="h-screen w-full relative flex items-center justify-center">
+      {/* Main Video-Like Showcase Stage */}
+      <main className="pt-32 pb-24 px-6 max-w-6xl mx-auto flex flex-col items-center">
         
-        {/* Intro */}
-        <div className="intro-text absolute text-center z-10">
-          <h1 className="text-5xl md:text-7xl font-bold tracking-tighter mb-4">Behind the Engine</h1>
-          <p className="text-xl text-zinc-400 font-light">Scroll to see how Arch-E-Tech transforms ideas into reality.</p>
+        {/* Header */}
+        <div className="text-center max-w-3xl mx-auto mb-12">
+          <span className="text-xs font-mono font-bold text-indigo-400 uppercase tracking-widest px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-full inline-block mb-3">
+            Autonomous Engine Architecture
+          </span>
+          <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-4">
+            Behind the Engine
+          </h1>
+          <p className="text-zinc-400 text-sm md:text-base font-light max-w-xl mx-auto">
+            Experience how Arch-E-Tech synthesizes plain-text descriptions into validated 2D floor plans, 3D models, code audits, and 8K renders.
+          </p>
         </div>
 
-        {/* Scene 1: Input */}
-        <div className="scene-1 absolute inset-0 flex flex-col items-center justify-center opacity-0 pointer-events-none">
-          <MessageSquare className="w-16 h-16 text-indigo-400 mb-8" />
-          <h2 className="text-3xl font-bold mb-12">1. The Idea</h2>
-          <div className="w-full max-w-2xl bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl">
-            <div className="flex gap-2 mb-4">
-              <div className="w-3 h-3 rounded-full bg-red-500"></div>
-              <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-              <div className="w-3 h-3 rounded-full bg-green-500"></div>
-            </div>
-            <div className="prompt-box w-0 h-12 bg-zinc-800 rounded-lg flex items-center px-4 overflow-hidden">
-              <span className="prompt-text opacity-0 font-mono text-zinc-300 text-sm whitespace-nowrap"></span>
-            </div>
-          </div>
-        </div>
-
-        {/* Scene 2: AI */}
-        <div className="scene-2 absolute inset-0 flex flex-col items-center justify-center opacity-0 pointer-events-none">
-          <Zap className="w-16 h-16 text-yellow-400 mb-8" />
-          <h2 className="text-3xl font-bold mb-12">2. AI Logic Processing</h2>
-          <div className="relative w-64 h-64 flex items-center justify-center mb-8">
-            <div className="ai-node absolute inset-0 border-2 border-dashed border-yellow-500/50 rounded-full"></div>
-            <div className="absolute inset-4 border-2 border-yellow-500/20 rounded-full animate-ping"></div>
-            <span className="font-bold text-yellow-400 tracking-widest">GEMINI 1.5</span>
-          </div>
-          <div className="font-mono text-xs text-zinc-500 flex flex-col gap-2">
-            <span className="ai-code">Analyzing spatial requirements...</span>
-            <span className="ai-code">Extracting 2D coordinates...</span>
-            <span className="ai-code">Validating structural logic...</span>
-            <span className="ai-code text-green-400"><CheckCircle className="inline w-3 h-3 mr-1" /> JSON Array Generated</span>
-          </div>
-        </div>
-
-        {/* Scene 3: 2D Canvas */}
-        <div className="scene-3 absolute inset-0 flex flex-col items-center justify-center opacity-0 pointer-events-none">
-          <PenTool className="w-16 h-16 text-emerald-400 mb-8" />
-          <h2 className="text-3xl font-bold mb-12">3. Vector Drafting</h2>
-          <div className="w-full max-w-3xl aspect-video bg-zinc-950 border border-zinc-800 rounded-2xl relative overflow-hidden flex items-center justify-center shadow-[0_0_50px_rgba(16,185,129,0.1)]">
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
-            <svg width="400" height="300" viewBox="0 0 400 300" className="relative z-10">
-              <rect x="50" y="50" width="300" height="200" fill="none" stroke="#10b981" strokeWidth="4" 
-                    strokeDasharray="1000" strokeDashoffset="1000" className="blueprint-line" />
-              <line x1="200" y1="50" x2="200" y2="250" stroke="#10b981" strokeWidth="4" 
-                    strokeDasharray="1000" strokeDashoffset="1000" className="blueprint-line" />
-            </svg>
-          </div>
-        </div>
-
-        {/* Scene 4: 3D */}
-        <div className="scene-4 absolute inset-0 flex flex-col items-center justify-center opacity-0 pointer-events-none">
-          <Box className="w-16 h-16 text-white mb-8" />
-          <h2 className="text-3xl font-bold mb-12">4. Procedural 3D</h2>
-          <div className="w-full max-w-3xl aspect-video bg-zinc-950 border border-zinc-800 rounded-2xl relative flex items-center justify-center perspective-1000">
-            <div className="box-3d w-64 h-48 bg-zinc-800 border border-zinc-600 shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center justify-center transform preserve-3d rotate-x-60 rotate-z-45">
-              <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent"></div>
-              <span className="font-bold text-zinc-500">Rendered Mesh</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Scene 5: Clash Detection & Compliance */}
-        <div className="scene-5 absolute inset-0 flex flex-col items-center justify-center opacity-0 pointer-events-none">
-          <AlertTriangle className="w-16 h-16 text-orange-500 mb-8" />
-          <h2 className="text-3xl font-bold mb-12">5. Automated Compliance</h2>
-          <div className="w-full max-w-3xl aspect-video bg-zinc-950 border border-zinc-800 rounded-2xl relative overflow-hidden flex items-center justify-center">
-            {/* Wireframe Mock */}
-            <div className="relative w-64 h-48 border border-zinc-700">
-              <div className="absolute left-1/2 top-0 bottom-0 w-px bg-zinc-700"></div>
-              {/* Clash Alert */}
-              <div className="clash-alert absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-950/90 border border-red-500 text-red-500 text-xs px-3 py-2 rounded-lg font-mono whitespace-nowrap z-20 shadow-[0_0_20px_rgba(239,68,68,0.4)]">
-                ! AABB Collision Detected
-              </div>
-              {/* Compliance Check */}
-              <div className="compliance-check absolute bottom-4 left-1/2 -translate-x-1/2 bg-green-950/90 border border-green-500 text-green-500 text-xs px-3 py-2 rounded-lg font-mono whitespace-nowrap z-20 flex items-center gap-2">
-                <CheckCircle className="w-4 h-4" /> 100% Code Compliant
+        {/* Video Player Card */}
+        <div className="w-full bg-zinc-900/70 border border-zinc-800 rounded-3xl overflow-hidden shadow-[0_20px_80px_rgba(0,0,0,0.8)] backdrop-blur-md">
+          
+          {/* Top Scrubber & Controls */}
+          <div className="p-6 border-b border-zinc-800 flex flex-wrap items-center justify-between gap-4 bg-zinc-950/80">
+            <div className="flex items-center gap-3">
+              <span className="w-9 h-9 rounded-xl bg-indigo-600/20 border border-indigo-500/40 text-indigo-300 font-mono font-bold flex items-center justify-center text-sm">
+                {activeStage.step}
+              </span>
+              <div>
+                <h2 className="text-base font-bold text-white tracking-tight">{activeStage.title}</h2>
+                <p className="text-xs text-zinc-400 font-mono">{activeStage.subtitle}</p>
               </div>
             </div>
-            {/* Scanner Line */}
-            <div className="scanner-line absolute left-0 w-full h-1 bg-orange-500 shadow-[0_0_20px_rgba(249,115,22,1)] z-10"></div>
-          </div>
-        </div>
 
-        {/* Scene 6: Concept Visualizer */}
-        <div className="scene-6 absolute inset-0 flex flex-col items-center justify-center opacity-0 pointer-events-none">
-          <ImageIcon className="w-16 h-16 text-blue-400 mb-8" />
-          <h2 className="text-3xl font-bold mb-12">6. Photorealistic Visualization</h2>
-          <div className="w-full max-w-3xl aspect-video bg-zinc-950 border border-zinc-800 rounded-2xl relative overflow-hidden flex items-center justify-center">
-            {/* Wireframe Background */}
-            <div className="absolute inset-0 bg-[linear-gradient(45deg,#18181b_25%,transparent_25%,transparent_75%,#18181b_75%,#18181b),linear-gradient(45deg,#18181b_25%,transparent_25%,transparent_75%,#18181b_75%,#18181b)] bg-[size:40px_40px]"></div>
+            {/* Video Controls */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setActiveStageIndex(prev => (prev - 1 + STAGES.length) % STAGES.length)}
+                className="p-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors"
+                title="Previous Step"
+              >
+                <SkipBack className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={() => setIsPlaying(!isPlaying)}
+                className="px-4 py-2.5 rounded-xl bg-white text-black font-bold text-xs flex items-center gap-2 hover:bg-zinc-200 transition-all shadow-md"
+              >
+                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-black" />}
+                <span>{isPlaying ? 'Pause' : 'Auto-Play'}</span>
+              </button>
+
+              <button
+                onClick={() => setActiveStageIndex(prev => (prev + 1) % STAGES.length)}
+                className="p-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors"
+                title="Next Step"
+              >
+                <SkipForward className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="w-full bg-zinc-800 h-1">
+            <div 
+              className="h-full bg-gradient-to-r from-indigo-500 via-emerald-400 to-indigo-500 transition-all duration-75"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+
+          {/* Clickable Stage Tabs */}
+          <div className="p-4 bg-zinc-950/90 border-b border-zinc-800 flex items-center gap-2 overflow-x-auto custom-scrollbar">
+            {STAGES.map((s, idx) => (
+              <button
+                key={s.step}
+                onClick={() => {
+                  setActiveStageIndex(idx);
+                  setProgress(0);
+                }}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                  activeStageIndex === idx
+                    ? 'bg-white text-black shadow-md'
+                    : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
+                }`}
+              >
+                <span className="font-mono text-[10px]">{s.step}.</span>
+                <span>{s.title}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Stage Stage Viewport */}
+          <div className="p-8 md:p-14 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center min-h-[460px]">
             
-            {/* Overlay render image (simulated with a rich gradient) */}
-            <div className="viz-overlay absolute inset-0 bg-gradient-to-br from-blue-900 via-zinc-800 to-amber-900 opacity-0 mix-blend-screen shadow-inner flex items-center justify-center">
-              <span className="text-2xl font-bold text-white tracking-widest drop-shadow-2xl">FINAL RENDER</span>
-            </div>
-          </div>
-        </div>
+            {/* Left Description */}
+            <div className="lg:col-span-5 space-y-5">
+              <span className="px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-[11px] font-mono text-indigo-400 font-semibold inline-block">
+                {activeStage.badge}
+              </span>
 
-        {/* Scene 7: PDF Reports & Takeoffs */}
-        <div className="scene-7 absolute inset-0 flex flex-col items-center justify-center opacity-0 pointer-events-none">
-          <FileText className="w-16 h-16 text-white mb-8" />
-          <h2 className="text-3xl font-bold mb-12">7. Reports & Takeoffs</h2>
-          <div className="w-full max-w-xl bg-zinc-100 rounded-sm shadow-[0_0_40px_rgba(255,255,255,0.1)] p-8 text-black transform rotate-1">
-            <div className="border-b-2 border-black pb-4 mb-6">
-              <h3 className="font-bold text-2xl tracking-tighter">PROJECT MANIFEST</h3>
-              <p className="text-xs text-zinc-500 font-mono">ID: AE-2026-X19</p>
+              <h3 className="text-3xl font-extrabold text-white tracking-tight leading-snug">
+                {activeStage.title}
+              </h3>
+
+              <p className="text-zinc-300 text-sm md:text-base leading-relaxed">
+                {activeStage.desc}
+              </p>
+
+              <div className="pt-4 border-t border-zinc-800 flex items-center gap-4">
+                <Link
+                  to="/auth"
+                  className="inline-flex items-center gap-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 px-5 py-3 rounded-xl transition-all shadow-lg"
+                >
+                  Test In Studio Engine <ArrowRight className="w-4 h-4" />
+                </Link>
+                <span className="text-xs text-zinc-500 font-mono">Stage {activeStageIndex + 1} of {STAGES.length}</span>
+              </div>
             </div>
-            
-            <div className="space-y-4 font-mono text-sm">
-              <div className="report-item flex justify-between border-b border-zinc-300 pb-2">
-                <span>Total Surface Area:</span>
-                <span className="font-bold">2,450 sqft</span>
-              </div>
-              <div className="report-item flex justify-between border-b border-zinc-300 pb-2">
-                <span>Material Est. (Wood):</span>
-                <span className="font-bold">$12,400</span>
-              </div>
-              <div className="report-item flex justify-between border-b border-zinc-300 pb-2">
-                <span>Material Est. (Glass):</span>
-                <span className="font-bold">$8,200</span>
-              </div>
-              <div className="report-item flex justify-between items-center pt-4">
-                <span className="text-xs text-zinc-500">Auto-Generated by Arch-E-Tech</span>
-                <div className="flex items-center gap-1 text-green-600 bg-green-100 px-2 py-1 rounded">
-                  <CheckCircle className="w-3 h-3" /> <span className="text-[10px] font-bold">APPROVED</span>
+
+            {/* Right Interactive Animated Stage Display */}
+            <div className="lg:col-span-7 bg-zinc-950/80 border border-zinc-800 rounded-2xl p-6 min-h-[360px] flex items-center justify-center relative overflow-hidden shadow-2xl">
+              
+              {/* Stage 1: Prompt Terminal */}
+              {activeStageIndex === 0 && (
+                <div className="w-full max-w-md bg-black border border-zinc-800 rounded-xl p-5 shadow-2xl font-mono text-xs">
+                  <div className="flex items-center gap-2 pb-3 border-b border-zinc-800 mb-4 text-zinc-500">
+                    <MessageSquare className="w-4 h-4 text-indigo-400" />
+                    <span>user-prompt-parser.log</span>
+                  </div>
+                  <div className="text-zinc-200 leading-relaxed mb-4">
+                    <span className="text-emerald-400">&gt; Prompt: </span>
+                    "Modern 3-bedroom villa with master suite, en-suite bathroom, and open living lounge."
+                  </div>
+                  <div className="p-3 bg-zinc-900 rounded-lg border border-zinc-800 text-[11px] space-y-1 text-zinc-400">
+                    <div>• Bedrooms: <span className="text-white font-bold">3</span></div>
+                    <div>• Master Suite: <span className="text-emerald-400 font-bold">Expanded Footprint</span></div>
+                    <div>• Adjacencies: <span className="text-white font-bold">Private Corridor Buffer</span></div>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Stage 2: Neural Core */}
+              {activeStageIndex === 1 && (
+                <div className="w-full flex flex-col items-center justify-center">
+                  <div className="relative w-56 h-56 flex items-center justify-center">
+                    <div className="absolute inset-0 border-2 border-dashed border-amber-500/40 rounded-full animate-spin" style={{ animationDuration: '15s' }}></div>
+                    <div className="w-20 h-20 rounded-2xl bg-zinc-900 border border-amber-500 shadow-[0_0_30px_rgba(245,158,11,0.3)] flex flex-col items-center justify-center text-center">
+                      <Zap className="w-6 h-6 text-amber-400 mb-1" />
+                      <span className="text-[9px] font-bold text-white">AI CORE</span>
+                    </div>
+                  </div>
+                  <span className="text-xs font-mono text-zinc-400 mt-3">Synthesizing 34+ Architectural Coordinate Pairs</span>
+                </div>
+              )}
+
+              {/* Stage 3: Vector Canvas */}
+              {activeStageIndex === 2 && (
+                <div className="w-full max-w-md aspect-[16/10] bg-[#09090b] border border-zinc-800 rounded-xl relative overflow-hidden flex items-center justify-center p-4">
+                  <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+                  <svg width="340" height="200" viewBox="0 0 340 200" className="relative z-10">
+                    <rect x="20" y="20" width="300" height="160" fill="none" stroke="#10b981" strokeWidth="4" />
+                    <line x1="160" y1="20" x2="160" y2="180" stroke="#10b981" strokeWidth="4" />
+                    <line x1="20" y1="100" x2="160" y2="100" stroke="#10b981" strokeWidth="4" />
+                    <path d="M 160 60 A 25 25 0 0 1 135 85" fill="none" stroke="#facc15" strokeWidth="2" strokeDasharray="3 3" />
+                  </svg>
+                  <div className="absolute bottom-3 right-3 text-[10px] text-emerald-400 font-mono bg-zinc-950/80 px-2 py-0.5 rounded border border-emerald-500/30">
+                    Fabric.js Snapping: 90°
+                  </div>
+                </div>
+              )}
+
+              {/* Stage 4: 3D Mesh */}
+              {activeStageIndex === 3 && (
+                <div className="w-full max-w-md aspect-[16/10] rounded-xl overflow-hidden relative shadow-2xl border border-zinc-800">
+                  <img 
+                    src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1280&q=80" 
+                    alt="3D Extrusion" 
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute top-3 left-3 bg-blue-950/90 border border-blue-500/40 text-blue-300 px-3 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5">
+                    <Box className="w-3.5 h-3.5" /> Three.js Extrusion & Slabs
+                  </div>
+                </div>
+              )}
+
+              {/* Stage 5: Code Audit */}
+              {activeStageIndex === 4 && (
+                <div className="w-full max-w-md aspect-[16/10] bg-zinc-950 border border-zinc-800 rounded-xl relative overflow-hidden flex items-center justify-center p-6">
+                  <div className="absolute left-0 right-0 h-1 bg-orange-500 shadow-[0_0_20px_rgba(249,115,22,1)] z-20 animate-pulse"></div>
+                  <div className="bg-emerald-950/95 border border-emerald-500 text-emerald-400 text-xs px-5 py-2.5 rounded-xl font-mono flex items-center gap-2 shadow-2xl">
+                    <CheckCircle2 className="w-4 h-4" /> 100% IBC 2024 / NBC Certified
+                  </div>
+                </div>
+              )}
+
+              {/* Stage 6: 8K Staged Room */}
+              {activeStageIndex === 5 && (
+                <div className="w-full max-w-md aspect-[16/10] rounded-xl overflow-hidden relative shadow-2xl border border-zinc-800">
+                  <img 
+                    src="https://images.unsplash.com/photo-1598928506311-c55ded91a20c?auto=format&fit=crop&w=1280&q=80" 
+                    alt="8K Staged Room" 
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute top-3 left-3 bg-purple-950/90 border border-purple-500/40 text-purple-300 px-3 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" /> 8K Photorealistic Stager
+                  </div>
+                </div>
+              )}
+
+              {/* Stage 7: BOM Takeoffs */}
+              {activeStageIndex === 6 && (
+                <div className="w-full max-w-md bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-2xl font-mono text-xs">
+                  <div className="flex items-center justify-between pb-3 border-b border-zinc-800 mb-3">
+                    <span className="font-bold text-white flex items-center gap-1.5">
+                      <Calculator className="w-4 h-4 text-teal-400" /> Bill of Quantities
+                    </span>
+                    <span className="text-emerald-400 font-bold">$48,500 USD</span>
+                  </div>
+                  <div className="space-y-1.5 text-zinc-400 text-[11px]">
+                    <div className="flex justify-between border-b border-zinc-900 pb-1">
+                      <span>Wall Partitions:</span> <span className="text-white">64.5 m</span>
+                    </div>
+                    <div className="flex justify-between border-b border-zinc-900 pb-1">
+                      <span>Glazed Fenestrations:</span> <span className="text-white">6 Units</span>
+                    </div>
+                    <div className="flex justify-between text-teal-300 font-bold pt-1">
+                      <span>Full PDF Audit:</span> <span>Ready to Export</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
             </div>
+
           </div>
+
         </div>
 
-      </div>
+      </main>
+
     </div>
   );
 }

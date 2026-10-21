@@ -1,29 +1,143 @@
-import React, { useRef } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowRight, ScanLine, PenTool, Box, AlertTriangle, Calculator, Code2, Layers, Zap, Sun, FileText, Magnet, LayoutTemplate, MessageSquare, Image as ImageIcon } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { 
+  ArrowRight, ScanLine, PenTool, Box, AlertTriangle, Calculator, 
+  Code2, Layers, Zap, Sun, FileText, Magnet, LayoutTemplate, 
+  MessageSquare, Image as ImageIcon, Play, Pause, SkipForward, 
+  SkipBack, CheckCircle2, ShieldCheck, Sparkles, ChevronDown, 
+  Eye, Sofa, Building, Check, Compass, Sliders, RefreshCw
+} from 'lucide-react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
-gsap.registerPlugin(ScrollTrigger);
+// =========================================================================
+// CINEMATIC TECHNOLOGY ENGINE PHASES (The Auto-Playing Video Showcase)
+// =========================================================================
+const TECH_PHASES = [
+  {
+    step: '01',
+    title: 'Natural Language Prompting',
+    subtitle: 'Text-to-Space Spatial Parsing',
+    desc: 'Describe your vision in plain English — specify room counts, master suite orientation, or open-plan requirements. Our spatial NLP engine extracts architectural constraints, target square footages, and circulation rules.',
+    badge: 'LLM Spatial Tokenizer',
+    icon: MessageSquare,
+    color: 'indigo'
+  },
+  {
+    step: '02',
+    title: 'Neural Spatial Geometry',
+    subtitle: 'Adjacency Graphs & Coordinate Extraction',
+    desc: 'The generative engine calculates topological adjacency graphs, ensuring private bedrooms buffer from public entertaining lounges, en-suite baths attach directly to the master suite, and hallways maintain international egress standards.',
+    badge: 'Spatial Graph Theory',
+    icon: Zap,
+    color: 'amber'
+  },
+  {
+    step: '03',
+    title: 'Precision Vector CAD Drafting',
+    subtitle: 'Sub-Millimeter Fabric.js Blueprint Engine',
+    desc: 'Extracted coordinates materialize into an interactive 2D vector CAD blueprint with 45° and 90° smart angle snapping, dynamic dimension markers, door swing arcs, and structural wall thicknesses.',
+    badge: 'Vector Fabric.js 2D',
+    icon: PenTool,
+    color: 'emerald'
+  },
+  {
+    step: '04',
+    title: 'Procedural 3D Mesh & Slabs',
+    subtitle: 'Real-Time Extrusion with Slabs & Lintels',
+    desc: 'In under 50ms, 2D vector lines extrude into physical 3D walls. Walls automatically segment around windows and doors with structural headers, hardwood floor slabs generate beneath closed rooms, and SunCalc simulates true daylight angles.',
+    badge: 'Three.js & WebGL 2.0',
+    icon: Box,
+    color: 'blue'
+  },
+  {
+    step: '05',
+    title: 'Automated Clash & Code Audit',
+    subtitle: 'Real-Time IBC 2024 & NBC Compliance',
+    desc: 'An automated bounding-box scanner sweeps through the structure, checking partition clearances, door egress paths, and window ventilation ratios against municipal building codes with 100% automated pass verification.',
+    badge: 'Automated BIM Audit',
+    icon: ShieldCheck,
+    color: 'orange'
+  },
+  {
+    step: '06',
+    title: '8K Photorealistic Synthesis',
+    subtitle: 'Whole-Room Staging & Raytraced Visualization',
+    desc: 'Pipes the project into our neural rendering studio. Using fast 3-second diffusion, it generates panoramic, wide-angle 8K interior architectural renders complete with designer furniture, ambient cove LEDs, and natural daylight.',
+    badge: 'Neural Raytracing Engine',
+    icon: Sparkles,
+    color: 'purple'
+  },
+  {
+    step: '07',
+    title: 'Live Takeoffs & Executive Reports',
+    subtitle: 'Dynamic Bill of Quantities & PDF Export',
+    desc: 'Every wall painted or door added instantly updates surface area calculations, material volume takeoffs, and contractor cost estimates in USD, INR, or EUR — downloadable as an executive architectural PDF in one click.',
+    badge: 'Live Cost Takeoff BOM',
+    icon: Calculator,
+    color: 'teal'
+  }
+];
 
 export default function LandingPage() {
   const containerRef = useRef(null);
-  
+  const navigate = useNavigate();
+
+  // =========================================================================
+  // AUTOMATIC VIDEO ENGINE SHOWCASE STATE
+  // =========================================================================
+  const [activePhaseIndex, setActivePhaseIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [progressPercent, setProgressPercent] = useState(0);
+  const PHASE_DURATION_MS = 4500; // 4.5 seconds per phase
+  const timerRef = useRef(null);
+  const progressIntervalRef = useRef(null);
+
+  // Auto-advance video-like timer
+  useEffect(() => {
+    if (!isPlaying) {
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+      return;
+    }
+
+    setProgressPercent(0);
+    const startTime = Date.now();
+
+    progressIntervalRef.current = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const pct = Math.min((elapsed / PHASE_DURATION_MS) * 100, 100);
+      setProgressPercent(pct);
+
+      if (elapsed >= PHASE_DURATION_MS) {
+        setActivePhaseIndex(prev => (prev + 1) % TECH_PHASES.length);
+      }
+    }, 50);
+
+    return () => {
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    };
+  }, [activePhaseIndex, isPlaying]);
+
+  const handleNextPhase = () => {
+    setActivePhaseIndex(prev => (prev + 1) % TECH_PHASES.length);
+  };
+
+  const handlePrevPhase = () => {
+    setActivePhaseIndex(prev => (prev - 1 + TECH_PHASES.length) % TECH_PHASES.length);
+  };
+
+  // Entrance animations
   useGSAP(() => {
     const mm = gsap.matchMedia();
     mm.add("(prefers-reduced-motion: no-preference)", () => {
-      // Hero entrance
       gsap.from('.hero-elem', {
-        y: 40,
+        y: 35,
         opacity: 0,
-        duration: 1.2,
-        stagger: 0.15,
+        duration: 1.1,
+        stagger: 0.12,
         ease: 'power3.out',
         delay: 0.1
       });
-      
-      // Removed ScrollTrigger for .feature-card and .tech-step because it often fails to fire on smaller screens or when scrolling fast, leaving the cards permanently invisible (opacity 0). 
     });
   }, { scope: containerRef });
 
@@ -31,158 +145,811 @@ export default function LandingPage() {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const features = [
-    {
-      icon: <ScanLine className="w-6 h-6 text-white" />,
-      title: "AI Floor Plan Generation",
-      description: "Transform raw sketches or text prompts into fully editable 2D layouts instantly using our advanced AI engine.",
-      span: "md:col-span-2 lg:col-span-2"
-    },
-    {
-      icon: <PenTool className="w-6 h-6 text-white" />,
-      title: "Interactive Smart Canvas",
-      description: "Drag, drop, and edit layouts with a powerful vector editor that automatically snaps walls to perfect angles.",
-      span: "md:col-span-1 lg:col-span-1"
-    },
-    {
-      icon: <Box className="w-6 h-6 text-white" />,
-      title: "Instant 3D Extrusion",
-      description: "Watch your 2D plans seamlessly rise into interactive 3D meshes, complete with stunning conceptual renders.",
-      span: "md:col-span-1 lg:col-span-1"
-    },
-    {
-      icon: <AlertTriangle className="w-6 h-6 text-white" />,
-      title: "Structural Clash Detection",
-      description: "Automatically identify overlapping structures and verify door or window swing clearances before construction begins.",
-      span: "md:col-span-2 lg:col-span-2"
-    },
-    {
-      icon: <Calculator className="w-6 h-6 text-white" />,
-      title: "Live Cost Estimation",
-      description: "As you edit your canvas, surface areas and material volumes dynamically update to provide real-time project cost estimates.",
-      span: "md:col-span-2 lg:col-span-2"
-    },
-    {
-      icon: <MessageSquare className="w-6 h-6 text-white" />,
-      title: "Compliance & Reporting",
-      description: "Chat with an AI assistant to verify building code compliance, and export your entire project into a comprehensive PDF report.",
-      span: "md:col-span-1 lg:col-span-1"
-    }
-  ];
+  // Interactive FAQ Accordion State
+  const [openFaq, setOpenFaq] = useState(null);
+  const toggleFaq = (index) => {
+    setOpenFaq(openFaq === index ? null : index);
+  };
+
+  // Before/After Stager Interactive Toggle
+  const [stagedPreview, setStagedPreview] = useState(true);
+
+  const activePhase = TECH_PHASES[activePhaseIndex];
 
   return (
-    <div ref={containerRef} className="min-h-screen bg-transparent text-zinc-300 font-sans selection:bg-zinc-800">
-      {/* Navigation */}
-      <nav className="flex items-center justify-between px-8 py-6 border-b border-white/10 backdrop-blur-md fixed top-0 w-full z-50">
-        <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>
-          <div className="w-6 h-6 bg-white rounded-sm mix-blend-difference"></div>
-          <span className="font-bold text-white tracking-tight text-lg">Arch-E-Tech</span>
+    <div ref={containerRef} className="min-h-screen bg-transparent text-zinc-300 font-sans selection:bg-indigo-500 selection:text-white relative">
+      
+      {/* ========================================================================= */}
+      {/* 1. TOP NAVIGATION                                                         */}
+      {/* ========================================================================= */}
+      <nav className="flex items-center justify-between px-8 py-5 border-b border-zinc-800/80 backdrop-blur-xl bg-zinc-950/80 fixed top-0 w-full z-50 shadow-2xl">
+        <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>
+          <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.4)]">
+            <Building className="w-4 h-4 text-black" />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-white tracking-tight text-lg">Arch-E-Tech</span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+              v2.0 LIVE
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-6">
-          <button onClick={() => scrollToSection('features')} className="text-sm font-medium hover:text-white transition-colors">Features</button>
-          <Link to="/how-it-works" className="text-sm font-medium hover:text-white transition-colors">Our Technology</Link>
+
+        <div className="hidden md:flex items-center gap-8 text-sm font-medium">
+          <button onClick={() => scrollToSection('features')} className="text-zinc-400 hover:text-white transition-colors">
+            Core Modules
+          </button>
+          <button onClick={() => scrollToSection('technology')} className="text-zinc-400 hover:text-white transition-colors flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-indigo-400" /> Technology Engine
+          </button>
+          <button onClick={() => scrollToSection('stager-demo')} className="text-zinc-400 hover:text-white transition-colors">
+            AI Room Stager
+          </button>
+          <button onClick={() => scrollToSection('faq')} className="text-zinc-400 hover:text-white transition-colors">
+            FAQ
+          </button>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <Link to="/auth" className="text-sm font-medium text-zinc-400 hover:text-white transition-colors hidden sm:block">
+            Sign In
+          </Link>
           <Link 
             to="/auth" 
-            className="text-sm font-medium text-black bg-white px-5 py-2.5 rounded-full hover:bg-zinc-200 transition-colors"
+            className="text-sm font-semibold text-black bg-white hover:bg-zinc-200 px-6 py-2.5 rounded-full transition-all shadow-[0_0_20px_rgba(255,255,255,0.25)] hover:scale-105 active:scale-95"
           >
             Launch Platform
           </Link>
         </div>
       </nav>
 
-      <main className="pt-32 pb-24">
-        {/* Hero Section */}
-        <section className="px-6 max-w-7xl mx-auto min-h-[75vh] flex flex-col justify-center">
-          <div className="text-center max-w-4xl mx-auto mb-32 mt-16">
-            <div className="hero-elem inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/5 mb-8">
-              <span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>
-              <span className="text-xs font-medium text-zinc-300 uppercase tracking-widest">Platform v2.0 Live</span>
-            </div>
-            <h1 className="hero-elem text-5xl md:text-7xl lg:text-[5rem] font-bold tracking-tighter text-white mb-8 leading-[1.05]">
-              Architectural intelligence,<br />engineered for precision.
-            </h1>
-            <p className="hero-elem text-lg md:text-xl text-zinc-400 mb-10 max-w-2xl mx-auto font-light leading-relaxed">
-              Transition from raw sketches to validated 3D models in seconds. Arch-E-Tech uses state-of-the-art AI and spatial algorithms to automate drafting, detect clashes, and estimate costs.
-            </p>
-            <div className="hero-elem flex items-center justify-center gap-4">
-              <Link 
-                to="/auth" 
-                className="inline-flex items-center justify-center gap-2 bg-white text-black px-8 py-4 rounded-full font-medium hover:bg-zinc-200 transition-all"
-              >
-                Start designing <ArrowRight className="w-4 h-4" />
-              </Link>
-              <a 
-                href="https://github.com/Raghavnv/Arch-E-Tech" 
-                target="_blank" 
-                rel="noreferrer"
-                className="inline-flex items-center justify-center gap-2 bg-zinc-900 text-white border border-zinc-800 px-8 py-4 rounded-full font-medium hover:bg-zinc-800 transition-all"
-              >
-                <Code2 className="w-4 h-4" /> View Source
-              </a>
-            </div>
-          </div>
-        </section>
+      {/* ========================================================================= */}
+      {/* 2. WELCOMING HERO SECTION                                                 */}
+      {/* ========================================================================= */}
+      <header className="pt-40 pb-20 px-6 max-w-7xl mx-auto relative overflow-hidden">
+        
+        {/* Ambient background glow */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-gradient-to-tr from-indigo-600/15 via-purple-600/15 to-emerald-600/10 blur-[130px] pointer-events-none rounded-full" />
 
-        {/* Features Section */}
-        <section id="features" className="px-6 max-w-7xl mx-auto py-24 border-t border-zinc-900">
-          <div className="mb-16 text-center max-w-3xl mx-auto">
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4 tracking-tight">Computational Modules</h2>
-            <p className="text-zinc-400 max-w-2xl mx-auto">Everything you need to move from ideation to structural validation, contained within a single unified workspace.</p>
+        <div className="text-center max-w-4xl mx-auto relative z-10">
+          
+          {/* Pill Badge */}
+          <div className="hero-elem inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-zinc-700/80 bg-zinc-900/80 backdrop-blur-md mb-8 shadow-lg">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span className="text-xs font-semibold text-zinc-200 tracking-wide">
+              The Autonomous Architectural & BIM Copilot
+            </span>
+            <span className="text-zinc-600">|</span>
+            <span className="text-xs text-indigo-400 font-mono">Zero CAD Experience Needed</span>
           </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {features.map((feature, idx) => (
-              <div 
-                key={idx} 
-                className={`feature-card p-8 rounded-3xl border border-zinc-800 hover:border-zinc-700 transition-all group overflow-hidden relative ${feature.span} ${
-                  idx === 0 || idx === 3 ? 'bg-gradient-to-br from-zinc-900 to-black' : 'bg-zinc-900/50'
+
+          {/* Main Headline */}
+          <h1 className="hero-elem text-5xl sm:text-6xl md:text-7xl lg:text-[5.25rem] font-extrabold tracking-tight text-white mb-6 leading-[1.06]">
+            Architectural intelligence,<br />
+            <span className="bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">
+              engineered from sketch to 8K.
+            </span>
+          </h1>
+
+          {/* Welcoming Subtitle */}
+          <p className="hero-elem text-lg md:text-xl text-zinc-400 mb-10 max-w-2xl mx-auto font-normal leading-relaxed">
+            Welcome to Arch-E-Tech. Generate architecturally sound multi-room floor plans, step inside with first-person 3D walkthroughs, verify building codes automatically, and stage entire rooms with photorealistic AI — all within a single unified browser studio.
+          </p>
+
+          {/* Primary Action Buttons */}
+          <div className="hero-elem flex flex-wrap items-center justify-center gap-4 mb-14">
+            <Link 
+              to="/auth" 
+              className="inline-flex items-center justify-center gap-2.5 bg-white text-black px-8 py-4 rounded-full font-bold hover:bg-zinc-200 transition-all shadow-[0_0_30px_rgba(255,255,255,0.3)] hover:scale-105 active:scale-95 text-sm"
+            >
+              Start Designing Free <ArrowRight className="w-4 h-4" />
+            </Link>
+            <button 
+              onClick={() => {
+                scrollToSection('technology');
+                setIsPlaying(true);
+              }}
+              className="inline-flex items-center justify-center gap-2.5 bg-zinc-900/90 text-white border border-zinc-700/80 hover:border-zinc-500 px-8 py-4 rounded-full font-semibold hover:bg-zinc-800 transition-all text-sm backdrop-blur-md shadow-xl"
+            >
+              <Play className="w-4 h-4 text-emerald-400 fill-emerald-400" /> Watch Video Engine
+            </button>
+            <a 
+              href="https://github.com/Raghavnv/Arch-E-Tech" 
+              target="_blank" 
+              rel="noreferrer"
+              className="inline-flex items-center justify-center gap-2 bg-transparent text-zinc-400 hover:text-white px-5 py-4 rounded-full font-medium transition-colors text-sm"
+            >
+              <Code2 className="w-4 h-4" /> GitHub
+            </a>
+          </div>
+
+          {/* Value Badges */}
+          <div className="hero-elem flex flex-wrap items-center justify-center gap-6 text-xs text-zinc-400 font-medium">
+            <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> 100% IBC/NBC Code Verified</span>
+            <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-indigo-400" /> Fast 3-Second AI Renders</span>
+            <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-amber-400" /> WASD First-Person 3D Walkthrough</span>
+            <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-purple-400" /> Automatic Bill of Quantities</span>
+          </div>
+
+        </div>
+
+        {/* ========================================================================= */}
+        {/* 3. HERO GRAPHICAL STUDIO PREVIEW MOCKUP                                    */}
+        {/* ========================================================================= */}
+        <div className="mt-16 max-w-6xl mx-auto rounded-3xl border border-zinc-800/80 bg-zinc-950/90 shadow-[0_20px_80px_rgba(0,0,0,0.8)] overflow-hidden relative group">
+          
+          {/* Mock Browser Header */}
+          <div className="h-11 border-b border-zinc-800 bg-zinc-900/90 px-5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-red-500/80"></div>
+              <div className="w-3 h-3 rounded-full bg-yellow-500/80"></div>
+              <div className="w-3 h-3 rounded-full bg-green-500/80"></div>
+              <span className="text-xs text-zinc-500 font-mono ml-3">arch-e-tech.studio/live-engine</span>
+            </div>
+            <div className="flex items-center gap-3 text-xs text-zinc-400 font-mono">
+              <span className="flex items-center gap-1 text-emerald-400"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Engine Active</span>
+              <span className="text-zinc-600">•</span>
+              <span>Floor 1 of 3</span>
+            </div>
+          </div>
+
+          {/* Interactive Split Mock Studio Canvas */}
+          <div className="grid grid-cols-1 md:grid-cols-2 aspect-[16/9] max-h-[580px] bg-black relative">
+            
+            {/* Left: 2D Vector CAD View */}
+            <div className="relative border-r border-zinc-800 p-6 flex flex-col justify-between overflow-hidden bg-[#09090b]">
+              {/* Subtle Grid */}
+              <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:32px_32px]"></div>
+
+              <div className="relative z-10 flex items-center justify-between">
+                <span className="text-xs font-mono font-bold tracking-wider text-emerald-400 bg-emerald-950/80 border border-emerald-500/30 px-3 py-1 rounded-md">
+                  2D VECTOR BLUEPRINT
+                </span>
+                <span className="text-xs text-zinc-500 font-mono">Grid: 40px Snap</span>
+              </div>
+
+              {/* Animated Blueprint Blueprint Graphic */}
+              <div className="relative z-10 my-auto flex items-center justify-center">
+                <svg width="420" height="280" viewBox="0 0 420 280" className="w-full max-w-sm drop-shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+                  {/* Outer Perimeter */}
+                  <rect x="20" y="20" width="380" height="240" fill="none" stroke="#e4e4e7" strokeWidth="6" rx="4" />
+                  {/* Master Suite partition */}
+                  <line x1="20" y1="140" x2="200" y2="140" stroke="#e4e4e7" strokeWidth="5" />
+                  <line x1="200" y1="20" x2="200" y2="140" stroke="#e4e4e7" strokeWidth="5" />
+                  {/* Ensuite Bath */}
+                  <line x1="130" y1="20" x2="130" y2="80" stroke="#e4e4e7" strokeWidth="4" />
+                  <line x1="20" y1="80" x2="130" y2="80" stroke="#e4e4e7" strokeWidth="4" />
+                  {/* Door swings (amber) */}
+                  <path d="M 200 80 A 30 30 0 0 1 170 110" fill="none" stroke="#facc15" strokeWidth="2.5" strokeDasharray="4 4" />
+                  <line x1="200" y1="80" x2="200" y2="110" stroke="#facc15" strokeWidth="3" />
+                  {/* Window (blue) */}
+                  <line x1="60" y1="20" x2="110" y2="20" stroke="#60a5fa" strokeWidth="6" />
+                  <line x1="260" y1="20" x2="340" y2="20" stroke="#60a5fa" strokeWidth="6" />
+                  {/* Labels */}
+                  <text x="40" y="115" fill="#a1a1aa" fontSize="11" fontFamily="monospace">Master Suite</text>
+                  <text x="35" y="55" fill="#71717a" fontSize="9" fontFamily="monospace">Ensuite</text>
+                  <text x="250" y="140" fill="#a1a1aa" fontSize="11" fontFamily="monospace">Living & Dining</text>
+                  {/* Dimension marker */}
+                  <text x="210" y="272" fill="#52525b" fontSize="9" fontFamily="monospace">↔ 18' 6" [5.64m]</text>
+                </svg>
+              </div>
+
+              <div className="relative z-10 flex items-center justify-between text-xs text-zinc-500 font-mono">
+                <span>Rooms: 3 Bed • 2 Bath</span>
+                <span className="text-emerald-400">100% Verified Egress</span>
+              </div>
+            </div>
+
+            {/* Right: 3D Photorealistic / Walkthrough View */}
+            <div className="relative p-6 flex flex-col justify-between overflow-hidden bg-zinc-950">
+              <img 
+                src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1280&q=80" 
+                alt="3D Photorealistic Render" 
+                className="absolute inset-0 w-full h-full object-cover filter brightness-90 contrast-105"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40"></div>
+
+              <div className="relative z-10 flex items-center justify-between">
+                <span className="text-xs font-mono font-bold tracking-wider text-white bg-indigo-600/90 border border-indigo-400/40 px-3 py-1 rounded-md flex items-center gap-1.5 shadow-lg">
+                  <Sparkles className="w-3.5 h-3.5" /> 3D PHOTOREALISTIC RENDER
+                </span>
+                <span className="text-xs text-zinc-300 font-mono bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-md">
+                  SunCalc: 2:30 PM Noon
+                </span>
+              </div>
+
+              {/* Floating Metric Badges */}
+              <div className="relative z-10 flex flex-col gap-2.5">
+                <div className="bg-black/75 backdrop-blur-md border border-zinc-700/80 rounded-xl p-3 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                    <span className="text-zinc-200 font-semibold">IBC Compliance:</span>
+                  </div>
+                  <span className="text-emerald-400 font-mono font-bold">100% Pass (0 Clashes)</span>
+                </div>
+                <div className="bg-black/75 backdrop-blur-md border border-zinc-700/80 rounded-xl p-3 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <Calculator className="w-4 h-4 text-indigo-400" />
+                    <span className="text-zinc-200 font-semibold">Live Takeoff Est:</span>
+                  </div>
+                  <span className="text-white font-mono font-bold">$48,500 USD</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </header>
+
+      {/* ========================================================================= */}
+      {/* 4. PLATFORM METRICS COUNTER BAR                                           */}
+      {/* ========================================================================= */}
+      <section className="py-14 border-y border-zinc-900 bg-zinc-950/60 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+          <div>
+            <div className="text-3xl md:text-4xl font-extrabold text-white mb-1">50,000+</div>
+            <div className="text-xs text-zinc-400 uppercase tracking-wider font-semibold">Sq Ft Drafted & Engineered</div>
+          </div>
+          <div>
+            <div className="text-3xl md:text-4xl font-extrabold text-emerald-400 mb-1">&lt; 3.5s</div>
+            <div className="text-xs text-zinc-400 uppercase tracking-wider font-semibold">Fast AI Synthesis Speed</div>
+          </div>
+          <div>
+            <div className="text-3xl md:text-4xl font-extrabold text-indigo-400 mb-1">100%</div>
+            <div className="text-xs text-zinc-400 uppercase tracking-wider font-semibold">Automated Code Compliance</div>
+          </div>
+          <div>
+            <div className="text-3xl md:text-4xl font-extrabold text-amber-400 mb-1">10 Presets</div>
+            <div className="text-xs text-zinc-400 uppercase tracking-wider font-semibold">Seamless Wall Textures</div>
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 5. CINEMATIC VIDEO ENGINE SHOWCASE (No Bumpy Scroll! Auto-Plays!)          */}
+      {/* ========================================================================= */}
+      <section id="technology" className="py-28 px-6 max-w-7xl mx-auto relative scroll-mt-24">
+        
+        {/* Section Header */}
+        <div className="text-center max-w-3xl mx-auto mb-16">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold tracking-widest uppercase mb-4">
+            <Sparkles className="w-3.5 h-3.5" /> Autonomous Engine Tour
+          </div>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight mb-4">
+            How Arch-E-Tech Works
+          </h2>
+          <p className="text-zinc-400 text-base md:text-lg font-light leading-relaxed">
+            Watch our automated architectural pipeline transition through all 7 stages — from natural language prompt to validated CAD, 3D meshes, code audits, and 8K renders.
+          </p>
+        </div>
+
+        {/* Video Player Container */}
+        <div className="bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl relative">
+          
+          {/* Top Video Player Header Bar */}
+          <div className="px-6 py-4 bg-zinc-900/80 border-b border-zinc-800 flex flex-wrap items-center justify-between gap-4">
+            
+            {/* Step Scrubber & Title */}
+            <div className="flex items-center gap-3">
+              <span className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center font-mono font-bold text-xs text-indigo-400">
+                {activePhase.step}
+              </span>
+              <div>
+                <h3 className="text-sm font-bold text-white tracking-tight">{activePhase.title}</h3>
+                <p className="text-[11px] text-zinc-400 font-mono">{activePhase.subtitle}</p>
+              </div>
+            </div>
+
+            {/* Video Controls: Play/Pause, Next, Prev, Progress Bar */}
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={handlePrevPhase}
+                className="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors"
+                title="Previous Step"
+              >
+                <SkipBack className="w-4 h-4" />
+              </button>
+              
+              <button 
+                onClick={() => setIsPlaying(!isPlaying)}
+                className="px-4 py-2 rounded-lg bg-white text-black font-semibold text-xs flex items-center gap-2 hover:bg-zinc-200 transition-all shadow-md"
+                title={isPlaying ? "Pause Tour" : "Play Tour"}
+              >
+                {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-black" />}
+                <span>{isPlaying ? 'Pause' : 'Auto-Play'}</span>
+              </button>
+
+              <button 
+                onClick={handleNextPhase}
+                className="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors"
+                title="Next Step"
+              >
+                <SkipForward className="w-4 h-4" />
+              </button>
+            </div>
+
+          </div>
+
+          {/* Linear Progress Bar for active step */}
+          <div className="w-full bg-zinc-900 h-1 overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-indigo-500 via-emerald-400 to-indigo-500 transition-all duration-75"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+
+          {/* Phase Selector Pills (Click to jump immediately!) */}
+          <div className="px-6 py-3 bg-zinc-950/60 border-b border-zinc-800/80 flex items-center gap-2 overflow-x-auto custom-scrollbar">
+            {TECH_PHASES.map((p, idx) => (
+              <button
+                key={p.step}
+                onClick={() => {
+                  setActivePhaseIndex(idx);
+                  setProgressPercent(0);
+                }}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                  activePhaseIndex === idx
+                    ? 'bg-white text-black font-semibold shadow-md'
+                    : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
                 }`}
               >
-                {/* Glow effect on hover */}
-                <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
-                
-                <div className="w-14 h-14 rounded-2xl bg-black border border-zinc-800 flex items-center justify-center mb-6 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
-                  {feature.icon}
-                </div>
-                <h3 className="text-xl font-bold text-white mb-3 tracking-tight">{feature.title}</h3>
-                <p className="text-zinc-400 leading-relaxed text-sm max-w-sm">
-                  {feature.description}
-                </p>
-              </div>
+                <span className="font-mono text-[10px]">{p.step}.</span>
+                <span>{p.title}</span>
+              </button>
             ))}
           </div>
-        </section>
 
-        {/* Cinematic Technology Section CTA */}
-        <section id="technology" className="px-6 max-w-7xl mx-auto py-32 border-t border-zinc-900">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-10 md:p-16 text-center max-w-4xl mx-auto relative overflow-hidden">
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-900/20 via-zinc-900 to-zinc-900 pointer-events-none"></div>
-            <div className="relative z-10">
-              <h2 className="text-3xl md:text-5xl font-bold text-white mb-6 tracking-tight">Experience the Engine</h2>
-              <p className="text-zinc-400 text-lg mb-10 max-w-2xl mx-auto">
-                Take an immersive visual journey through our proprietary architecture. See exactly how we bridge the gap between natural language, AI, and exact mathematical rendering.
+          {/* Main Visual Display Stage */}
+          <div className="p-8 md:p-12 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center min-h-[460px]">
+            
+            {/* Left Column: Descriptive Text & Features */}
+            <div className="lg:col-span-5 space-y-5">
+              <span className="px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[11px] font-mono text-indigo-400 font-semibold inline-block">
+                {activePhase.badge}
+              </span>
+
+              <h4 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
+                {activePhase.title}
+              </h4>
+
+              <p className="text-zinc-400 text-sm md:text-base leading-relaxed">
+                {activePhase.desc}
               </p>
-              <Link 
-                to="/how-it-works"
-                className="inline-flex items-center gap-2 bg-white text-black px-8 py-4 rounded-full font-bold hover:bg-zinc-200 hover:scale-105 transition-all shadow-[0_0_40px_rgba(255,255,255,0.3)]"
+
+              <div className="pt-4 border-t border-zinc-900 flex items-center gap-4">
+                <Link
+                  to="/auth"
+                  className="inline-flex items-center gap-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 px-5 py-2.5 rounded-xl transition-all shadow-lg"
+                >
+                  Test This in Studio &rarr;
+                </Link>
+                <span className="text-xs text-zinc-500 font-mono">Step {activePhaseIndex + 1} of {TECH_PHASES.length}</span>
+              </div>
+            </div>
+
+            {/* Right Column: Visual Stage Graphic */}
+            <div className="lg:col-span-7 bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-6 min-h-[340px] flex items-center justify-center relative overflow-hidden shadow-inner">
+              
+              {/* Scene 1 Graphic: Prompt Terminal */}
+              {activePhaseIndex === 0 && (
+                <div className="w-full max-w-lg bg-black border border-zinc-800 rounded-xl p-5 shadow-2xl font-mono text-xs">
+                  <div className="flex items-center gap-2 pb-3 border-b border-zinc-800 mb-4 text-zinc-500">
+                    <MessageSquare className="w-4 h-4 text-indigo-400" />
+                    <span>natural-language-prompt.txt</span>
+                  </div>
+                  <div className="text-zinc-200 leading-relaxed mb-4">
+                    <span className="text-emerald-400">&gt; Prompt: </span>
+                    "Modern 3-bedroom single-story residence with a grand master suite, private en-suite bath, central open living pavilion, and floor-to-ceiling glass windows."
+                  </div>
+                  <div className="p-3 bg-zinc-900/80 rounded-lg border border-zinc-800/80 space-y-1.5 text-[11px]">
+                    <div className="text-indigo-400 font-bold flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5" /> Tokens Parsed:
+                    </div>
+                    <div className="text-zinc-400">• Bedrooms: <span className="text-white">3</span> | Master Suite: <span className="text-white">Enlarged (380x300)</span></div>
+                    <div className="text-zinc-400">• Adjacencies: <span className="text-white">Master ensuite buffer active</span></div>
+                    <div className="text-zinc-400">• Egress: <span className="text-emerald-400 font-semibold">IBC Compliant</span></div>
+                  </div>
+                </div>
+              )}
+
+              {/* Scene 2 Graphic: Neural Graph */}
+              {activePhaseIndex === 1 && (
+                <div className="w-full max-w-lg flex flex-col items-center justify-center">
+                  <div className="relative w-64 h-64 flex items-center justify-center">
+                    <div className="absolute inset-0 border-2 border-dashed border-amber-500/40 rounded-full animate-spin" style={{ animationDuration: '20s' }}></div>
+                    <div className="absolute inset-8 border border-amber-500/20 rounded-full animate-ping"></div>
+                    
+                    {/* Graph Nodes */}
+                    <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-amber-500/20 border border-amber-500 text-amber-300 px-3 py-1 rounded-full text-[10px] font-mono font-bold">
+                      Master Suite
+                    </div>
+                    <div className="absolute bottom-4 left-6 bg-zinc-800 border border-zinc-700 text-zinc-300 px-3 py-1 rounded-full text-[10px] font-mono font-bold">
+                      Bedrooms 2 & 3
+                    </div>
+                    <div className="absolute bottom-4 right-6 bg-zinc-800 border border-zinc-700 text-zinc-300 px-3 py-1 rounded-full text-[10px] font-mono font-bold">
+                      Ensuite Bath
+                    </div>
+                    
+                    {/* Central Brain Core */}
+                    <div className="w-20 h-20 rounded-2xl bg-zinc-950 border border-amber-500/60 shadow-[0_0_30px_rgba(245,158,11,0.3)] flex flex-col items-center justify-center text-center p-2">
+                      <Zap className="w-6 h-6 text-amber-400 mb-1" />
+                      <span className="text-[9px] font-bold text-white tracking-widest">GEMINI / GROQ</span>
+                    </div>
+                  </div>
+                  <span className="text-xs font-mono text-zinc-400 mt-2">Generating 34+ Architectural Structural Elements</span>
+                </div>
+              )}
+
+              {/* Scene 3 Graphic: Vector Drafting */}
+              {activePhaseIndex === 2 && (
+                <div className="w-full max-w-lg aspect-[16/10] bg-[#09090b] border border-zinc-800 rounded-xl relative overflow-hidden flex items-center justify-center p-4">
+                  <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+                  <svg width="340" height="200" viewBox="0 0 340 200" className="relative z-10">
+                    <rect x="20" y="20" width="300" height="160" fill="none" stroke="#10b981" strokeWidth="4" />
+                    <line x1="160" y1="20" x2="160" y2="180" stroke="#10b981" strokeWidth="4" />
+                    <line x1="20" y1="100" x2="160" y2="100" stroke="#10b981" strokeWidth="4" />
+                    {/* Door arc */}
+                    <path d="M 160 60 A 25 25 0 0 1 135 85" fill="none" stroke="#facc15" strokeWidth="2" strokeDasharray="3 3" />
+                    {/* Dynamic Snap Reticle */}
+                    <circle cx="160" cy="100" r="8" fill="none" stroke="#10b981" strokeWidth="2" className="animate-ping" />
+                  </svg>
+                  <div className="absolute bottom-3 right-3 bg-zinc-950/80 px-2.5 py-1 rounded text-[10px] text-emerald-400 font-mono border border-emerald-500/30">
+                    Fabric.js Sub-Millimeter Snap: 90°
+                  </div>
+                </div>
+              )}
+
+              {/* Scene 4 Graphic: Procedural 3D Mesh */}
+              {activePhaseIndex === 3 && (
+                <div className="w-full max-w-lg aspect-[16/10] rounded-xl overflow-hidden relative shadow-2xl border border-zinc-800">
+                  <img 
+                    src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1280&q=80" 
+                    alt="3D Extrusion" 
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30"></div>
+                  <div className="absolute top-3 left-3 bg-blue-950/90 border border-blue-500/40 text-blue-300 px-3 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5">
+                    <Box className="w-3.5 h-3.5" /> Three.js Extrusion & Slabs
+                  </div>
+                  <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-[11px] text-zinc-300 font-mono">
+                    <span>Floor Slabs: ON</span>
+                    <span>SunCalc Raytracing: Active</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Scene 5 Graphic: Automated Code Audit Scanner */}
+              {activePhaseIndex === 4 && (
+                <div className="w-full max-w-lg aspect-[16/10] bg-zinc-950 border border-zinc-800 rounded-xl relative overflow-hidden flex items-center justify-center p-6">
+                  {/* Laser Scanner Line */}
+                  <div className="absolute left-0 right-0 h-1 bg-orange-500 shadow-[0_0_25px_rgba(249,115,22,1)] z-20 animate-pulse"></div>
+                  
+                  <div className="border border-zinc-700/80 w-64 h-40 relative rounded-lg p-3 bg-zinc-900/30">
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-emerald-950/95 border border-emerald-500 text-emerald-400 text-xs px-4 py-2 rounded-xl font-mono flex items-center gap-2 shadow-2xl">
+                      <CheckCircle2 className="w-4 h-4" /> 100% IBC/NBC Code Verified
+                    </div>
+                  </div>
+                  <div className="absolute bottom-3 right-3 text-[10px] text-orange-400 font-mono">
+                    AABB Clash Detection Active
+                  </div>
+                </div>
+              )}
+
+              {/* Scene 6 Graphic: 8K Photorealistic Interior */}
+              {activePhaseIndex === 5 && (
+                <div className="w-full max-w-lg aspect-[16/10] rounded-xl overflow-hidden relative shadow-2xl border border-zinc-800">
+                  <img 
+                    src="https://images.unsplash.com/photo-1598928506311-c55ded91a20c?auto=format&fit=crop&w=1280&q=80" 
+                    alt="8K Staged Room" 
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute top-3 left-3 bg-purple-950/90 border border-purple-500/40 text-purple-300 px-3 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 shadow-lg">
+                    <Sparkles className="w-3.5 h-3.5" /> 8K Photorealistic Stager
+                  </div>
+                  <div className="absolute bottom-3 left-3 bg-black/80 backdrop-blur-md px-3 py-1 rounded-lg text-[10px] text-zinc-300 font-mono border border-zinc-800">
+                    Whole-Room Wide Angle (14mm)
+                  </div>
+                </div>
+              )}
+
+              {/* Scene 7 Graphic: BIM Takeoffs */}
+              {activePhaseIndex === 6 && (
+                <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-2xl font-mono text-xs">
+                  <div className="flex items-center justify-between pb-3 border-b border-zinc-800 mb-3">
+                    <span className="font-bold text-white flex items-center gap-1.5">
+                      <Calculator className="w-4 h-4 text-teal-400" /> Bill of Quantities (BOM)
+                    </span>
+                    <span className="text-emerald-400 font-bold">$48,500 USD</span>
+                  </div>
+                  <div className="space-y-2 text-zinc-400 text-[11px]">
+                    <div className="flex justify-between border-b border-zinc-900 pb-1">
+                      <span>Wall Partitioning:</span> <span className="text-white">64.5 m ($7,740)</span>
+                    </div>
+                    <div className="flex justify-between border-b border-zinc-900 pb-1">
+                      <span>Glazed Openings:</span> <span className="text-white">6 Units ($4,500)</span>
+                    </div>
+                    <div className="flex justify-between border-b border-zinc-900 pb-1">
+                      <span>Hardwood Floor Slabs:</span> <span className="text-white">185 m² ($14,800)</span>
+                    </div>
+                    <div className="flex justify-between pt-1 text-teal-300 font-bold">
+                      <span>PDF Manifest:</span> <span>Generated in 1-Click</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 6. COMPUTATIONAL MODULES (Feature Grid)                                   */}
+      {/* ========================================================================= */}
+      <section id="features" className="py-24 px-6 max-w-7xl mx-auto border-t border-zinc-900">
+        
+        <div className="text-center max-w-3xl mx-auto mb-16">
+          <h2 className="text-3xl md:text-5xl font-extrabold text-white tracking-tight mb-4">
+            Unified Architectural Architecture
+          </h2>
+          <p className="text-zinc-400 text-base md:text-lg font-light leading-relaxed">
+            Everything you need to draft, validate, simulate, and present your projects — zero fragmented tools.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          
+          {/* Card 1 */}
+          <div className="bg-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded-3xl p-8 transition-all group relative overflow-hidden">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 mb-6 group-hover:scale-110 transition-transform">
+              <ScanLine className="w-6 h-6" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">Prompt-Driven Blueprints</h3>
+            <p className="text-zinc-400 text-sm leading-relaxed mb-4">
+              Type descriptions like "3-bedroom villa with master suite and ensuite bath" to generate full architectural layouts with realistic room dimensions in 3 seconds.
+            </p>
+            <span className="text-xs font-mono text-indigo-400 font-semibold">Generative AI Engine &rarr;</span>
+          </div>
+
+          {/* Card 2 */}
+          <div className="bg-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded-3xl p-8 transition-all group relative overflow-hidden">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-6 group-hover:scale-110 transition-transform">
+              <PenTool className="w-6 h-6" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">Sub-Millimeter 2D CAD Canvas</h3>
+            <p className="text-zinc-400 text-sm leading-relaxed mb-4">
+              Vector draft with intelligent 45° angle snapping, automatic wall joining, door swings, and window insertions. All edits persist in real-time.
+            </p>
+            <span className="text-xs font-mono text-emerald-400 font-semibold">Fabric.js Vector Canvas &rarr;</span>
+          </div>
+
+          {/* Card 3 */}
+          <div className="bg-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded-3xl p-8 transition-all group relative overflow-hidden">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-6 group-hover:scale-110 transition-transform">
+              <Box className="w-6 h-6" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">WASD First-Person Walkthrough</h3>
+            <p className="text-zinc-400 text-sm leading-relaxed mb-4">
+              Step right inside your design. Walk through physical door cutouts with authentic camera collision detection, floor slabs, and ceilings.
+            </p>
+            <span className="text-xs font-mono text-amber-400 font-semibold">WebGL Locomotion &rarr;</span>
+          </div>
+
+          {/* Card 4 */}
+          <div className="bg-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded-3xl p-8 transition-all group relative overflow-hidden">
+            <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 mb-6 group-hover:scale-110 transition-transform">
+              <Sofa className="w-6 h-6" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">Whole-Room Virtual Stager</h3>
+            <p className="text-zinc-400 text-sm leading-relaxed mb-4">
+              Upload empty bedroom photos or pick templates to furnish entire spaces with 14mm wide-angle magazine quality in modern, Japandi, or industrial styles.
+            </p>
+            <span className="text-xs font-mono text-purple-400 font-semibold">AI Room Redecorator &rarr;</span>
+          </div>
+
+          {/* Card 5 */}
+          <div className="bg-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded-3xl p-8 transition-all group relative overflow-hidden">
+            <div className="w-12 h-12 rounded-2xl bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-teal-400 mb-6 group-hover:scale-110 transition-transform">
+              <Sun className="w-6 h-6" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">SunCalc Solar Simulation</h3>
+            <p className="text-zinc-400 text-sm leading-relaxed mb-4">
+              Simulate accurate geographic sun position and shadows for any hour of the day to optimize room daylighting and energy efficiency.
+            </p>
+            <span className="text-xs font-mono text-teal-400 font-semibold">Daylighting Engine &rarr;</span>
+          </div>
+
+          {/* Card 6 */}
+          <div className="bg-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded-3xl p-8 transition-all group relative overflow-hidden">
+            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 mb-6 group-hover:scale-110 transition-transform">
+              <Calculator className="w-6 h-6" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">Live Cost Takeoffs & Reports</h3>
+            <p className="text-zinc-400 text-sm leading-relaxed mb-4">
+              Real-time bill of quantities calculating wall linear meters, door/window costs, and furniture totals with one-click executive PDF exports.
+            </p>
+            <span className="text-xs font-mono text-rose-400 font-semibold">BOM Estimation &rarr;</span>
+          </div>
+
+        </div>
+
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 7. VIRTUAL ROOM STAGER INTERACTIVE SHOWCASE                               */}
+      {/* ========================================================================= */}
+      <section id="stager-demo" className="py-24 px-6 max-w-7xl mx-auto border-t border-zinc-900">
+        
+        <div className="bg-gradient-to-b from-zinc-950 via-zinc-900/60 to-zinc-950 border border-zinc-800 rounded-3xl p-8 md:p-14 overflow-hidden">
+          
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+            
+            <div className="lg:col-span-5 space-y-5">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-bold uppercase tracking-wider">
+                <Sofa className="w-3.5 h-3.5" /> Virtual Stager Feature
+              </div>
+              
+              <h3 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">
+                Turn Empty Rooms into Designer Living Spaces
+              </h3>
+              
+              <p className="text-zinc-400 text-sm md:text-base leading-relaxed">
+                Upload a picture of any empty bedroom or bare space, specify your desired furnishings, and generate a fully furnished, wide-angle interior in 3 seconds.
+              </p>
+
+              {/* Interactive Toggle */}
+              <div className="pt-2 flex items-center gap-3">
+                <button
+                  onClick={() => setStagedPreview(false)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                    !stagedPreview ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  Original Empty Space
+                </button>
+                <button
+                  onClick={() => setStagedPreview(true)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    stagedPreview ? 'bg-emerald-500 text-white shadow-lg' : 'bg-zinc-800 text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5" /> AI Staged Room
+                </button>
+              </div>
+
+              <div className="pt-4">
+                <Link
+                  to="/render-studio"
+                  className="inline-flex items-center gap-2 text-xs font-bold text-white bg-zinc-800 hover:bg-zinc-700 px-5 py-3 rounded-xl transition-all border border-zinc-700"
+                >
+                  Open Virtual Room Stager &rarr;
+                </Link>
+              </div>
+            </div>
+
+            {/* Visual Image Preview */}
+            <div className="lg:col-span-7 aspect-[16/10] rounded-2xl overflow-hidden border border-zinc-800 relative shadow-2xl">
+              <img 
+                src={stagedPreview 
+                  ? "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1280&q=80" 
+                  : "https://images.unsplash.com/photo-1598928506311-c55ded91a20c?auto=format&fit=crop&w=1280&q=80"
+                } 
+                alt="Room Staging Preview" 
+                className="w-full h-full object-cover transition-all duration-300"
+              />
+              <div className="absolute top-4 left-4 bg-zinc-950/85 backdrop-blur-md px-3 py-1.5 rounded-lg text-[10px] font-bold text-white border border-zinc-800">
+                {stagedPreview ? '✨ AI FURNISHED: ULTRA MODERN LUXURY' : 'ORIGINAL UNSTAGED ROOM'}
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 8. ARCHITECTURE FAQ (Welcoming & Informative)                             */}
+      {/* ========================================================================= */}
+      <section id="faq" className="py-24 px-6 max-w-4xl mx-auto border-t border-zinc-900">
+        
+        <div className="text-center mb-16">
+          <h2 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight mb-3">
+            Frequently Asked Questions
+          </h2>
+          <p className="text-zinc-400 text-sm md:text-base">
+            Everything you need to know about designing with Arch-E-Tech.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          
+          {[
+            {
+              q: "Do I need prior architectural or CAD experience to use Arch-E-Tech?",
+              a: "Not at all! Arch-E-Tech was designed specifically to bridge the gap between imagination and precision CAD. You can generate complete multi-room layouts from plain text descriptions, and our intelligent editor automatically snaps walls and angles for you."
+            },
+            {
+              q: "How does the AI ensure the master bedroom is larger and properly laid out?",
+              a: "Our architectural synthesis algorithms evaluate room hierarchies. When you request a master suite, it allocates a larger primary footprint (e.g. 380x300px), anchors an en-suite bath directly to it, and isolates secondary bedrooms to guarantee privacy and logical circulation."
+            },
+            {
+              q: "Can I walk through my floor plan in first-person 3D?",
+              a: "Yes! Click the '3D' tab and select 'First-Person Walkthrough'. You can walk around using standard WASD keys, sprint with Shift, and look around with your mouse. Physical collisions prevent walking through solid walls, while doorways remain completely open."
+            },
+            {
+              q: "Can I save my work and export reports anytime?",
+              a: "Yes. All drawings save in real-time to your browser's local cache and sync to the cloud database automatically. You can export architectural PDF reports with structural narratives and cost takeoffs anytime, even if your floor plan is a work in progress."
+            }
+          ].map((item, idx) => (
+            <div 
+              key={idx} 
+              className="bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden transition-all"
+            >
+              <button 
+                onClick={() => toggleFaq(idx)}
+                className="w-full p-6 text-left flex items-center justify-between text-white font-semibold text-sm hover:text-indigo-400 transition-colors"
               >
-                Watch How It Works <ArrowRight className="w-5 h-5" />
+                <span>{item.q}</span>
+                <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${openFaq === idx ? 'rotate-180 text-white' : ''}`} />
+              </button>
+              {openFaq === idx && (
+                <div className="px-6 pb-6 text-zinc-400 text-xs md:text-sm leading-relaxed border-t border-zinc-900 pt-4">
+                  {item.a}
+                </div>
+              )}
+            </div>
+          ))}
+
+        </div>
+
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 9. BOTTOM WELCOMING CALL TO ACTION                                        */}
+      {/* ========================================================================= */}
+      <section className="py-24 px-6 max-w-7xl mx-auto border-t border-zinc-900 text-center">
+        <div className="bg-gradient-to-tr from-indigo-950/40 via-zinc-900 to-emerald-950/30 border border-zinc-800 rounded-3xl p-12 md:p-20 relative overflow-hidden shadow-2xl">
+          <div className="relative z-10 max-w-2xl mx-auto space-y-6">
+            <h2 className="text-3xl md:text-5xl font-extrabold text-white tracking-tight">
+              Ready to bring your architectural vision to life?
+            </h2>
+            <p className="text-zinc-400 text-base font-light">
+              Create an account in seconds or draft freely. No credit card required.
+            </p>
+            <div className="pt-2 flex flex-wrap items-center justify-center gap-4">
+              <Link 
+                to="/auth" 
+                className="bg-white text-black font-bold text-sm px-8 py-4 rounded-full hover:bg-zinc-200 transition-all shadow-[0_0_30px_rgba(255,255,255,0.3)] hover:scale-105 active:scale-95"
+              >
+                Launch Arch-E-Tech Studio &rarr;
               </Link>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-      </main>
-
-      {/* Footer */}
+      {/* ========================================================================= */}
+      {/* 10. FOOTER                                                                */}
+      {/* ========================================================================= */}
       <footer className="border-t border-zinc-900 py-12 px-6">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-zinc-600">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-zinc-500">
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-zinc-700 rounded-sm"></div>
-            <span className="font-semibold text-zinc-400">Arch-E-Tech</span>
+            <div className="w-5 h-5 bg-white rounded-md flex items-center justify-center">
+              <Building className="w-3 h-3 text-black" />
+            </div>
+            <span className="font-bold text-zinc-300">Arch-E-Tech Platform</span>
+            <span className="text-zinc-600">|</span>
+            <span>Autonomous Architectural Studio</span>
           </div>
-          <div>© {new Date().getFullYear()} Arch-E-Tech. All rights reserved.</div>
+          <div>© {new Date().getFullYear()} Arch-E-Tech. Engineered for precision and photorealism.</div>
         </div>
       </footer>
+
     </div>
   );
 }
