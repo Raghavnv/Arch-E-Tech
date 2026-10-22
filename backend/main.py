@@ -235,26 +235,21 @@ async def generate_floor_plan(payload: AIPrompt):
     api_key = os.getenv("GROQ_API_KEY")
     
     if not api_key:
-        print("Warning: GROQ_API_KEY is missing. Using pre-calculated structural layout.")
-        return {
-            "status": "success",
-            "elements": generate_fallback_blueprint(payload.prompt)
-        }
+        raise HTTPException(status_code=500, detail="GROQ_API_KEY is missing on Render. Please configure it in your Environment Variables.")
 
     system_prompt = """You are an expert AI Architectural Floor Plan Generator.
-The user will describe a building, house, or space.
-Your job is to act like a real architect and output a fully realized 2D floor plan as a JSON object containing a single key "elements" mapped to an array of objects.
+Your job is to generate highly creative, UNIQUE, and varied 2D floor plans as a JSON object.
+Do NOT output the same layout twice. Be creative with room shapes, hallways, and furniture placements!
 
 Coordinate System & Scale Rules:
-1. 1 unit = 0.05 meters.
-2. A standard house is around 800x800 units. Start your outer perimeter walls around (left: 100, top: 100).
-3. Walls MUST be 8 units thick. If horizontal, height=8, width=length. If vertical, width=8, height=length.
-4. You MUST create interior walls to divide the space into logical rooms requested by the user.
+1. 1 unit = 0.05 meters. A standard house is around 800x800 units. Start outer perimeter walls around (100, 100).
+2. Walls MUST be 8 units thick. If horizontal, height=8, width=length. If vertical, width=8, height=length.
+3. You MUST create interior walls to divide the space into logical rooms requested by the user. Ensure adequate bathrooms based on the number of bedrooms.
 
 Element Schema:
 {
   "id": "unique_string",
-  "type": "wall" | "door" | "window" | "furniture_bed" | "furniture_sofa" | "furniture_table" | "stairs",
+  "type": "wall" | "door" | "window" | "furniture_bed" | "furniture_sofa" | "furniture_table" | "furniture_armchair" | "furniture_bathtub" | "furniture_vanity" | "furniture_kitchen" | "stairs",
   "left": number,
   "top": number,
   "width": number,
@@ -267,7 +262,7 @@ Required Output:
 - Interior walls dividing the space into rooms.
 - Doors (type: "door", 50-70 wide, 4-8 thick) connecting the rooms.
 - Windows (type: "window", 80-120 wide, 4-8 thick) on the outer walls.
-- Furniture placed logically inside the rooms.
+- Furniture and bathroom fixtures placed logically inside the rooms.
 
 Output STRICTLY valid JSON only. Format: {"elements": [...]}
 """
@@ -276,10 +271,10 @@ Output STRICTLY valid JSON only. Format: {"elements": [...]}
         chat_completion = client.chat.completions.create(
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Generate a highly detailed, creative floor plan for: {payload.prompt}"}
+                {"role": "user", "content": f"Generate a completely unique, highly detailed floor plan for: {payload.prompt}"}
             ],
             model="llama-3.3-70b-versatile",
-            temperature=0.7, 
+            temperature=0.9, # Cranking up temperature for maximum uniqueness
             response_format={"type": "json_object"}
         )
         
@@ -288,7 +283,7 @@ Output STRICTLY valid JSON only. Format: {"elements": [...]}
         elements = data.get("elements", [])
         
         if not elements or len(elements) < 4:
-            return {"status": "success", "elements": generate_fallback_blueprint(payload.prompt)}
+            raise ValueError("AI generated an incomplete layout.")
             
         import uuid
         for el in elements:
@@ -305,7 +300,8 @@ Output STRICTLY valid JSON only. Format: {"elements": [...]}
         
     except Exception as e:
         print(f"AI Generation Error: {str(e)}")
-        return {"status": "success", "elements": generate_fallback_blueprint(payload.prompt)}
+        raise HTTPException(status_code=500, detail=f"AI Engine Failed: {str(e)}")
+
 
 # -----------------------------------------------------------------
 # Sketch Upload (YOLOv11 Hook)
