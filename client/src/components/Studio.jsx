@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
-import { ARCHITECTURAL_TEXTURES } from './textureLibrary';
+import { ARCHITECTURAL_TEXTURES } from '../utils/textureLibrary';
 
 export default function Studio() {
   const navigate = useNavigate();
