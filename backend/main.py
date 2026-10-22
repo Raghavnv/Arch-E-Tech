@@ -273,7 +273,7 @@ Output STRICTLY valid JSON only. Format: {"elements": [...]}
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Generate a completely unique, highly detailed floor plan for: {payload.prompt}"}
             ],
-            model="openai/gpt-oss-20b",
+            model="llama3-8b-8192", 
             temperature=0.9, # Cranking up temperature for maximum uniqueness
             response_format={"type": "json_object"}
         )
@@ -300,7 +300,9 @@ Output STRICTLY valid JSON only. Format: {"elements": [...]}
         
     except Exception as e:
         print(f"AI Generation Error: {str(e)}")
+        from fastapi import HTTPException
         raise HTTPException(status_code=500, detail=f"AI Engine Failed: {str(e)}")
+
 
 
 # -----------------------------------------------------------------
@@ -361,7 +363,7 @@ async def ai_copilot_chat(payload: AIChatRequest):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"My current layout data: {json.dumps(payload.elements)}\n\nMy question: {payload.message}"}
             ],
-            model="openai/gpt-oss-20b",
+            model="llama3-8b-8192", 
             temperature=0.5,
         )
         return {"status": "success", "reply": chat_completion.choices[0].message.content}
@@ -391,7 +393,7 @@ async def check_compliance(payload: ComplianceRequest):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Layout data: {json.dumps(payload.elements)}"}
             ],
-            model="openai/gpt-oss-20b",
+            model="llama3-8b-8192", 
             temperature=0.1,
             response_format={"type": "json_object"}
         )
@@ -424,7 +426,7 @@ async def generate_report_narrative(payload: ReportRequest):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Layout data: {json.dumps(payload.elements)}"}
             ],
-            model="openai/gpt-oss-20b",
+            model="llama3-8b-8192", 
             temperature=0.3,
         )
         return {"status": "success", "narrative": chat_completion.choices[0].message.content.strip()}
