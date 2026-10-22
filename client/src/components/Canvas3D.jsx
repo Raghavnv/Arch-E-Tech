@@ -195,6 +195,7 @@ function useWallMaterial(material, isColor, length, height) {
           tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
           tex.repeat.set(Math.max(length / 2, 1), Math.max(height / 2, 1));
           tex.colorSpace = THREE.SRGBColorSpace;
+          tex.needsUpdate = true;
           setTexture(tex);
         },
         undefined,
@@ -205,15 +206,15 @@ function useWallMaterial(material, isColor, length, height) {
     }
   }, [material, isColor, length, height]);
 
-  // Return a props object so each mesh can create its own material element
   if (texture) {
-    return { map: texture, roughness: 0.7, key: texture.uuid };
+    return { map: texture, roughness: 0.7 };
   }
   if (isColor && material) {
-    return { color: material, roughness: 0.9, key: `color-${material}` };
+    return { color: material, roughness: 0.9 };
   }
-  return { color: '#f4f4f5', roughness: 0.85, key: 'default' };
+  return { color: '#f4f4f5', roughness: 0.85 };
 }
+
 
 /**
  * Renders a <meshStandardMaterial> from the props object returned by useWallMaterial.
@@ -436,40 +437,21 @@ function StandaloneOpening({ el }) {
 // =================================================================
 
 function ProceduralFurniture({ el }) {
-  const w = (el?.width || 80) * SCALE;
-  const d = (el?.height || 50) * SCALE;
+  const w = (el?.width || 80) * 0.05;
+  const d = (el?.height || 50) * 0.05;
   const rotY = -((el?.angle || 0) * Math.PI) / 180;
   const rad = ((el?.angle || 0) * Math.PI) / 180;
-  const cx = (el?.left || 0) * SCALE + (w / 2) * Math.cos(rad) - (d / 2) * Math.sin(rad);
-  const cz = (el?.top || 0) * SCALE + (w / 2) * Math.sin(rad) + (d / 2) * Math.cos(rad);
+  const cx = (el?.left || 0) * 0.05 + (w / 2) * Math.cos(rad) - (d / 2) * Math.sin(rad);
+  const cz = (el?.top || 0) * 0.05 + (w / 2) * Math.sin(rad) + (d / 2) * Math.cos(rad);
 
   if (el.type === 'furniture_bed') {
     return (
       <group position={[cx, 0, cz]} rotation={[0, rotY, 0]}>
-        {/* Modern Platform Bed Frame */}
-        <mesh position={[0, 0.15, 0]} castShadow receiveShadow>
-          <boxGeometry args={[w, 0.3, d]} />
-          <meshStandardMaterial color="#1e1e24" roughness={0.7} />
-        </mesh>
-        {/* Soft Linen Mattress */}
-        <mesh position={[0, 0.45, 0]} castShadow receiveShadow>
-          <boxGeometry args={[w * 0.94, 0.3, d * 0.94]} />
-          <meshStandardMaterial color="#f8fafc" roughness={0.9} />
-        </mesh>
-        {/* Headboard */}
-        <mesh position={[0, 0.7, -d * 0.46]} castShadow receiveShadow>
-          <boxGeometry args={[w, 0.8, 0.1]} />
-          <meshStandardMaterial color="#2d2d38" roughness={0.8} />
-        </mesh>
-        {/* Pillows */}
-        <mesh position={[-w * 0.25, 0.65, -d * 0.32]} rotation={[0.2, 0, 0]} castShadow>
-          <boxGeometry args={[w * 0.38, 0.12, d * 0.2]} />
-          <meshStandardMaterial color="#e2e8f0" roughness={0.9} />
-        </mesh>
-        <mesh position={[w * 0.25, 0.65, -d * 0.32]} rotation={[0.2, 0, 0]} castShadow>
-          <boxGeometry args={[w * 0.38, 0.12, d * 0.2]} />
-          <meshStandardMaterial color="#e2e8f0" roughness={0.9} />
-        </mesh>
+        <mesh position={[0, 0.15, 0]} castShadow receiveShadow><boxGeometry args={[w, 0.3, d]} /><meshStandardMaterial color="#1e1e24" roughness={0.7} /></mesh>
+        <mesh position={[0, 0.45, 0]} castShadow receiveShadow><boxGeometry args={[w * 0.94, 0.3, d * 0.94]} /><meshStandardMaterial color="#f8fafc" roughness={0.9} /></mesh>
+        <mesh position={[0, 0.7, -d * 0.46]} castShadow receiveShadow><boxGeometry args={[w, 0.8, 0.1]} /><meshStandardMaterial color="#2d2d38" roughness={0.8} /></mesh>
+        <mesh position={[-w * 0.25, 0.65, -d * 0.32]} rotation={[0.2, 0, 0]} castShadow><boxGeometry args={[w * 0.38, 0.12, d * 0.2]} /><meshStandardMaterial color="#e2e8f0" roughness={0.9} /></mesh>
+        <mesh position={[w * 0.25, 0.65, -d * 0.32]} rotation={[0.2, 0, 0]} castShadow><boxGeometry args={[w * 0.38, 0.12, d * 0.2]} /><meshStandardMaterial color="#e2e8f0" roughness={0.9} /></mesh>
       </group>
     );
   }
@@ -477,25 +459,10 @@ function ProceduralFurniture({ el }) {
   if (el.type === 'furniture_sofa') {
     return (
       <group position={[cx, 0, cz]} rotation={[0, rotY, 0]}>
-        {/* Base Seat Cushion */}
-        <mesh position={[0, 0.25, 0]} castShadow receiveShadow>
-          <boxGeometry args={[w, 0.35, d * 0.85]} />
-          <meshStandardMaterial color="#4f46e5" roughness={0.85} />
-        </mesh>
-        {/* Backrest */}
-        <mesh position={[0, 0.65, -d * 0.35]} castShadow receiveShadow>
-          <boxGeometry args={[w, 0.55, d * 0.25]} />
-          <meshStandardMaterial color="#4338ca" roughness={0.85} />
-        </mesh>
-        {/* Armrests */}
-        <mesh position={[-w * 0.46, 0.45, 0]} castShadow receiveShadow>
-          <boxGeometry args={[w * 0.08, 0.35, d * 0.85]} />
-          <meshStandardMaterial color="#4338ca" roughness={0.85} />
-        </mesh>
-        <mesh position={[w * 0.46, 0.45, 0]} castShadow receiveShadow>
-          <boxGeometry args={[w * 0.08, 0.35, d * 0.85]} />
-          <meshStandardMaterial color="#4338ca" roughness={0.85} />
-        </mesh>
+        <mesh position={[0, 0.25, 0]} castShadow receiveShadow><boxGeometry args={[w, 0.35, d * 0.85]} /><meshStandardMaterial color="#4f46e5" roughness={0.85} /></mesh>
+        <mesh position={[0, 0.65, -d * 0.35]} castShadow receiveShadow><boxGeometry args={[w, 0.55, d * 0.25]} /><meshStandardMaterial color="#4338ca" roughness={0.85} /></mesh>
+        <mesh position={[-w * 0.46, 0.45, 0]} castShadow receiveShadow><boxGeometry args={[w * 0.08, 0.35, d * 0.85]} /><meshStandardMaterial color="#4338ca" roughness={0.85} /></mesh>
+        <mesh position={[w * 0.46, 0.45, 0]} castShadow receiveShadow><boxGeometry args={[w * 0.08, 0.35, d * 0.85]} /><meshStandardMaterial color="#4338ca" roughness={0.85} /></mesh>
       </group>
     );
   }
@@ -503,29 +470,53 @@ function ProceduralFurniture({ el }) {
   if (el.type === 'furniture_table') {
     return (
       <group position={[cx, 0, cz]} rotation={[0, rotY, 0]}>
-        {/* Solid Walnut Table Top */}
-        <mesh position={[0, 0.75, 0]} castShadow receiveShadow>
-          <boxGeometry args={[w, 0.06, d]} />
-          <meshStandardMaterial color="#92400e" roughness={0.5} />
-        </mesh>
-        {/* Matte Black Steel Legs */}
-        {[
-          [-w * 0.42, -d * 0.4],
-          [w * 0.42, -d * 0.4],
-          [-w * 0.42, d * 0.4],
-          [w * 0.42, d * 0.4]
-        ].map(([lx, lz], i) => (
-          <mesh key={i} position={[lx, 0.36, lz]} castShadow>
-            <cylinderGeometry args={[0.03, 0.02, 0.72]} />
-            <meshStandardMaterial color="#18181b" roughness={0.4} metalness={0.7} />
-          </mesh>
+        <mesh position={[0, 0.75, 0]} castShadow receiveShadow><boxGeometry args={[w, 0.06, d]} /><meshStandardMaterial color="#92400e" roughness={0.5} /></mesh>
+        {([[-w * 0.42, -d * 0.4], [w * 0.42, -d * 0.4], [-w * 0.42, d * 0.4], [w * 0.42, d * 0.4]]).map(([lx, lz], i) => (
+          <mesh key={i} position={[lx, 0.36, lz]} castShadow><cylinderGeometry args={[0.03, 0.02, 0.72]} /><meshStandardMaterial color="#18181b" roughness={0.4} metalness={0.7} /></mesh>
         ))}
+      </group>
+    );
+  }
+
+  if (el.type === 'furniture_armchair') {
+    return (
+      <group position={[cx, 0, cz]} rotation={[0, rotY, 0]}>
+        <mesh position={[0, 0.2, 0]} castShadow receiveShadow><boxGeometry args={[w, 0.3, d]} /><meshStandardMaterial color="#3b82f6" roughness={0.8} /></mesh>
+        <mesh position={[0, 0.55, -d * 0.3]} castShadow receiveShadow><boxGeometry args={[w, 0.45, 0.2]} /><meshStandardMaterial color="#2563eb" roughness={0.8} /></mesh>
+      </group>
+    );
+  }
+
+  if (el.type === 'furniture_bathtub') {
+    return (
+      <group position={[cx, 0, cz]} rotation={[0, rotY, 0]}>
+        <mesh position={[0, 0.3, 0]} castShadow receiveShadow><boxGeometry args={[w, 0.6, d]} /><meshStandardMaterial color="#ffffff" roughness={0.1} metalness={0.1} /></mesh>
+        <mesh position={[0, 0.7, -d * 0.45]} castShadow><cylinderGeometry args={[0.02, 0.02, 0.2]} /><meshStandardMaterial color="#e2e8f0" metalness={0.9} roughness={0.1} /></mesh>
+      </group>
+    );
+  }
+
+  if (el.type === 'furniture_vanity') {
+    return (
+      <group position={[cx, 0, cz]} rotation={[0, rotY, 0]}>
+        <mesh position={[0, 0.4, 0]} castShadow receiveShadow><boxGeometry args={[w, 0.8, d]} /><meshStandardMaterial color="#27272a" roughness={0.6} /></mesh>
+        <mesh position={[0, 0.82, 0]} castShadow><boxGeometry args={[w * 0.95, 0.04, d * 0.9]} /><meshStandardMaterial color="#f8fafc" roughness={0.2} /></mesh>
+      </group>
+    );
+  }
+
+  if (el.type === 'furniture_kitchen') {
+    return (
+      <group position={[cx, 0, cz]} rotation={[0, rotY, 0]}>
+        <mesh position={[0, 0.45, 0]} castShadow receiveShadow><boxGeometry args={[w, 0.9, d]} /><meshStandardMaterial color="#18181b" roughness={0.5} /></mesh>
+        <mesh position={[0, 0.92, 0]} castShadow><boxGeometry args={[w * 1.02, 0.04, d * 1.02]} /><meshStandardMaterial color="#cbd5e1" metalness={0.8} roughness={0.2} /></mesh>
       </group>
     );
   }
 
   return null;
 }
+
 
 // =================================================================
 // 5.5 PROCEDURAL ARCHITECTURAL STAIRCASE

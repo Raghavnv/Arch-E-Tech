@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
-import { ARCHITECTURAL_TEXTURES } from '../utils/textureLibrary';
+import { ARCHITECTURAL_TEXTURES } from './textureLibrary';
 
 export default function Studio() {
   const navigate = useNavigate();
@@ -112,6 +112,10 @@ export default function Studio() {
       furniture_bed: 800 * multiplier,
       furniture_sofa: 1200 * multiplier,
       furniture_table: 600 * multiplier,
+      furniture_armchair: 400 * multiplier,
+      furniture_bathtub: 1100 * multiplier,
+      furniture_vanity: 700 * multiplier,
+      furniture_kitchen: 1800 * multiplier,
       stairs: 2500 * multiplier
     };
 
@@ -127,7 +131,7 @@ export default function Studio() {
         itemCost = lengthMeters * rates.wall;
         counts[type].length += lengthMeters;
       } else {
-        itemCost = rates[type] || 100;
+        itemCost = rates[type] || 300;
         counts[type].count += 1;
       }
       
@@ -739,45 +743,38 @@ export default function Studio() {
         </div>
 
         {activeTab === '2D' && showFurnitureCatalog && (
-          <div className="absolute top-24 left-6 w-64 bg-zinc-950/90 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl p-4 z-20">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-sm font-bold text-white">Furniture Catalog</h3>
+          <div className="absolute top-24 left-6 w-72 bg-zinc-950/90 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl p-4 z-20 max-h-[450px] overflow-y-auto custom-scrollbar">
+            <div className="flex justify-between items-center mb-4 sticky top-0 bg-zinc-950/90 py-1">
+              <h3 className="text-sm font-bold text-white">Full House Furniture Suite</h3>
               <button onClick={() => setShowFurnitureCatalog(false)} className="text-zinc-500 hover:text-white">
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-[10px] text-zinc-400 mb-3">Click to drop into center, then drag to arrange.</p>
+            <p className="text-[10px] text-zinc-400 mb-3">Click any item to drop into center.</p>
             <div className="flex flex-col gap-2">
-              <button 
-                onClick={() => window.dispatchEvent(new CustomEvent('add-furniture', { detail: 'furniture_bed' }))}
-                className="flex items-center gap-3 p-3 bg-zinc-900 hover:bg-zinc-800 rounded-xl border border-zinc-800 transition-colors text-left"
-              >
-                <div className="w-8 h-8 rounded bg-slate-800 flex items-center justify-center text-slate-300 text-xs font-bold">QB</div>
-                <div>
-                  <div className="text-xs font-semibold text-white">Queen Bed</div>
-                  <div className="text-[10px] text-zinc-500">60" x 80"</div>
-                </div>
-              </button>
-              <button 
-                onClick={() => window.dispatchEvent(new CustomEvent('add-furniture', { detail: 'furniture_sofa' }))}
-                className="flex items-center gap-3 p-3 bg-zinc-900 hover:bg-zinc-800 rounded-xl border border-zinc-800 transition-colors text-left"
-              >
-                <div className="w-8 h-8 rounded bg-indigo-900 flex items-center justify-center text-indigo-300 text-xs font-bold">LS</div>
-                <div>
-                  <div className="text-xs font-semibold text-white">Lounge Sofa</div>
-                  <div className="text-[10px] text-zinc-500">80" x 35"</div>
-                </div>
-              </button>
-              <button 
-                onClick={() => window.dispatchEvent(new CustomEvent('add-furniture', { detail: 'furniture_table' }))}
-                className="flex items-center gap-3 p-3 bg-zinc-900 hover:bg-zinc-800 rounded-xl border border-zinc-800 transition-colors text-left"
-              >
-                <div className="w-8 h-8 rounded bg-amber-900 flex items-center justify-center text-amber-400 text-xs font-bold">DT</div>
-                <div>
-                  <div className="text-xs font-semibold text-white">Dining Table</div>
-                  <div className="text-[10px] text-zinc-500">70" x 45"</div>
-                </div>
-              </button>
+              {[
+                { type: 'furniture_bed', name: 'King Platform Bed', sub: '80" x 75"', badge: 'BED' },
+                { type: 'furniture_sofa', name: 'L-Sectional Lounge', sub: '90" x 40"', badge: 'SOFA' },
+                { type: 'furniture_table', name: 'Executive Dining Table', sub: '75" x 45"', badge: 'DINING' },
+                { type: 'furniture_armchair', name: 'Designer Armchair', sub: '35" x 35"', badge: 'CHAIR' },
+                { type: 'furniture_bathtub', name: 'Freestanding Bathtub', sub: '65" x 32"', badge: 'BATH' },
+                { type: 'furniture_vanity', name: 'Double Vanity Sink', sub: '60" x 22"', badge: 'SINK' },
+                { type: 'furniture_kitchen', name: 'Kitchen Island w/ Stove', sub: '84" x 36"', badge: 'KITCHEN' },
+              ].map((item) => (
+                <button 
+                  key={item.type}
+                  onClick={() => window.dispatchEvent(new CustomEvent('add-furniture', { detail: item.type }))}
+                  className="flex items-center gap-3 p-2.5 bg-zinc-900 hover:bg-zinc-800 rounded-xl border border-zinc-800 transition-colors text-left group"
+                >
+                  <div className="w-8 h-8 rounded bg-indigo-950 text-indigo-400 flex items-center justify-center text-[10px] font-bold border border-indigo-500/30 group-hover:border-indigo-500">
+                    {item.badge}
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-white">{item.name}</div>
+                    <div className="text-[10px] text-zinc-500">{item.sub}</div>
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -821,19 +818,20 @@ export default function Studio() {
               </div>
             )}
 
-            <div className="p-3 h-80 overflow-y-auto custom-scrollbar">
+            <div className="p-3 max-h-[380px] overflow-y-auto custom-scrollbar relative z-30">
               <div className="grid grid-cols-2 gap-2">
                 {TEXTURE_LIBRARY.map((mat) => (
                   <button
                     key={mat.id}
+                    type="button"
                     onClick={() => setSelectedMaterial(mat)}
                     style={{ backgroundColor: mat.color || '#333' }}
-                    className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all ${
-                      selectedMaterial?.id === mat.id ? 'border-indigo-500 scale-95' : 'border-zinc-800 hover:border-zinc-500'
+                    className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
+                      selectedMaterial?.id === mat.id ? 'border-indigo-500 scale-95 ring-2 ring-indigo-500/40' : 'border-zinc-800 hover:border-zinc-500'
                     }`}
                   >
-                    {mat.url && <img src={mat.url} alt={mat.name} className="w-full h-full object-cover" />}
-                    <div className="absolute inset-x-0 bottom-0 bg-black/70 backdrop-blur-md p-1.5 border-t border-white/10">
+                    {mat.url && <img src={mat.url} alt={mat.name} className="w-full h-full object-cover pointer-events-none" />}
+                    <div className="absolute inset-x-0 bottom-0 bg-black/80 backdrop-blur-md p-1.5 border-t border-white/10">
                       <p className="text-[9px] font-semibold text-white truncate text-center">{mat.name}</p>
                     </div>
                   </button>
