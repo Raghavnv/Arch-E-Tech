@@ -822,7 +822,7 @@ export default function Canvas3D({
   onToggleWalkthrough,
   onToggleCeiling
 }) {
-  const { wallData, standaloneOpenings, furniture, collisionSegments, bounds } = useProcessedArchitecture(elements);
+  const { wallData, standaloneOpenings, furniture, stairs, collisionSegments, bounds } = useProcessedArchitecture(elements);
   const [isPointerLocked, setIsPointerLocked] = useState(false);
 
   // Sun calculation using SunCalc
