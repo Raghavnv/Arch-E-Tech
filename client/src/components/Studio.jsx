@@ -5,11 +5,11 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Menu, MousePointer2, Box, Home, PenTool, LayoutTemplate, 
   Settings, Save, FileText, ChevronRight, Calculator, CheckCircle, 
-  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, ImageIcon, Sparkles, Download, ScanLine, Magnet 
+  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet 
 } from 'lucide-react';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
-import { ARCHITECTURAL_TEXTURES } from '../utils/textureLibrary';
+import { ARCHITECTURAL_TEXTURES } from './textureLibrary';
 
 export default function Studio() {
   const navigate = useNavigate();
@@ -22,22 +22,20 @@ export default function Studio() {
   const [showFurnitureCatalog, setShowFurnitureCatalog] = useState(false);
   const [activeFloor, setActiveFloor] = useState(1);
   const [canvasElements, setCanvasElements] = useState([]);
-  const [timeOfDay, setTimeOfDay] = useState(12); // Default to Noon
-  const totalFloors = 3; // Mocked from project setup
+  const [timeOfDay, setTimeOfDay] = useState(12);
+  const totalFloors = 3;
   const [isSaving, setIsSaving] = useState(false);
   const [complianceResult, setComplianceResult] = useState(null);
   
-  // New Features State
   const [showCostModal, setShowCostModal] = useState(false);
   const [blueprintMode, setBlueprintMode] = useState(false);
   const [walkthroughMode, setWalkthroughMode] = useState(false);
   const [showCeiling, setShowCeiling] = useState(false);
   const [isCapturingForRender, setIsCapturingForRender] = useState(false);
-  const prefCurrency = localStorage.getItem("pref_currency") || "INR";
+  const prefCurrency = localStorage.getItem("pref_currency") || "USD";
   const prefMeasurement = localStorage.getItem("pref_measurement") || "metric";
   const currencySymbol = prefCurrency === "USD" ? "$" : prefCurrency === "EUR" ? "€" : "₹";
   
-  // Chat Copilot State
   const [chatOpen, setChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState([
@@ -45,9 +43,6 @@ export default function Studio() {
   ]);
   const [isTyping, setIsTyping] = useState(false);
 
-  // Fetch project from database or local storage
-  
-  // History & Hotkeys (Undo/Redo)
   const [history, setHistory] = useState([]);
   const [historyPointer, setHistoryPointer] = useState(-1);
   const isUndoing = useRef(false);
@@ -57,13 +52,12 @@ export default function Studio() {
       isUndoing.current = false;
       return;
     }
-    // Only save history if it changed
     if (historyPointer >= 0 && JSON.stringify(history[historyPointer]) === JSON.stringify(canvasElements)) return;
     
     setHistory(h => {
       const newHistory = h.slice(0, historyPointer + 1);
       newHistory.push(canvasElements);
-      return newHistory.slice(-30); // Store 30 states
+      return newHistory.slice(-30);
     });
     setHistoryPointer(p => Math.min(p + 1, 29));
   }, [canvasElements]);
@@ -72,11 +66,9 @@ export default function Studio() {
     const handleGlobalKeyDown = (e) => {
       if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
       
-      // Undo / Redo
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
         e.preventDefault();
         if (e.shiftKey) {
-          // Redo
           if (historyPointer < history.length - 1) {
             isUndoing.current = true;
             const nextPtr = historyPointer + 1;
@@ -84,7 +76,6 @@ export default function Studio() {
             setCanvasElements(history[nextPtr]);
           }
         } else {
-          // Undo
           if (historyPointer > 0) {
             isUndoing.current = true;
             const prevPtr = historyPointer - 1;
@@ -94,18 +85,12 @@ export default function Studio() {
         }
       }
       
-      // Hotkeys
-      if (e.key.toLowerCase() === 'w') {
-        setDrawingMode(prev => prev === 'wall' ? null : 'wall');
-      } else if (e.key.toLowerCase() === 'd') {
-        setDrawingMode(prev => prev === 'door' ? null : 'door');
-      } else if (e.key.toLowerCase() === 'n' || e.key.toLowerCase() === 'g') {
-        setDrawingMode(prev => prev === 'window' ? null : 'window');
-      } else if (e.key.toLowerCase() === 's') {
-        setDrawingMode(prev => prev === 'stairs' ? null : 'stairs');
-      } else if (e.key === 'Escape') {
-        setDrawingMode(null);
-      } else if (e.key === ' ') {
+      if (e.key.toLowerCase() === 'w') setDrawingMode(prev => prev === 'wall' ? null : 'wall');
+      else if (e.key.toLowerCase() === 'd') setDrawingMode(prev => prev === 'door' ? null : 'door');
+      else if (e.key.toLowerCase() === 'n' || e.key.toLowerCase() === 'g') setDrawingMode(prev => prev === 'window' ? null : 'window');
+      else if (e.key.toLowerCase() === 's') setDrawingMode(prev => prev === 'stairs' ? null : 'stairs');
+      else if (e.key === 'Escape') setDrawingMode(null);
+      else if (e.key === ' ') {
         e.preventDefault();
         setActiveTab(prev => prev === '2D' ? '3D' : '2D');
       }
@@ -118,11 +103,10 @@ export default function Studio() {
   const calculateCosts = () => {
     let total = 0;
     const breakdown = [];
-    
     const multiplier = prefCurrency === 'INR' ? 83 : prefCurrency === 'EUR' ? 0.9 : 1;
 
     const rates = {
-      wall: 120 * multiplier, // per meter
+      wall: 120 * multiplier,
       door: 350 * multiplier,
       window: 250 * multiplier,
       furniture_bed: 800 * multiplier,
@@ -132,7 +116,7 @@ export default function Studio() {
     };
 
     let counts = {};
-    canvasElements.forEach(el => {
+    (canvasElements || []).forEach(el => {
       if (el.isGrid) return;
       const type = el.type || 'unknown';
       if (!counts[type]) counts[type] = { count: 0, length: 0, cost: 0 };
@@ -154,7 +138,6 @@ export default function Studio() {
     Object.keys(counts).forEach(key => {
       const unit = prefMeasurement === 'imperial' ? 'ft' : 'm';
       const wallQty = prefMeasurement === 'imperial' ? (counts[key].length * 3.28084).toFixed(1) : counts[key].length.toFixed(1);
-      
       breakdown.push({
         type: key.replace('furniture_', '').toUpperCase(),
         qty: key === 'wall' ? `${wallQty}${unit}` : counts[key].count,
@@ -167,7 +150,6 @@ export default function Studio() {
 
   const costData = calculateCosts();
 
-  // Real-time Local and Debounced Cloud Persistence
   useEffect(() => {
     let isMounted = true;
     const loadData = async () => {
@@ -185,7 +167,6 @@ export default function Studio() {
         } catch (e) {}
       }
 
-      // Then fetch project from DB if ID exists
       if (projectId) {
         const token = localStorage.getItem('token');
         try {
@@ -199,7 +180,6 @@ export default function Studio() {
                 setCanvasElements(data.elements_data);
                 localStorage.setItem(projectKey, JSON.stringify(data.elements_data));
               } else if (cachedElements && cachedElements.length > 0) {
-                // DB had empty array but local storage has user's recent drawings -> sync back to DB!
                 fetch(`${API_URL}/api/projects/${projectId}`, {
                   method: 'PUT',
                   headers: { 
@@ -222,8 +202,6 @@ export default function Studio() {
 
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState(null);
-
-  // High-Quality Seamless Texture Library from textureLibrary.js
   const TEXTURE_LIBRARY = ARCHITECTURAL_TEXTURES;
 
   const handlePaintWall = (elementId) => {
@@ -263,7 +241,6 @@ export default function Studio() {
     
     setIsGeneratingPDF(true);
     try {
-      // 1. Fetch AI Narrative from Groq
       const res = await fetch(`${API_URL}/api/ai/report-narrative`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -272,7 +249,6 @@ export default function Studio() {
       const aiData = await res.json();
       const narrative = aiData.narrative || "AI Analysis unavailable.";
 
-      // 2. Take a snapshot of the current main canvas container
       const canvasContainer = document.getElementById("studio-canvas-container");
       let imgData = null;
       if (canvasContainer) {
@@ -280,14 +256,7 @@ export default function Studio() {
         imgData = canvas.toDataURL('image/png');
       }
 
-      // 3. Build the PDF
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4'
-      });
-
-      // Title & Header
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(22);
       pdf.setTextColor(40, 40, 40);
@@ -301,7 +270,6 @@ export default function Studio() {
       pdf.setDrawColor(200, 200, 200);
       pdf.line(20, 35, 190, 35);
 
-      // Add the visual snapshot
       if (imgData) {
         pdf.setFontSize(12);
         pdf.setTextColor(40, 40, 40);
@@ -309,7 +277,6 @@ export default function Studio() {
         pdf.addImage(imgData, 'PNG', 20, 50, 170, 95);
       }
 
-      // Add AI Narrative
       pdf.setFontSize(14);
       pdf.setTextColor(40, 40, 40);
       pdf.text("AI Structural & Cost Analysis", 20, 160);
@@ -321,16 +288,12 @@ export default function Studio() {
       const splitText = pdf.splitTextToSize(narrative, 170);
       pdf.text(splitText, 20, 170);
 
-      // Footer
       pdf.setFontSize(8);
       pdf.setTextColor(150, 150, 150);
-      pdf.text(`Generated by Arch-E-Tech AI using Groq Llama-3 • ${new Date().toLocaleDateString()}`, 20, 285);
+      pdf.text(`Generated by Arch-E-Tech AI • ${new Date().toLocaleDateString()}`, 20, 285);
 
-      // Save PDF
-      const fileName = `Project-Report-${Date.now()}.pdf`;
-      pdf.save(fileName);
+      pdf.save(`Project-Report-${Date.now()}.pdf`);
 
-      // Save to Dashboard Reports repository
       try {
         const newReportRecord = {
           id: Date.now().toString(),
@@ -356,13 +319,11 @@ export default function Studio() {
     }
   };
 
-  // Save project state & elements reference
   const [saveSuccess, setSaveSuccess] = useState(false);
   const elementsRef = useRef(canvasElements);
   
   useEffect(() => {
     elementsRef.current = canvasElements;
-    // Real-time Local Storage cache write on every canvas modification
     const projectKey = projectId ? `archetech_project_${projectId}` : 'archetech_draft_project';
     try {
       localStorage.setItem(projectKey, JSON.stringify(canvasElements));
@@ -375,17 +336,8 @@ export default function Studio() {
     }
   }, [canvasElements, projectId]);
 
-  // Synchronous flush helper that guarantees data persistence before navigation
   const flushSave = async (navTarget = null) => {
     const curElements = elementsRef.current;
-    const projectKey = projectId ? `archetech_project_${projectId}` : 'archetech_draft_project';
-    try {
-      localStorage.setItem(projectKey, JSON.stringify(curElements));
-      localStorage.setItem('draftElements', JSON.stringify(curElements));
-      localStorage.setItem('renderStudioDraft', JSON.stringify(curElements));
-      localStorage.setItem('immersiveDraft', JSON.stringify(curElements));
-    } catch (e) {}
-
     if (projectId) {
       const token = localStorage.getItem('token');
       if (token) {
@@ -399,20 +351,14 @@ export default function Studio() {
             body: JSON.stringify({ elements_data: curElements }),
             keepalive: true
           });
-        } catch (e) {
-          console.warn("Cloud flush save failed", e);
-        }
+        } catch (e) {}
       }
     }
-
-    if (navTarget) {
-      navigate(navTarget);
-    }
+    if (navTarget) navigate(navTarget);
   };
 
-  // Fast debounced cloud autosave (1.5 seconds after drawing finishes)
   useEffect(() => {
-    if (!projectId || !canvasElements) return;
+    if (!projectId || !canvasElements || canvasElements.length === 0) return;
     const timer = setTimeout(async () => {
       const token = localStorage.getItem('token');
       if (!token) return;
@@ -425,25 +371,10 @@ export default function Studio() {
           },
           body: JSON.stringify({ elements_data: elementsRef.current })
         });
-      } catch (e) {
-        // silent fail for autosave
-      }
+      } catch (e) {}
     }, 1500);
-    
     return () => clearTimeout(timer);
   }, [canvasElements, projectId, API_URL]);
-
-  // Flush save on page refresh or browser close
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      flushSave();
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      flushSave();
-    };
-  }, [projectId]);
 
   const handleOpenRenderStudio = async () => {
     setIsCapturingForRender(true);
@@ -467,10 +398,8 @@ export default function Studio() {
     setSaveSuccess(false);
     const token = localStorage.getItem('token');
 
-    // Case 1: Unauthenticated or Draft without Project ID
     if (!projectId) {
       if (!token) {
-        // Save to browser storage so user never loses work
         await flushSave();
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
@@ -501,7 +430,6 @@ export default function Studio() {
           setTimeout(() => setSaveSuccess(false), 3000);
         }
       } catch (e) {
-        console.warn("Cloud save failed, saved locally", e);
         await flushSave();
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
@@ -511,7 +439,6 @@ export default function Studio() {
       return;
     }
 
-    // Case 2: Existing project
     try {
       await flushSave();
       setSaveSuccess(true);
@@ -526,10 +453,9 @@ export default function Studio() {
   return (
     <div className="h-screen w-screen flex overflow-hidden font-sans bg-transparent text-zinc-100">
       
-      {/* Left Sidebar - Project Metrics & Tools */}
+      {/* Left Sidebar */}
       <aside className="w-80 bg-zinc-950 border-r border-zinc-800 flex flex-col z-10 shrink-0">
         
-        {/* Header */}
         <div className="h-16 flex items-center justify-between px-6 border-b border-zinc-800 bg-black/50 backdrop-blur-sm">
           <div className="font-semibold text-sm tracking-tight flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>
@@ -556,7 +482,6 @@ export default function Studio() {
           </div>
         </div>
 
-        {/* Modules/Tabs */}
         <div className="flex border-b border-zinc-800">
           <button 
             onClick={() => setActiveTab('2D')}
@@ -572,7 +497,6 @@ export default function Studio() {
           </button>
         </div>
 
-        {/* Toolbar (Quick Actions) */}
         <div className="p-3 border-b border-zinc-800 grid grid-cols-4 gap-2">
           <button className="flex flex-col items-center justify-center p-2 rounded hover:bg-zinc-900 transition-colors text-zinc-400 hover:text-white">
             <ScanLine className="w-4 h-4 mb-1.5" />
@@ -592,10 +516,8 @@ export default function Studio() {
           </button>
         </div>
 
-        {/* Project Metrics Area */}
         <div className="flex-1 overflow-y-auto p-5 space-y-6 custom-scrollbar">
           
-          {/* Active Pipeline */}
           <div>
             <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Live Computations</h3>
             <div className="space-y-1">
@@ -630,28 +552,27 @@ export default function Studio() {
             <div className="space-y-1">
               <div className="flex items-center justify-between group cursor-pointer px-2 py-2 -mx-2 rounded hover:bg-zinc-900 transition-colors">
                 <span className="flex items-center gap-2 text-xs text-zinc-300"><div className="w-1.5 h-1.5 bg-zinc-400"></div> Walls</span>
-                <span className="text-xs text-zinc-500 font-mono">{canvasElements.filter(el => el.type === 'wall').length}</span>
+                <span className="text-xs text-zinc-500 font-mono">{(canvasElements || []).filter(el => el.type === 'wall').length}</span>
               </div>
               <div className="flex items-center justify-between group cursor-pointer px-2 py-2 -mx-2 rounded hover:bg-zinc-900 transition-colors">
                 <span className="flex items-center gap-2 text-xs text-zinc-300"><div className="w-1.5 h-1.5 bg-yellow-400"></div> Doors</span>
-                <span className="text-xs text-zinc-500 font-mono">{canvasElements.filter(el => el.type === 'door').length}</span>
+                <span className="text-xs text-zinc-500 font-mono">{(canvasElements || []).filter(el => el.type === 'door').length}</span>
               </div>
               <div className="flex items-center justify-between group cursor-pointer px-2 py-2 -mx-2 rounded hover:bg-zinc-900 transition-colors">
                 <span className="flex items-center gap-2 text-xs text-zinc-300"><div className="w-1.5 h-1.5 bg-blue-400"></div> Windows</span>
-                <span className="text-xs text-zinc-500 font-mono">{canvasElements.filter(el => el.type === 'window').length}</span>
+                <span className="text-xs text-zinc-500 font-mono">{(canvasElements || []).filter(el => el.type === 'window').length}</span>
               </div>
             </div>
           </div>
 
           <div className="h-px bg-zinc-800/50 w-full"></div>
 
-          {/* Assistant & Reports */}
           <div>
             <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Assistants</h3>
             <div className="space-y-2">
               <button 
                 onClick={async () => {
-                  setComplianceResult({ status: 'loading', messages: ['Analyzing structural integrity with Groq Llama-3...'] });
+                  setComplianceResult({ status: 'loading', messages: ['Analyzing structural integrity with AI...'] });
                   try {
                     const res = await fetch(`${API_URL}/api/ai/compliance`, {
                       method: 'POST',
@@ -662,7 +583,7 @@ export default function Studio() {
                     setComplianceResult({ status: data.status, messages: data.messages });
                   } catch (err) {
                     console.error(err);
-                    setComplianceResult({ status: 'warning', messages: ['Network error. Could not connect to Groq AI.'] });
+                    setComplianceResult({ status: 'warning', messages: ['Network error. Could not connect to AI.'] });
                   }
                 }}
                 className="w-full flex items-center justify-between bg-zinc-900 hover:bg-zinc-800 transition-colors p-3 rounded-lg border border-zinc-800 text-left text-xs"
@@ -682,7 +603,6 @@ export default function Studio() {
 
         </div>
 
-        {/* Footer Actions */}
         <div className="p-4 border-t border-zinc-800 grid grid-cols-2 gap-2 bg-black">
           <button 
             onClick={generatePDFReport}
@@ -711,7 +631,6 @@ export default function Studio() {
 
       {/* Main Canvas Area */}
       <main id="studio-canvas-container" className="flex-1 relative bg-zinc-950 flex flex-col">
-        {/* Floating Drafting Toolbar */}
         <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 bg-zinc-900 border border-zinc-800 p-1.5 rounded-full shadow-2xl">
           <div className="px-3 py-1.5 text-xs font-semibold text-zinc-500 border-r border-zinc-800 mr-1">
             Build Mode
@@ -745,7 +664,6 @@ export default function Studio() {
             <button
               onClick={() => setDrawingMode(null)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 transition-colors shadow-sm animate-pulse"
-              title="Stop drawing and return to pointer cursor (ESC)"
             >
               <X className="w-3.5 h-3.5" /> Stop Drawing
             </button>
@@ -780,7 +698,6 @@ export default function Studio() {
           </button>
         </div>
 
-        {/* Dynamic Feature Toggles */}
         <div className="absolute bottom-6 left-6 z-20 flex gap-2">
           {activeTab === '2D' && (
             <button
@@ -808,7 +725,6 @@ export default function Studio() {
           )}
         </div>
 
-        {/* 2D / 3D Canvas Renders */}
         <div className={activeTab === '2D' ? 'absolute inset-0' : 'hidden'}>
           <Canvas2D elements={canvasElements} drawingMode={drawingMode} setCanvasElements={setCanvasElements} blueprintMode={blueprintMode} activeTab={activeTab} />
         </div>
@@ -822,7 +738,6 @@ export default function Studio() {
           />
         </div>
 
-        {/* 2D Furniture Catalog Overlay */}
         {activeTab === '2D' && showFurnitureCatalog && (
           <div className="absolute top-24 left-6 w-64 bg-zinc-950/90 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl p-4 z-20">
             <div className="flex justify-between items-center mb-4">
@@ -867,7 +782,6 @@ export default function Studio() {
           </div>
         )}
 
-        {/* 3D Material Painter Overlay */}
         {activeTab === '3D' && (
           <div className="absolute top-24 right-6 w-64 bg-zinc-950/90 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col z-20">
             <div className="p-4 border-b border-zinc-800">
@@ -929,13 +843,11 @@ export default function Studio() {
           </div>
         )}
 
-        {/* AI Copilot Floating Widget */}
+        {/* AI Copilot */}
         <div className="absolute bottom-6 right-6 z-40 flex flex-col items-end">
-          {/* Chat Window */}
           <div className={`mb-4 w-80 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl flex flex-col transition-all origin-bottom-right duration-300 ${
             chatOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 pointer-events-none translate-y-4'
           }`} style={{ height: '400px' }}>
-            {/* Chat Header */}
             <div className="p-4 border-b border-zinc-800 bg-zinc-900/50 flex items-center justify-between rounded-t-2xl">
               <div className="flex items-center gap-2 text-indigo-400 font-semibold text-sm">
                 <Sparkles className="w-4 h-4" /> AI Architect Copilot
@@ -945,7 +857,6 @@ export default function Studio() {
               </button>
             </div>
             
-            {/* Chat Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
               {chatMessages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -969,7 +880,7 @@ export default function Studio() {
               )}
             </div>
             
-              <form 
+            <form 
               onSubmit={async (e) => {
                 e.preventDefault();
                 if (!chatInput.trim()) return;
@@ -1010,7 +921,6 @@ export default function Studio() {
             </form>
           </div>
 
-          {/* Toggle Button */}
           <button 
             onClick={() => setChatOpen(!chatOpen)}
             className="w-14 h-14 bg-indigo-500 hover:bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-[0_0_20px_rgba(99,102,241,0.5)] transition-transform hover:scale-105 active:scale-95"
