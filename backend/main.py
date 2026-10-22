@@ -436,11 +436,44 @@ async def generate_report_narrative(payload: ReportRequest):
         chat_completion = client.chat.completions.create(
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Layout data: {json.dumps(payload.elements)}"}
+                {"role": "user", "content": f"Generate a completely unique, highly detailed floor plan for: {payload.prompt}. Return ONLY valid JSON."}
             ],
-            model="llama3-8b-8192", 
-            temperature=0.3,
+            model="llama3-8b-8192",
+            temperature=0.9,
+            # Removed response_format to prevent strict API crashes on small models
         )
-        return {"status": "success", "narrative": chat_completion.choices[0].message.content.strip()}
+        
+        raw_response = chat_completion.choices[0].message.content
+        print(f"--- RAW AI RESPONSE ---\n{raw_response}\n-----------------------")
+        
+        # Bulletproof JSON extraction using regex to ignore any conversational text
+        import re
+        json_match = re.search(r'\{[\s\S]*\}', raw_response)
+        
+        if not json_match:
+            raise ValueError("The AI did not output any valid JSON brackets.")
+            
+        data = json.loads(json_match.group(0))
+        elements = data.get("elements", [])
+        
+        if not elements or len(elements) < 4:
+            raise ValueError("AI generated an incomplete layout with fewer than 4 elements.")
+            
+        import uuid
+        for el in elements:
+            if "id" not in el:
+                el["id"] = f"{el.get('type', 'item')}_{uuid.uuid4().hex[:7]}"
+            for key in ['left', 'top', 'width', 'height', 'angle']:
+                if key in el:
+                    try:
+                        el[key] = float(el[key])
+                    except ValueError:
+                        el[key] = 0.0
+                        
+        return {"status": "success", "elements": elements}
+        
     except Exception as e:
-        return {"status": "error", "narrative": f"Failed to generate report narrative: {str(e)}"}
+        print(f"AI Generation Error: {str(e)}")
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=f"AI Engine Failed: {str(e)}")
+
