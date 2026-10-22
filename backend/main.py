@@ -278,7 +278,19 @@ Output STRICTLY valid JSON only. Format: {"elements": [...]}
             response_format={"type": "json_object"}
         )
         
-        response_text = chat_completion.choices[0].message.content
+        response_text = chat_completion.choices[0].message.content.strip()
+                # Strip Markdown code blocks if the AI included them
+        if response_text.startswith("```json"):
+            response_text = response_text[7:]
+        elif response_text.startswith("```"):
+            response_text = response_text[3:]
+        if response_text.endswith("```"):
+            response_text = response_text[:-3]
+            
+        response_text = response_text.strip()
+        data = json.loads(response_text)
+        elements = data.get("elements", [])
+
         data = json.loads(response_text)
         elements = data.get("elements", [])
         
