@@ -221,33 +221,31 @@ async def generate_floor_plan(payload: AIPrompt):
     model = genai.GenerativeModel("gemini-3.8-flash")
 
     system_instruction = """You are an expert AI Architectural Floor Plan Generator.
-Your job is to generate highly creative, UNIQUE, and varied 2D floor plans.
-Do NOT output the same layout twice. Be creative with room shapes, hallways, and furniture placements!
-
-Coordinate System & Scale Rules:
-1. 1 unit = 0.05 meters. A standard house is around 800x800 units. Start outer perimeter walls around (100, 100).
-2. Walls MUST be 8 units thick. If horizontal, height=8, width=length. If vertical, width=8, height=length.
-3. You MUST create interior walls to divide the space into logical rooms requested by the user.
-
-Required Output:
-- Outer perimeter walls closing the entire space.
-- Interior walls dividing the space into rooms.
-- Doors connecting the rooms and Windows on the outer walls.
-- Furniture and bathroom fixtures placed logically inside the rooms.
-"""
+    You MUST generate a complete, fully furnished 2D floor plan.
+    
+    CRITICAL RULES:
+    1. You MUST generate AT LEAST 15 elements in your JSON array. Do not return an empty list.
+    2. Include 4 outer walls, interior walls, doors, windows, and multiple pieces of furniture (e.g., furniture_bed, furniture_sofa).
+    3. 1 unit = 0.05 meters. Start outer walls around (100, 100).
+    4. Walls are 8 units thick. Horizontal walls: height=8. Vertical walls: width=8.
+    """
+    
     try:
-        # Pydantic schema forces the AI to output flawless, strictly typed JSON matching your frontend.
         response = model.generate_content(
-            f"{system_instruction}\n\nGenerate a completely unique, highly detailed floor plan for: {payload.prompt}",
+            f"{system_instruction}\n\nUser Request: {payload.prompt}",
             generation_config=genai.GenerationConfig(
                 response_mime_type="application/json",
                 response_schema=FloorPlanSchema,
-                temperature=0.8,
+                temperature=0.4, # Lowered from 0.8 so it focuses on following instructions rather than going rogue
             ),
         )
         
+        # Add this print statement so you can see exactly what the AI generated in your Render logs!
+        print("Raw AI Output:", response.text)
+        
         data = json.loads(response.text)
         elements = data.get("elements", [])
+
         
         if not elements or len(elements) < 4:
             raise ValueError("AI generated an incomplete layout with fewer than 4 items.")
