@@ -218,7 +218,7 @@ async def generate_floor_plan(payload: AIPrompt):
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY is missing. Please configure it in your Environment Variables.")
 
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel("gemini-2.5-flash")
 
     system_instruction = """You are an expert AI Architectural Floor Plan Generator.
 Your job is to generate highly creative, UNIQUE, and varied 2D floor plans.
@@ -309,7 +309,7 @@ async def ai_copilot_chat(payload: AIChatRequest):
         return {"status": "error", "reply": "Warning: GEMINI_API_KEY is missing on Render."}
         
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel("2")
         
     system_prompt = """You are an expert Architectural AI Copilot assisting a user currently designing a floor plan.
     Keep your answers concise, helpful, and professional. 
@@ -331,7 +331,7 @@ async def check_compliance(payload: ComplianceRequest):
         return {"status": "error", "messages": ["GEMINI_API_KEY missing on Render."]}
         
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel("2")
         
     system_prompt = """You are an AI Building Inspector evaluating a 2D floor plan JSON.
     1 unit = 0.05 meters. Analyze the layout for IBC / ADA code compliance."""
@@ -360,7 +360,7 @@ async def generate_report_narrative(payload: ReportRequest):
         return {"status": "error", "narrative": "Warning: GEMINI_API_KEY is missing on Render."}
         
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel("2")
         
     system_prompt = """You are an AI Architectural Analyst. 
     Write a 3-paragraph executive summary based on the JSON layout. 
