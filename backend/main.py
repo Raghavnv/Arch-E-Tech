@@ -9,7 +9,7 @@ import json
 import os
 import shutil
 from tempfile import NamedTemporaryFile
-from groq import Groq
+import google.generativeai as genai
 from fastapi.security import OAuth2PasswordBearer
 
 import models
@@ -36,7 +36,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 
 # -----------------------------------------------------------------
-# Pydantic Schemas
+# Pydantic Schemas (API Requests)
 # -----------------------------------------------------------------
 class UserCreate(BaseModel):
     full_name: str
@@ -66,6 +66,25 @@ class ComplianceRequest(BaseModel):
 
 class ReportRequest(BaseModel):
     elements: list
+
+# -----------------------------------------------------------------
+# Pydantic Schemas (Gemini Structured Outputs)
+# -----------------------------------------------------------------
+class ElementSchema(BaseModel):
+    id: str
+    type: str
+    left: float
+    top: float
+    width: float
+    height: float
+    angle: float
+
+class FloorPlanSchema(BaseModel):
+    elements: list[ElementSchema]
+
+class ComplianceSchema(BaseModel):
+    status: str
+    messages: list[str]
 
 # -----------------------------------------------------------------
 # Auth Helpers & Endpoints
@@ -176,7 +195,7 @@ def duplicate_project(project_id: int, db: Session = Depends(get_db), current_us
     return new_project
 
 # -----------------------------------------------------------------
-# Generative Blueprint Synthesis 
+# Generative Blueprint Synthesis (Gemini 1.5 Flash)
 # -----------------------------------------------------------------
 def create_element(el_type, left, top, width, height, angle=0, **kwargs):
     import uuid
@@ -192,130 +211,57 @@ def create_element(el_type, left, top, width, height, angle=0, **kwargs):
     el.update(kwargs)
     return el
 
-def generate_fallback_blueprint(prompt: str):
-    """Rich architectural fallback if the AI hallucinates or hits rate limits."""
-    elements = []
-    elements.append(create_element('wall', 100, 100, 860, 8, 0))  
-    elements.append(create_element('wall', 100, 760, 860, 8, 0))  
-    elements.append(create_element('wall', 100, 100, 660, 8, 90)) 
-    elements.append(create_element('wall', 960, 100, 660, 8, 90)) 
-    elements.append(create_element('wall', 480, 100, 300, 8, 90))
-    elements.append(create_element('wall', 100, 400, 380, 8, 0))
-    elements.append(create_element('wall', 480, 240, 180, 8, 0))
-    elements.append(create_element('wall', 660, 100, 280, 8, 90))
-    elements.append(create_element('wall', 660, 380, 300, 8, 0))
-    elements.append(create_element('wall', 480, 420, 180, 8, 0))
-    elements.append(create_element('wall', 660, 380, 240, 8, 90))
-    elements.append(create_element('wall', 660, 620, 300, 8, 0))
-    elements.append(create_element('wall', 480, 520, 180, 8, 0))
-    elements.append(create_element('door', 260, 760, 70, 4, 0))
-    elements.append(create_element('door', 480, 340, 60, 4, 90))
-    elements.append(create_element('door', 480, 170, 50, 4, 90))
-    elements.append(create_element('door', 660, 300, 60, 4, 90))
-    elements.append(create_element('door', 530, 420, 50, 4, 0))
-    elements.append(create_element('door', 660, 460, 60, 4, 90))
-    elements.append(create_element('door', 780, 760, 70, 4, 0))
-    elements.append(create_element('window', 240, 100, 100, 4, 0))
-    elements.append(create_element('window', 100, 220, 90, 4, 90))
-    elements.append(create_element('window', 530, 100, 60, 4, 0))
-    elements.append(create_element('window', 780, 100, 90, 4, 0))
-    elements.append(create_element('window', 960, 220, 80, 4, 90))
-    elements.append(create_element('window', 960, 480, 80, 4, 90))
-    elements.append(create_element('window', 100, 560, 100, 4, 90))
-    elements.append(create_element('window', 400, 760, 100, 4, 0))
-    elements.append(create_element('furniture_bed', 240, 220, 75, 85, 0))
-    elements.append(create_element('furniture_bed', 780, 220, 65, 80, 0))
-    elements.append(create_element('furniture_bed', 780, 500, 65, 80, 0))
-    elements.append(create_element('furniture_sofa', 240, 540, 85, 40, 0))
-    elements.append(create_element('furniture_table', 780, 680, 75, 45, 0))
-    return elements
-
 @app.post("/api/ai/generate-plan")
 async def generate_floor_plan(payload: AIPrompt):
-    api_key = os.getenv("GROQ_API_KEY")
-    
+    api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        raise HTTPException(status_code=500, detail="GROQ_API_KEY is missing on Render. Please configure it in your Environment Variables.")
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY is missing. Please configure it in your Environment Variables.")
 
-    system_prompt = """You are an expert AI Architectural Floor Plan Generator.
-Your job is to generate highly creative, UNIQUE, and varied 2D floor plans as a JSON object.
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel("gemini-1.5-flash")
+
+    system_instruction = """You are an expert AI Architectural Floor Plan Generator.
+Your job is to generate highly creative, UNIQUE, and varied 2D floor plans.
 Do NOT output the same layout twice. Be creative with room shapes, hallways, and furniture placements!
 
 Coordinate System & Scale Rules:
 1. 1 unit = 0.05 meters. A standard house is around 800x800 units. Start outer perimeter walls around (100, 100).
 2. Walls MUST be 8 units thick. If horizontal, height=8, width=length. If vertical, width=8, height=length.
-3. You MUST create interior walls to divide the space into logical rooms requested by the user. Ensure adequate bathrooms based on the number of bedrooms.
-
-Element Schema:
-{
-  "id": "unique_string",
-  "type": "wall" | "door" | "window" | "furniture_bed" | "furniture_sofa" | "furniture_table" | "furniture_armchair" | "furniture_bathtub" | "furniture_vanity" | "furniture_kitchen" | "stairs",
-  "left": number,
-  "top": number,
-  "width": number,
-  "height": number,
-  "angle": number (use 0 for horizontal, 90 for vertical)
-}
+3. You MUST create interior walls to divide the space into logical rooms requested by the user.
 
 Required Output:
 - Outer perimeter walls closing the entire space.
 - Interior walls dividing the space into rooms.
-- Doors (type: "door", 50-70 wide, 4-8 thick) connecting the rooms.
-- Windows (type: "window", 80-120 wide, 4-8 thick) on the outer walls.
+- Doors connecting the rooms and Windows on the outer walls.
 - Furniture and bathroom fixtures placed logically inside the rooms.
-
-Output STRICTLY valid JSON only. Format: {"elements": [...]}
 """
     try:
-        client = Groq(api_key=api_key)
-        chat_completion = client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Generate a completely unique, highly detailed floor plan for: {payload.prompt}"}
-            ],
-            model="llama3-8b-8192", 
-            temperature=0.9, # Cranking up temperature for maximum uniqueness
-            response_format={"type": "json_object"}
+        # Pydantic schema forces the AI to output flawless, strictly typed JSON matching your frontend.
+        response = model.generate_content(
+            f"{system_instruction}\n\nGenerate a completely unique, highly detailed floor plan for: {payload.prompt}",
+            generation_config=genai.GenerationConfig(
+                response_mime_type="application/json",
+                response_schema=FloorPlanSchema,
+                temperature=0.8,
+            ),
         )
         
-        response_text = chat_completion.choices[0].message.content.strip()
-                # Strip Markdown code blocks if the AI included them
-        if response_text.startswith("```json"):
-            response_text = response_text[7:]
-        elif response_text.startswith("```"):
-            response_text = response_text[3:]
-        if response_text.endswith("```"):
-            response_text = response_text[:-3]
-            
-        response_text = response_text.strip()
-        data = json.loads(response_text)
-        elements = data.get("elements", [])
-
-        data = json.loads(response_text)
+        data = json.loads(response.text)
         elements = data.get("elements", [])
         
         if not elements or len(elements) < 4:
-            raise ValueError("AI generated an incomplete layout.")
+            raise ValueError("AI generated an incomplete layout with fewer than 4 items.")
             
         import uuid
         for el in elements:
-            if "id" not in el:
+            if "id" not in el or not el["id"]:
                 el["id"] = f"{el.get('type', 'item')}_{uuid.uuid4().hex[:7]}"
-            for key in ['left', 'top', 'width', 'height', 'angle']:
-                if key in el:
-                    try:
-                        el[key] = float(el[key])
-                    except ValueError:
-                        el[key] = 0.0
-                        
+                
         return {"status": "success", "elements": elements}
         
     except Exception as e:
-        print(f"AI Generation Error: {str(e)}")
-        from fastapi import HTTPException
-        raise HTTPException(status_code=500, detail=f"AI Engine Failed: {str(e)}")
-
-
+        print(f"Gemini Generation Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Gemini Engine Failed: {str(e)}")
 
 # -----------------------------------------------------------------
 # Sketch Upload (YOLOv11 Hook)
@@ -354,62 +300,52 @@ def read_root():
     return {"status": "ok", "message": "Arch-E-Tech Backend Running"}
 
 # -----------------------------------------------------------------
-# AI Copilot & Compliance
+# AI Copilot & Compliance (Gemini)
 # -----------------------------------------------------------------
 @app.post("/api/ai/chat")
 async def ai_copilot_chat(payload: AIChatRequest):
-    api_key = os.getenv("GROQ_API_KEY")
+    api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        return {"status": "error", "reply": "Warning: GROQ_API_KEY is missing on Render. Please configure it in your Render dashboard environment variables."}
+        return {"status": "error", "reply": "Warning: GEMINI_API_KEY is missing on Render."}
         
-    system_prompt = """You are an expert Architectural AI Copilot. 
-    You are assisting a user who is currently designing a floor plan.
-    You will be provided with their message and the current layout JSON (walls, doors, windows).
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel("gemini-1.5-flash")
+        
+    system_prompt = """You are an expert Architectural AI Copilot assisting a user currently designing a floor plan.
     Keep your answers concise, helpful, and professional. 
     Analyze their layout if they ask for feedback. Point out missing doors, weirdly placed walls, etc.
     """
     try:
-        client = Groq(api_key=api_key)
-        chat_completion = client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"My current layout data: {json.dumps(payload.elements)}\n\nMy question: {payload.message}"}
-            ],
-            model="llama3-8b-8192", 
-            temperature=0.5,
+        response = model.generate_content(
+            f"{system_prompt}\n\nMy layout data: {json.dumps(payload.elements)}\n\nMy question: {payload.message}",
+            generation_config=genai.GenerationConfig(temperature=0.5)
         )
-        return {"status": "success", "reply": chat_completion.choices[0].message.content}
+        return {"status": "success", "reply": response.text}
     except Exception as e:
         return {"status": "error", "reply": f"AI Copilot Error: {str(e)}"}
 
 @app.post("/api/ai/compliance")
 async def check_compliance(payload: ComplianceRequest):
-    api_key = os.getenv("GROQ_API_KEY")
+    api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        return {"status": "error", "messages": ["GROQ_API_KEY missing on Render. Please configure it in Render environment variables."]}
+        return {"status": "error", "messages": ["GEMINI_API_KEY missing on Render."]}
+        
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel("gemini-1.5-flash")
         
     system_prompt = """You are an AI Building Inspector evaluating a 2D floor plan JSON.
-    Standard conversions: 1 unit = 0.05 meters.
-    Analyze the layout for IBC / ADA code compliance (door clearances, window egress, span lengths).
-    Return a valid JSON object matching this schema exactly:
-    {
-      "status": "success" or "warning",
-      "messages": ["List of strings describing specific code violations or saying 'All clear!'"]
-    }
-    Output ONLY the JSON object.
-    """
+    1 unit = 0.05 meters. Analyze the layout for IBC / ADA code compliance."""
+    
     try:
-        client = Groq(api_key=api_key)
-        chat_completion = client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Layout data: {json.dumps(payload.elements)}"}
-            ],
-            model="llama3-8b-8192", 
-            temperature=0.1,
-            response_format={"type": "json_object"}
+        response = model.generate_content(
+            f"{system_prompt}\n\nLayout data: {json.dumps(payload.elements)}",
+            generation_config=genai.GenerationConfig(
+                response_mime_type="application/json",
+                response_schema=ComplianceSchema,
+                temperature=0.1
+            )
         )
-        data = json.loads(chat_completion.choices[0].message.content)
+        data = json.loads(response.text)
         return {
             "status": data.get("status", "success"),
             "messages": data.get("messages", ["All designs meet local compliance codes."])
@@ -419,61 +355,23 @@ async def check_compliance(payload: ComplianceRequest):
 
 @app.post("/api/ai/report-narrative")
 async def generate_report_narrative(payload: ReportRequest):
-    api_key = os.getenv("GROQ_API_KEY")
+    api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        return {"status": "error", "narrative": "Warning: GROQ_API_KEY is missing on Render."}
+        return {"status": "error", "narrative": "Warning: GEMINI_API_KEY is missing on Render."}
+        
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel("gemini-1.5-flash")
         
     system_prompt = """You are an AI Architectural Analyst. 
-    Review the provided layout JSON. 
-    Write a 3-paragraph executive summary for a PDF report. 
-    Paragraph 1: Project Overview (number of rooms, estimated footprint).
-    Paragraph 2: Structural & Compliance Review.
-    Paragraph 3: Estimated Cost Analysis (Assume basic construction costs).
-    Do NOT use markdown, just output plain text with double newlines between paragraphs.
-    """
+    Write a 3-paragraph executive summary based on the JSON layout. 
+    1: Project Overview. 2: Structural Review. 3: Cost Analysis.
+    Do NOT use markdown, just plain text with double newlines between paragraphs."""
+    
     try:
-        client = Groq(api_key=api_key)
-        chat_completion = client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Generate a completely unique, highly detailed floor plan for: {payload.prompt}. Return ONLY valid JSON."}
-            ],
-            model="llama3-8b-8192",
-            temperature=0.9,
-            # Removed response_format to prevent strict API crashes on small models
+        response = model.generate_content(
+            f"{system_prompt}\n\nLayout data: {json.dumps(payload.elements)}",
+            generation_config=genai.GenerationConfig(temperature=0.3)
         )
-        
-        raw_response = chat_completion.choices[0].message.content
-        print(f"--- RAW AI RESPONSE ---\n{raw_response}\n-----------------------")
-        
-        # Bulletproof JSON extraction using regex to ignore any conversational text
-        import re
-        json_match = re.search(r'\{[\s\S]*\}', raw_response)
-        
-        if not json_match:
-            raise ValueError("The AI did not output any valid JSON brackets.")
-            
-        data = json.loads(json_match.group(0))
-        elements = data.get("elements", [])
-        
-        if not elements or len(elements) < 4:
-            raise ValueError("AI generated an incomplete layout with fewer than 4 elements.")
-            
-        import uuid
-        for el in elements:
-            if "id" not in el:
-                el["id"] = f"{el.get('type', 'item')}_{uuid.uuid4().hex[:7]}"
-            for key in ['left', 'top', 'width', 'height', 'angle']:
-                if key in el:
-                    try:
-                        el[key] = float(el[key])
-                    except ValueError:
-                        el[key] = 0.0
-                        
-        return {"status": "success", "elements": elements}
-        
+        return {"status": "success", "narrative": response.text.strip()}
     except Exception as e:
-        print(f"AI Generation Error: {str(e)}")
-        from fastapi import HTTPException
-        raise HTTPException(status_code=500, detail=f"AI Engine Failed: {str(e)}")
-
+        return {"status": "error", "narrative": f"Failed to generate report narrative: {str(e)}"}

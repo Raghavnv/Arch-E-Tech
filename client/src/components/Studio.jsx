@@ -818,7 +818,8 @@ export default function Studio() {
               </div>
             )}
 
-            <div className="p-3 max-h-[380px] overflow-y-auto custom-scrollbar relative z-30">
+            <div className="p-3 h-64 overflow-y-auto overscroll-contain pointer-events-auto custom-scrollbar relative z-50">
+
               <div className="grid grid-cols-2 gap-2">
                 {TEXTURE_LIBRARY.map((mat) => (
                   <button
