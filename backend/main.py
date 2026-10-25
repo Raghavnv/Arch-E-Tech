@@ -218,7 +218,7 @@ async def generate_floor_plan(payload: AIPrompt):
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY is missing. Please configure it in your Environment Variables.")
 
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-2.5-flash")
+    model = genai.GenerativeModel("gemini-3.8-flash")
 
     system_instruction = """You are an expert AI Architectural Floor Plan Generator.
 Your job is to generate highly creative, UNIQUE, and varied 2D floor plans.
