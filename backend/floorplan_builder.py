@@ -692,31 +692,36 @@ class Layout:
             if not missing:
                 return
             progressed = False
-            # a room may only be entered from circulation / public rooms, never
-            # through another bedroom or bathroom (except an ensuite via its master)
+            # a room is entered from circulation / public rooms; only if that is impossible
+            # does it open through a neighbouring room (an ensuite via its master first)
+            best = None
             for r in missing:
                 if r.row == "private":
                     through_ok = {"hallway": 3, "living": 2, "dining": 1}
                 else:
                     through_ok = {"hallway": 3, "living": 2, "dining": 1, "kitchen": 1}
-                cands = []
                 for o in rooms:
                     if o.id in seen and o is not r:
                         sb = _shared_boundary(r, o)
                         if not sb or (sb[3] - sb[2]) < DOOR_W + 2 * MARGIN:
                             continue
                         if o.kind in through_ok:
-                            cands.append((through_ok[o.kind], sb[3] - sb[2], o))
+                            prio = through_ok[o.kind]
                         elif r.ensuite and o.kind == "master_bedroom":
-                            cands.append((0, sb[3] - sb[2], o))
-                if cands:
-                    cands.sort(key=lambda t: (t[0], t[1]), reverse=True)
-                    o = cands[0][2]
-                    if self._add_door(r, o):
-                        self.graph[r.id].add(o.id)
-                        self.graph[o.id].add(r.id)
-                        progressed = True
-                        break
+                            prio = 0
+                        elif r.row == "private" and o.row == "private" and o.kind != "bathroom":
+                            prio = -1
+                        else:
+                            continue
+                        key = (prio, sb[3] - sb[2])
+                        if best is None or key > best[0]:
+                            best = (key, r, o)
+            if best:
+                _, r, o = best
+                if self._add_door(r, o):
+                    self.graph[r.id].add(o.id)
+                    self.graph[o.id].add(r.id)
+                    progressed = True
             if not progressed:
                 raise LayoutError("could not connect: " + ", ".join(r.name for r in missing))
 
@@ -1040,6 +1045,10 @@ def _mincells(node):
 def _random_candidate(rooms, rng):
     by = lambda k: [r for r in rooms if r.kind == k]  # noqa: E731
     rooms = [copy.deepcopy(r) for r in rooms]
+    # vary room sizes so each house is spacious and different from the last
+    for r in rooms:
+        r.area *= rng.uniform(0.95, 1.25) if r.kind in ("living", "dining", "master_bedroom", "bedroom") \
+            else rng.uniform(0.95, 1.1)
     by = lambda k: [r for r in rooms if r.kind == k]  # noqa: E731
     living = by("living")[0]
     dining = (by("dining") or [None])[0]
@@ -1052,7 +1061,8 @@ def _random_candidate(rooms, rng):
     n_circ = len(others) + (1 if master else 0)
 
     hall = None
-    if n_circ >= 4 or (n_circ == 3 and rng.random() < 0.5):
+    # most houses open bedrooms off the living/dining areas; otherwise only a short passage
+    if n_circ >= 3 and rng.random() < 0.4:
         hall_m2 = _clamp(3.5 + 0.9 * n_circ, 5.5, 9.5)
         hall = Room(id="hall", kind="hallway", name="Hallway", area=hall_m2, row="hall")
 
@@ -1082,7 +1092,7 @@ def _random_candidate(rooms, rng):
     S = sum(wt.values())
 
     out = {}
-    if rng.random() < 0.5 or S < 150:
+    if rng.random() < 0.3 or S < 150:
         asp = rng.uniform(1.0, 1.65)
         H = max(8, round(math.sqrt(S / asp)))
         W = max(8, round(S / H))
@@ -1132,13 +1142,14 @@ def _pre_ok(rooms):
         dm = (r.y1 - r.y0) / U
         short, long_ = min(wm, dm), max(wm, dm)
         if r.kind == "hallway":
-            if short < 1.45 or long_ > 12.5:
+            if short < 1.45 or long_ > 9.0:
                 return False
             continue
         spec = KIND_SPEC[r.kind]
         if short < _MIN_SHORT.get(r.kind, spec[4] * 0.85) - 0.01:
             return False
-        lim = 3.2 if r.kind in ("bathroom", "utility") else (2.6 if r.kind == "living" else 2.5)
+        lim = 3.2 if r.kind in ("bathroom", "utility") else (2.6 if r.kind == "living" else
+                                                              3.0 if r.kind in ("kitchen", "dining") else 2.5)
         if long_ / short > lim:
             return False
         ratio = (wm * dm) / r.area
@@ -1160,9 +1171,20 @@ def _post_ok(lay: Layout):
         if need and not any(it["type"] == need and r.x0 <= it["cx"] <= r.x1 and r.y0 <= it["cy"] <= r.y1
                             for it in lay.furniture):
             return False
+    if not lay.hall:
+        # no corridor: bedrooms must open off the public rooms, but not all from one wall of a single room
+        doors_to = {}
+        for r in lay.rooms:
+            if r.row == "private" and not r.ensuite:
+                src = [o for o in lay.rooms if o.id in lay.graph[r.id] and o.kind in ("living", "dining")]
+                if not src:
+                    return False
+                doors_to[src[0].id] = doors_to.get(src[0].id, 0) + 1
+        if doors_to and max(doors_to.values()) > 3:
+            return False
     if lay.hall:
         adj = sum(1 for r in lay.rooms if r.row == "private" and lay._adjacent(lay.hall, r))
-        if adj < 2:
+        if adj < 2 or adj > 4:
             return False
         living = next(r for r in lay.rooms if r.kind == "living")
         dining = next((r for r in lay.rooms if r.kind == "dining"), None)
