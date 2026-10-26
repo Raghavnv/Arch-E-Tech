@@ -256,24 +256,15 @@ async def generate_floor_plan(payload: AIPrompt):
     """
 
     try:
-        # CONVERT PYDANTIC SCHEMA FOR GROQ
-        schema_dict = FloorPlanSchema.model_json_schema()
-
+        # We removed the strict schema_dict injection completely.
         response = client.chat.completions.create(
             model="openai/gpt-oss-20b",
             messages=[
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": f"User Request: {payload.prompt}"}
             ],
-            # APPLY STRICT JSON SCHEMA
-            response_format={
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "floor_plan_schema",
-                    "strict": True,
-                    "schema": schema_dict
-                }
-            },
+            # Revert to standard JSON mode so the model has room to think
+            response_format={"type": "json_object"},
             temperature=0.4,
         )
         
@@ -283,6 +274,7 @@ async def generate_floor_plan(payload: AIPrompt):
         data = json.loads(raw_response)
         elements = data.get("elements", [])
         
+        # Our Python code will act as the failsafe instead of Groq's hardware validator
         if not elements or len(elements) < 4:
             raise ValueError("AI generated an incomplete layout with fewer than 4 items.")
             
@@ -296,6 +288,7 @@ async def generate_floor_plan(payload: AIPrompt):
     except Exception as e:
         print(f"Groq Generation Error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Groq Engine Failed: {str(e)}")
+
 
 # -----------------------------------------------------------------
 # Sketch Upload (YOLOv11 Hook)
