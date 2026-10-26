@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import copy
 import math
+import random
 import re
 import uuid
 from dataclasses import dataclass, field
@@ -520,10 +521,11 @@ FURNISHERS = {
 # The layout
 # --------------------------------------------------------------------------
 class Layout:
-    def __init__(self, rooms: list[Room], corridor: bool):
+    def __init__(self, rooms: list[Room], corridor: bool, preplaced: bool = False):
         self.rooms = [copy.deepcopy(r) for r in rooms]
         self.use_corridor = corridor
-        self.hall: Room | None = None
+        self.preplaced = preplaced
+        self.hall: Room | None = next((r for r in self.rooms if r.kind == "hallway"), None) if preplaced else None
         self.open_pairs: set = set()
         self.walls: list[dict] = []
         self.doors: list[dict] = []
@@ -659,6 +661,8 @@ class Layout:
             edges.append((utility, kitchen, "door"))
         if self.hall:
             edges.append((self.hall, living, "door"))
+            if dining and not self._adjacent(self.hall, living):
+                edges.append((self.hall, dining, "door"))
             for r in rooms:
                 if r.row == "private" and not r.ensuite:
                     edges.append((self.hall, r, "door"))
@@ -692,7 +696,7 @@ class Layout:
             # through another bedroom or bathroom (except an ensuite via its master)
             for r in missing:
                 if r.row == "private":
-                    through_ok = {"hallway": 3, "living": 2}
+                    through_ok = {"hallway": 3, "living": 2, "dining": 1}
                 else:
                     through_ok = {"hallway": 3, "living": 2, "dining": 1, "kitchen": 1}
                 cands = []
@@ -771,16 +775,33 @@ class Layout:
         return True
 
     def _exterior_pieces(self, room):
-        x0, y0, x1, y1 = self.bbox
+        """Stretches of this room's walls that face the outside (no other room behind them)."""
         out = []
-        if room.y0 == y0:
-            out.append(("N", "h", room.y0, room.x0, room.x1))
-        if room.y1 == y1:
-            out.append(("S", "h", room.y1, room.x0, room.x1))
-        if room.x0 == x0:
-            out.append(("W", "v", room.x0, room.y0, room.y1))
-        if room.x1 == x1:
-            out.append(("E", "v", room.x1, room.y0, room.y1))
+        sides = (
+            ("N", "h", room.y0, room.x0, room.x1),
+            ("S", "h", room.y1, room.x0, room.x1),
+            ("W", "v", room.x0, room.y0, room.y1),
+            ("E", "v", room.x1, room.y0, room.y1),
+        )
+        for side, orient, line, lo, hi in sides:
+            covered = []
+            for o in self.rooms:
+                if o is room:
+                    continue
+                if orient == "h":
+                    touch = (o.y0 == line) if side == "S" else (o.y1 == line)
+                    a, b = max(lo, o.x0), min(hi, o.x1)
+                else:
+                    touch = (o.x0 == line) if side == "E" else (o.x1 == line)
+                    a, b = max(lo, o.y0), min(hi, o.y1)
+                if touch and b > a:
+                    covered.append((a, b))
+            covered.sort()
+            cur = lo
+            for a, b in covered + [(hi, hi)]:
+                if a > cur:
+                    out.append((side, orient, line, cur, a))
+                cur = max(cur, b)
         return out
 
     def entrance(self):
@@ -853,9 +874,8 @@ class Layout:
                 for s in segs:
                     a, b = s["a"], s["b"]
                     if orient == "h":
-                        if s["ext"] and a == x_min:
+                        if s["ext"]:
                             a -= HALF_T
-                        if s["ext"] and b == x_max:
                             b += HALF_T
                         self.walls.append({"type": "wall", "id": _new_id("wall"), "left": a, "top": line,
                                            "width": b - a, "height": WALL_T, "angle": 0})
@@ -881,7 +901,13 @@ class Layout:
 
     # -- output ----------------------------------------------------------------
     def build(self):
-        self.plan()
+        if self.preplaced:
+            self.bbox = (
+                min(r.x0 for r in self.rooms), min(r.y0 for r in self.rooms),
+                max(r.x1 for r in self.rooms), max(r.y1 for r in self.rooms),
+            )
+        else:
+            self.plan()
         self.connect()
         self.entrance()
         self.windows_pass()
@@ -920,7 +946,248 @@ class Layout:
         return res
 
 
-def generate_layout(rooms: list[Room]) -> Layout:
+# --------------------------------------------------------------------------
+# Randomised planner: slicing floor-plans, optional L-shaped footprint
+# --------------------------------------------------------------------------
+NEEDS_WINDOW = ("living", "dining", "kitchen", "master_bedroom", "bedroom", "study")
+
+
+def _nw(node, wt):
+    if isinstance(node, Room):
+        return wt[node.id]
+    if isinstance(node, tuple):          # ("wing", left, hall, right)
+        return _nw(node[1], wt) + _nw(node[2], wt) + _nw(node[3], wt)
+    return sum(_nw(n, wt) for n in node)
+
+
+def _slice(node, x, y, w, h, wt, rng, out, hall_axis=None):
+    if isinstance(node, Room):
+        out[node.id] = (x, y, w, h)
+        return
+    if isinstance(node, tuple):
+        _, left, hall, right = node
+        axis = hall_axis or ("h" if w >= h else "v")
+        ht = 3 if rng.random() < 0.55 else 4
+        if (w if axis == "h" else h) > 16:
+            ht = 4
+        wl, wr = _nw(left, wt), _nw(right, wt)
+        size = h if axis == "h" else w
+        pos = int(_clamp(round((size - ht) * wl / (wl + wr)), 3, max(3, size - ht - 3)))
+        if axis == "h":
+            _slice(left, x, y, w, pos, wt, rng, out)
+            out[hall.id] = (x, y + pos, w, ht)
+            _slice(right, x, y + pos + ht, w, h - pos - ht, wt, rng, out)
+        else:
+            _slice(left, x, y, pos, h, wt, rng, out)
+            out[hall.id] = (x + pos, y, ht, h)
+            _slice(right, x + pos + ht, y, w - pos - ht, h, wt, rng, out)
+        return
+    if len(node) == 1:
+        return _slice(node[0], x, y, w, h, wt, rng, out)
+    tot = sum(_nw(n, wt) for n in node)
+
+    def evaluate(vertical, frac, m1, m2):
+        size = w if vertical else h
+        s = int(round(size * frac))
+        s = max(s, m1)
+        s = min(s, size - m2)
+        if s < m1 or size - s < m2 or s < 1:
+            return None
+        dims = [(s, h), (w - s, h)] if vertical else [(w, s), (w, h - s)]
+        return s, max(max(p, q) / max(1, min(p, q)) for p, q in dims)
+
+    best = None
+    cum = 0.0
+    m1 = _mincells(node[:1])
+    for k in range(1, len(node)):
+        cum += _nw(node[k - 1], wt)
+        frac = cum / tot
+        m1, m2 = _mincells(node[:k]), _mincells(node[k:])
+        for vertical in (True, False):
+            ev = evaluate(vertical, frac, m1, m2)
+            if ev is None:
+                continue
+            score = ev[1] * rng.uniform(1.0, 1.3)
+            if best is None or score < best[0]:
+                best = (score, k, ev[0], vertical)
+    if best is None:
+        k = max(1, len(node) // 2)
+        vertical = w >= h
+        size = w if vertical else h
+        best = (0, k, int(_clamp(round(size * _nw(node[:k], wt) / tot), 1, max(1, size - 1))), vertical)
+    _, k, s, vertical = best
+    ax = "h" if vertical else "v"       # a hall must run away from the cut it touches
+    ax = ax if node and all(isinstance(n, (list, tuple)) for n in node) else None
+    n1 = node[:k] if len(node[:k]) > 1 else node[0]
+    n2 = node[k:] if len(node[k:]) > 1 else node[k]
+    if vertical:
+        _slice(n1, x, y, s, h, wt, rng, out, ax)
+        _slice(n2, x + s, y, w - s, h, wt, rng, out, ax)
+    else:
+        _slice(n1, x, y, w, s, wt, rng, out, ax)
+        _slice(n2, x, y + s, w, h - s, wt, rng, out, ax)
+
+
+def _mincells(node):
+    if isinstance(node, Room):
+        m = 4 if node.kind == "hallway" else math.ceil(_MIN_SHORT.get(node.kind, KIND_SPEC[node.kind][4] * 0.85) / 0.5 - 1e-6)
+        return int(m)
+    if isinstance(node, tuple):
+        return max(_mincells(node[1]), _mincells(node[3]), 3)
+    return max([_mincells(n) for n in node] or [1])
+
+
+def _random_candidate(rooms, rng):
+    by = lambda k: [r for r in rooms if r.kind == k]  # noqa: E731
+    rooms = [copy.deepcopy(r) for r in rooms]
+    by = lambda k: [r for r in rooms if r.kind == k]  # noqa: E731
+    living = by("living")[0]
+    dining = (by("dining") or [None])[0]
+    kitchen = (by("kitchen") or [None])[0]
+    utility = (by("utility") or [None])[0]
+    master = (by("master_bedroom") or [None])[0]
+    priv = [r for r in rooms if r.row == "private"]
+    ensuite = [r for r in priv if r.ensuite]
+    others = [r for r in priv if r is not master and not r.ensuite]
+    n_circ = len(others) + (1 if master else 0)
+
+    hall = None
+    if n_circ >= 4 or (n_circ == 3 and rng.random() < 0.5):
+        hall_m2 = _clamp(3.5 + 0.9 * n_circ, 5.5, 9.5)
+        hall = Room(id="hall", kind="hallway", name="Hallway", area=hall_m2, row="hall")
+
+    ld = [x for x in (living, dining) if x]
+    rng.shuffle(ld)
+    ku = [x for x in (kitchen, utility) if x]
+    rng.shuffle(ku)
+    pub_items = [ld] + ku
+    rng.shuffle(pub_items)
+    mg = ([master] if master else []) + ensuite
+    rng.shuffle(mg)
+    priv_items = [mg] + others
+    rng.shuffle(priv_items)
+    if hall:
+        cut = rng.randint(1, max(1, len(priv_items) - 1))
+        left, right = priv_items[:cut], priv_items[cut:]
+        priv_items = ("wing", left, hall, right)
+    groups = [pub_items, priv_items]
+    rng.shuffle(groups)
+    if hall:
+        # the wing needs both sides non-empty
+        if not priv_items[1] or not priv_items[3]:
+            return None
+
+    allr = rooms + ([hall] if hall else [])
+    wt = {r.id: r.area / 0.25 for r in allr}
+    S = sum(wt.values())
+
+    out = {}
+    if rng.random() < 0.5 or S < 150:
+        asp = rng.uniform(1.0, 1.65)
+        H = max(8, round(math.sqrt(S / asp)))
+        W = max(8, round(S / H))
+        if rng.random() < 0.35:
+            W, H = H, W
+        f = W * H / S
+        wt = {k: v * f for k, v in wt.items()}
+        _slice(groups, 0, 0, W, H, wt, rng, out)
+    else:
+        n = rng.uniform(0.10, 0.20)
+        gross = S / (1 - n)
+        asp = rng.uniform(1.0, 1.5)
+        H = max(10, round(math.sqrt(gross / asp)))
+        W = max(10, round(gross / H))
+        if rng.random() < 0.35:
+            W, H = H, W
+        w1, w2 = _nw(groups[0], wt), _nw(groups[1], wt)
+        hA = round(w1 / W)
+        Bh = H - hA
+        if hA < 6 or Bh < 6:
+            return None
+        wB = round(w2 / Bh)
+        nW = W - wB
+        if nW < max(5, 0.22 * W) or nW > 0.6 * W:
+            return None
+        _slice(groups[0], 0, 0, W, hA, wt, rng, out, "v")
+        _slice(groups[1], 0, hA, wB, Bh, wt, rng, out, "v")
+
+    fx, fy = rng.random() < 0.5, rng.random() < 0.5
+    for r in allr:
+        x, y, w, h = out[r.id]
+        if fx:
+            x = W - x - w
+        if fy:
+            y = H - y - h
+        r.x0, r.y0 = ORIGIN_X + x * CELL, ORIGIN_Y + y * CELL
+        r.x1, r.y1 = r.x0 + w * CELL, r.y0 + h * CELL
+    return allr
+
+
+_MIN_SHORT = {"bathroom": 1.9, "utility": 1.9, "kitchen": 2.3, "dining": 2.5, "study": 2.2}
+
+
+def _pre_ok(rooms):
+    for r in rooms:
+        wm = (r.x1 - r.x0) / U
+        dm = (r.y1 - r.y0) / U
+        short, long_ = min(wm, dm), max(wm, dm)
+        if r.kind == "hallway":
+            if short < 1.45 or long_ > 12.5:
+                return False
+            continue
+        spec = KIND_SPEC[r.kind]
+        if short < _MIN_SHORT.get(r.kind, spec[4] * 0.85) - 0.01:
+            return False
+        lim = 3.2 if r.kind in ("bathroom", "utility") else (2.6 if r.kind == "living" else 2.5)
+        if long_ / short > lim:
+            return False
+        ratio = (wm * dm) / r.area
+        if not (0.6 <= ratio <= (2.3 if r.kind == "utility" else 1.7)):
+            return False
+    return True
+
+
+_NEED_FURN = {"living": "furniture_sofa", "dining": "furniture_table", "kitchen": "furniture_kitchen",
+              "master_bedroom": "furniture_bed", "bedroom": "furniture_bed", "bathroom": "furniture_vanity"}
+
+
+def _post_ok(lay: Layout):
+    for r in lay.rooms:
+        if r.kind in NEEDS_WINDOW:
+            if not any(o[0] == "window" for side in r.openings.values() for o in side):
+                return False
+        need = _NEED_FURN.get(r.kind)
+        if need and not any(it["type"] == need and r.x0 <= it["cx"] <= r.x1 and r.y0 <= it["cy"] <= r.y1
+                            for it in lay.furniture):
+            return False
+    if lay.hall:
+        adj = sum(1 for r in lay.rooms if r.row == "private" and lay._adjacent(lay.hall, r))
+        if adj < 2:
+            return False
+        living = next(r for r in lay.rooms if r.kind == "living")
+        dining = next((r for r in lay.rooms if r.kind == "dining"), None)
+        if not (lay._adjacent(lay.hall, living) or (dining and lay._adjacent(lay.hall, dining))):
+            return False
+    return True
+
+
+def generate_layout(rooms: list[Room], tries: int = 6000, rng=None) -> Layout:
+    """Random house-like plan; falls back to the rigid row layout if nothing valid is found."""
+    rng = rng or random.Random()
+    for _ in range(tries):
+        try:
+            cand = _random_candidate(rooms, rng)
+            if not cand or not _pre_ok(cand):
+                continue
+            lay = Layout(cand, False, preplaced=True).build()
+            if _post_ok(lay):
+                return lay
+        except LayoutError:
+            continue
+    return _generate_rows(rooms)
+
+
+def _generate_rows(rooms: list[Room]) -> Layout:
     """Try the layout with and without a hallway; return the first one that works."""
     n_private = sum(1 for r in rooms if r.row == "private")
     order = (True, False) if n_private >= 4 else (False, True)
