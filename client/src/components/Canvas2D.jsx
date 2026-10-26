@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { fabric } from 'fabric';
 import { Ruler, Maximize2, Compass, Layers, Check, X, ShieldAlert } from 'lucide-react';
+import { installSymbol, drawRoomLabel } from '../utils/planSymbols';
 
 /**
  * Metric to Imperial formatter (e.g. 4.5m -> 14' 9")
@@ -91,6 +92,8 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
   const currentLine = useRef(null);
   const startPos = useRef({ x: 0, y: 0 });
   const hasLoadedElements = useRef(false);
+  // true while elements are being swapped in programmatically, so removals don't write a half-empty list back
+  const reloadingRef = useRef(false);
 
   // Sync ref to prevent stale closures and ghost drawing
   const drawingModeRef = useRef(drawingMode);
@@ -116,6 +119,7 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
     if (fabricRef.current) {
       const canvas = fabricRef.current;
       canvas.backgroundColor = blueprintMode ? '#1e3a8a' : '#09090b';
+      canvas.__blueprint = blueprintMode;
 
       canvas.getObjects().forEach(obj => {
         if (obj.isGrid) {
@@ -146,7 +150,7 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
 
   // Sync elements to parent state
   const syncElements = () => {
-    if (!fabricRef.current) return;
+    if (!fabricRef.current || reloadingRef.current) return;
     const canvas = fabricRef.current;
     const currentElements = canvas.getObjects().filter(obj => !obj.isGrid).map(obj => ({
       id: obj.id || Math.random().toString(36).substr(2, 9),
@@ -158,7 +162,9 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
       angle: obj.angle,
       material: obj.material || null,
       isColor: obj.isColor || false,
-      fill: obj.fill || null
+      fill: obj.fill || null,
+      ...(obj.swing != null ? { swing: obj.swing, hinge: obj.hinge } : {}),
+      ...(obj.type === 'room' ? { kind: obj.kind, name: obj.name, area: obj.area } : {}),
     }));
     setCanvasElements(currentElements);
   };
@@ -238,6 +244,18 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
       canvas.renderAll();
       updateSelectedHUD();
     };
+
+    // room names sit on top of everything, so furniture never hides them
+    canvas.on('after:render', () => {
+      const ctx = canvas.getContext();
+      const v = canvas.viewportTransform;
+      ctx.save();
+      ctx.transform(v[0], v[1], v[2], v[3], v[4], v[5]);
+      canvas.getObjects().forEach((o) => {
+        if (o.type === 'room') drawRoomLabel(ctx, o, !!canvas.__blueprint);
+      });
+      ctx.restore();
+    });
 
     canvas.on('object:modified', () => {
       syncElements();
@@ -331,6 +349,7 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
         cornerSize: 8,
       });
 
+      installSymbol(currentLine.current);
       canvas.add(currentLine.current);
     });
 
@@ -509,6 +528,7 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
     }
 
     if (elements.length > 0) {
+      reloadingRef.current = true;
       existingObjs.forEach(o => canvas.remove(o));
 
       elements.forEach(el => {
@@ -521,6 +541,7 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
         else if (el.type === 'furniture_sofa') strokeColor = '#818cf8';
         else if (el.type === 'furniture_table') strokeColor = '#fbbf24';
 
+        const isRoom = el.type === 'room';
         const rect = new fabric.Rect({
           id: el.id || Math.random().toString(36).substr(2, 9),
           left: el.left,
@@ -531,9 +552,14 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
           fill: (el.isColor && el.material) ? el.material : (el.fill || strokeColor),
           originX: 'left',
           originY: 'center',
-          selectable: !drawingModeRef.current,
-          evented: !drawingModeRef.current,
+          selectable: !isRoom && !drawingModeRef.current,
+          evented: !isRoom && !drawingModeRef.current,
           type: el.type,
+          swing: el.swing,
+          hinge: el.hinge,
+          kind: el.kind,
+          name: el.name,
+          area: el.area,
           material: el.material || null,
           isColor: el.isColor || false,
           cornerColor: '#ffffff',
@@ -541,12 +567,16 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
           transparentCorners: false,
           cornerSize: 8,
         });
+        installSymbol(rect);
         canvas.add(rect);
       });
       canvas.renderAll();
+      reloadingRef.current = false;
       hasLoadedElements.current = true;
     } else if (elements.length === 0 && existingObjs.length > 0) {
+      reloadingRef.current = true;
       existingObjs.forEach(o => canvas.remove(o));
+      reloadingRef.current = false;
       canvas.renderAll();
     }
   }, [elements]);
@@ -579,6 +609,7 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
         cornerSize: 8,
       });
 
+      installSymbol(rect);
       canvas.add(rect);
       canvas.setActiveObject(rect);
       canvas.renderAll();

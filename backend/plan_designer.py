@@ -18,7 +18,7 @@ from collections import Counter
 import floorplan_builder as fb
 import reference_plans as rp
 
-KINDS = list(fb.KIND_SPEC) + ["hallway"]
+KINDS = list(fb.KIND_SPEC)
 
 
 # --------------------------------------------------------------------------
@@ -111,8 +111,8 @@ def matches_program(rects: list[dict], program) -> str | None:
         return "need exactly one master_bedroom"
     if got["bathroom"] < max(1, want["bathroom"] - 1):
         return f"need at least {max(1, want['bathroom'] - 1)} bathrooms"
-    if got["hallway"] > 2:
-        return "use at most 2 hallway lobbies"
+    if got["lounge"] > 2:
+        return "use at most 2 lounges"
     return None
 
 
@@ -147,7 +147,7 @@ def transform(rects: list[dict], rng: random.Random, target_area: float | None =
     area = sum(r["w"] * r["h"] for r in rects if r["kind"] != "hallway") * 0.25
     s = 1.0
     if target_area:
-        s = max(0.85, min(1.45, math.sqrt(target_area / area)))
+        s = max(0.85, min(1.2, math.sqrt(target_area / area)))   # rooms keep believable sizes
     _stretch_axis(rects, "x", "w", s * rng.uniform(0.95, 1.12), 0.18, rng)
     _stretch_axis(rects, "y", "h", s * rng.uniform(0.95, 1.12), 0.18, rng)
     W = max(r["x"] + r["w"] for r in rects)
@@ -165,19 +165,20 @@ def transform(rects: list[dict], rng: random.Random, target_area: float | None =
 
 
 def adapt_reference(program, rng: random.Random, target_area: float | None = None,
-                    tries: int = 80) -> fb.Layout | None:
+                    tries: int = 400) -> fb.Layout | None:
     want = _program_counts(program)
     beds = want["master_bedroom"] + want["bedroom"]
     refs = pick_references(beds, want["bathroom"], bool(want["study"]), rng, k=len(rp.PLANS))
     refs = [m for m in refs if m["beds"] == beds]       # never hand back the wrong number of bedrooms
     if not refs:
         return None
-    for _ in range(tries):
-        ref = rng.choice(refs[:3])
-        try:
-            return fb.layout_from_rects(transform(ref["rects"], rng, target_area))
-        except fb.LayoutError:
-            continue
+    for target in (target_area, None):      # if scaling to the stated area keeps failing, use the reference's own size
+        for _ in range(tries):
+            ref = rng.choice(refs[:3])
+            try:
+                return fb.layout_from_rects(transform(ref["rects"], rng, target))
+            except fb.LayoutError:
+                continue
     return None
 
 

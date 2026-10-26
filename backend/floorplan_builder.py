@@ -53,8 +53,9 @@ KIND_SPEC = {
     "dining":         ("Dining Room",     8, 12, 24, 2.8, "public"),
     "kitchen":        ("Kitchen",         7, 10, 22, 2.8, "public"),
     "utility":        ("Utility",         3,  4,  8, 2.4, "public"),
-    "master_bedroom": ("Master Bedroom", 12, 16, 30, 3.0, "private"),
-    "bedroom":        ("Bedroom",         9, 12, 20, 2.8, "private"),
+    "lounge":         ("Lounge",         10, 16, 40, 3.0, "public"),   # open family space, never walled off
+    "master_bedroom": ("Master Bedroom", 15, 18, 32, 3.4, "private"),
+    "bedroom":        ("Bedroom",        11, 13, 22, 3.0, "private"),
     "study":          ("Study",           6,  9, 16, 2.6, "private"),
     "bathroom":       ("Bathroom",      3.5,  6,  9, 2.4, "private"),
 }
@@ -157,7 +158,7 @@ def build_program(llm_rooms, llm_total_sqm, prompt: str) -> list[Room]:
     elif count("bathroom"):
         baths = count("bathroom")
     else:
-        baths = 1 if beds <= 2 else 2
+        baths = {1: 1, 2: 2, 3: 2, 4: 3, 5: 3, 6: 4}[beds]
     baths = int(_clamp(baths, 1, 6))
 
     want_dining = bool(count("dining")) or p["dining"] or beds >= 2
@@ -514,6 +515,7 @@ FURNISHERS = {
     "kitchen": furnish_kitchen,
     "study": furnish_study,
     "bathroom": furnish_bathroom,
+    "lounge": furnish_living,
 }
 
 
@@ -527,6 +529,7 @@ class Layout:
         self.preplaced = preplaced
         self.hall: Room | None = next((r for r in self.rooms if r.kind == "hallway"), None) if preplaced else None
         self.open_pairs: set = set()
+        self.open_kitchen = False
         self.walls: list[dict] = []
         self.doors: list[dict] = []
         self.windows: list[dict] = []
@@ -654,9 +657,19 @@ class Layout:
         if dining and self._adjacent(living, dining):
             edges.append((living, dining, "open"))
             if kitchen and self._adjacent(dining, kitchen):
-                edges.append((dining, kitchen, "door"))
+                edges.append((dining, kitchen, "open" if self.open_kitchen else "door"))
         elif kitchen and self._adjacent(living, kitchen):
             edges.append((living, kitchen, "open"))
+        if self.open_kitchen and kitchen and self._adjacent(living, kitchen) \
+                and not any(kitchen in e[:2] and e[2] == "open" for e in edges):
+            edges.append((living, kitchen, "open"))
+        for lounge in by_kind("lounge"):         # a lounge is open space: no walls to living / dining
+            for o in (living, dining):
+                if o and self._adjacent(lounge, o):
+                    edges.append((o, lounge, "open"))
+            for r in rooms:
+                if r.row == "private" and not r.ensuite and self._adjacent(lounge, r):
+                    edges.append((lounge, r, "door"))
         if utility and kitchen and self._adjacent(utility, kitchen):
             edges.append((utility, kitchen, "door"))
         for hall in [r for r in rooms if r.kind == "hallway"]:
@@ -699,9 +712,9 @@ class Layout:
                 if r.ensuite and master and master.id not in seen:
                     continue            # an ensuite is reached through its master, once that is reachable
                 if r.row == "private":
-                    through_ok = {"hallway": 3, "living": 2, "dining": 1}
+                    through_ok = {"hallway": 3, "lounge": 3, "living": 2, "dining": 1}
                 else:
-                    through_ok = {"hallway": 3, "living": 2, "dining": 1, "kitchen": 1}
+                    through_ok = {"hallway": 3, "lounge": 3, "living": 2, "dining": 1, "kitchen": 1}
                 for o in rooms:
                     if o.id in seen and o is not r:
                         sb = _shared_boundary(r, o)
@@ -754,11 +767,23 @@ class Layout:
         else:
             el = {"type": kind, "left": line, "top": lo, "width": width, "height": thick, "angle": 90}
         el["id"] = _new_id(kind)
+        if kind == "door":
+            el["swing"], el["hinge"] = self._swing(el, rooms), (1 if int(el["id"][-1], 16) % 2 else -1)
         (self.doors if kind == "door" else self.windows).append(el)
         self.line_ops.setdefault((orient, line), []).append((lo, hi))
         for room in rooms:
             side = _side_of(room, orient, line)
             room.openings[side].append((kind, lo, hi))
+
+    @staticmethod
+    def _swing(el, rooms):
+        """+1 / -1: which side of the door's local y axis its leaf swings to (into the more private room)."""
+        target = next((r for r in rooms if r.row == "private" or r.kind in ("kitchen", "utility", "bathroom")),
+                      rooms[-1])
+        a = math.radians(el["angle"])
+        mx, my = el["left"] + el["width"] / 2 * math.cos(a), el["top"] + el["width"] / 2 * math.sin(a)
+        vx, vy = (target.x0 + target.x1) / 2 - mx, (target.y0 + target.y1) / 2 - my
+        return 1 if vx * -math.sin(a) + vy * math.cos(a) >= 0 else -1
 
     def _add_door(self, a, b, width=DOOR_W):
         sb = _shared_boundary(a, b)
@@ -929,6 +954,14 @@ class Layout:
 
     def elements(self):
         out = []
+        for r in self.rooms:        # floors + labels first so everything else is drawn on top
+            if r.kind == "hallway":
+                continue
+            out.append({
+                "id": _new_id("room"), "type": "room", "kind": r.kind, "name": r.name,
+                "area": round(((r.x1 - r.x0) / U) * ((r.y1 - r.y0) / U), 1),
+                "left": r.x0, "top": (r.y0 + r.y1) // 2, "width": r.x1 - r.x0, "height": r.y1 - r.y0, "angle": 0,
+            })
         out += self.walls
         out += self.doors
         out += self.windows
@@ -962,10 +995,11 @@ class Layout:
 # Zoned planner: a day zone plus one or two bedroom wings, like a real house plan
 # --------------------------------------------------------------------------
 NEEDS_WINDOW = ("living", "dining", "kitchen", "master_bedroom", "bedroom", "study")
-HALL_W = 5                      # cells: a 2.5 m lobby, never a long corridor
-HALL_MAX = 18                   # cells: lobbies stay under 9 m
-MIN_DOOR_CELLS = 5              # a lobby must share >= 4.6 cells with the room it opens into
-_MIN_H = {"master_bedroom": 7, "bedroom": 6, "study": 6, "bathroom": 5}
+HALL_W = 7                      # cells: a 3.5 m open lounge between two bedroom stacks, never a corridor
+HALL_MAX = 18                   # cells: the lounge stays under 9 m long
+OPEN_MAX_ASPECT = 2.5            # the open living area is never longer than 2.5x its width
+MIN_DOOR_CELLS = 5              # a bedroom must share >= 4.6 cells with the room it opens into
+_MIN_H = {"master_bedroom": 8, "bedroom": 7, "study": 6, "bathroom": 5}
 _MIN_SHORT = {"bathroom": 1.9, "utility": 1.9, "kitchen": 2.3, "dining": 2.5, "study": 2.2}
 STYLES = ("wing", "split", "compact")
 
@@ -1092,6 +1126,10 @@ def _zoned_candidate(rooms, rng, want="auto"):
     for r in rooms:     # vary sizes so every house is a little different and roomier
         r.area *= rng.uniform(1.0, 1.3) if r.kind in ("living", "dining", "master_bedroom", "bedroom") \
             else rng.uniform(0.95, 1.1)
+    beds = [r.area for r in rooms if r.kind == "bedroom"]
+    for r in rooms:
+        if r.kind == "master_bedroom" and beds:
+            r.area = max(r.area, 1.25 * max(beds))
     pub = [r for r in rooms if r.row == "public"]
     priv = [r for r in rooms if r.row == "private"]
     units = _units(priv)
@@ -1170,7 +1208,7 @@ def _zoned_candidate(rooms, rng, want="auto"):
         out.append(r)
     for gi, hid in enumerate(halls):
         x, y, w, h = rects[hid]
-        out.append(Room(id=hid, kind="hallway", name="Hallway", area=0, row="hall",
+        out.append(Room(id=hid, kind="lounge", name="Lounge", area=w * h * 0.25, row="public",
                         x0=ORIGIN_X + x * CELL, y0=ORIGIN_Y + y * CELL,
                         x1=ORIGIN_X + (x + w) * CELL, y1=ORIGIN_Y + (y + h) * CELL))
     return out
@@ -1186,9 +1224,12 @@ def _zone_fail(rooms):
                 return "hall"
             continue
         spec = KIND_SPEC[r.kind]
+        if r.kind in ("bedroom", "master_bedroom"):
+            if short < spec[4] * 0.95 or wm * dm < spec[1] * 0.97:
+                return f"small:{r.kind}"
         if short < _MIN_SHORT.get(r.kind, spec[4] * 0.85) - 0.01:
             return f"short:{r.kind}"
-        lim = {"bathroom": 3.2, "utility": 3.2, "living": 2.8, "kitchen": 3.0, "dining": 3.0}.get(r.kind, 2.5)
+        lim = {"bathroom": 3.2, "utility": 3.2, "living": 2.8, "kitchen": 3.0, "dining": 3.0, "lounge": 3.0}.get(r.kind, 2.5)
         if long_ / short > lim:
             return f"aspect:{r.kind}"
         ratio = (wm * dm) / r.area
@@ -1222,19 +1263,46 @@ def _post_fail(lay: Layout):
             return f"furniture:{r.kind}"
     living = next(r for r in lay.rooms if r.kind == "living")
     dining = next((r for r in lay.rooms if r.kind == "dining"), None)
-    halls = [r for r in lay.rooms if r.kind == "hallway"]
-    for hall in halls:
-        adj = sum(1 for r in lay.rooms if r.row == "private" and lay._adjacent(hall, r))
-        if adj < 2 or adj > 5:
-            return "hall-doors"
-        if not (lay._adjacent(hall, living) or (dining and lay._adjacent(hall, dining))):
-            return "hall-public"
-    if not halls:
-        # bedrooms open straight off the living/dining areas
-        for r in lay.rooms:
-            if r.row == "private" and not r.ensuite and r.kind != "bathroom":
-                if not any(o.id in lay.graph[r.id] and o.kind in ("living", "dining") for o in lay.rooms):
-                    return "bedroom-access"
+    area = lambda r: (r.x1 - r.x0) / U * (r.y1 - r.y0) / U  # noqa: E731
+    # the master bedroom is the biggest bedroom
+    masters = [r for r in lay.rooms if r.kind == "master_bedroom"]
+    beds = [r for r in lay.rooms if r.kind == "bedroom"]
+    if masters and beds and area(masters[0]) < 1.08 * max(area(b) for b in beds):
+        return "master-not-biggest"
+    # the open living space (living + dining + lounge) must be a room, not a long spine with doors down both sides
+    parent = {r.id: r.id for r in lay.rooms}
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for pair in lay.open_pairs:
+        x, y = tuple(pair)
+        parent[find(x)] = find(y)
+    groups: dict = {}
+    for r in lay.rooms:
+        if r.kind in ("living", "dining", "lounge"):
+            groups.setdefault(find(r.id), []).append(r)
+    for g in groups.values():
+        gw = max(r.x1 for r in g) - min(r.x0 for r in g)
+        gh = max(r.y1 for r in g) - min(r.y0 for r in g)
+        if max(gw, gh) / max(1, min(gw, gh)) > OPEN_MAX_ASPECT:
+            return "open-space-spine"
+    # lounges are open living space: they must hang off the living/dining area and serve few doors
+    for lg in [r for r in lay.rooms if r.kind in ("lounge", "hallway")]:
+        adj = sum(1 for r in lay.rooms if r.row == "private" and lay._adjacent(lg, r))
+        if adj > 6:
+            return "lounge-doors"
+        if not (lay._adjacent(lg, living) or (dining and lay._adjacent(lg, dining))):
+            return "lounge-public"
+    # every bedroom opens straight off an open living area (living / dining / lounge)
+    access = ("living", "dining", "lounge", "hallway")
+    for r in lay.rooms:
+        if r.row == "private" and not r.ensuite and r.kind != "bathroom":
+            if not any(o.id in lay.graph[r.id] and o.kind in access for o in lay.rooms):
+                return "bedroom-access"
     return None
 
 
@@ -1250,7 +1318,9 @@ def generate_layout(rooms: list[Room], tries: int = 2500, rng=None, style: str =
             cand = _zoned_candidate(rooms, rng, style if attempt < tries // 2 else "auto")
             if not cand or not _zone_ok(cand):
                 continue
-            lay = Layout(cand, False, preplaced=True).build()
+            lay = Layout(cand, False, preplaced=True)
+            lay.open_kitchen = rng.random() < 0.3
+            lay.build()
             if _post_ok(lay):
                 return lay
         except LayoutError:
@@ -1275,8 +1345,9 @@ def _generate_rows(rooms: list[Room]) -> Layout:
 # Plans given as room rectangles (from the LLM or from a reference house)
 # --------------------------------------------------------------------------
 _SIZE_LIMITS = {   # kind: (min m2, max m2) a believable room can have
-    "living": (12, 60), "dining": (7, 32), "kitchen": (6, 28), "utility": (2.5, 12),
-    "master_bedroom": (10, 40), "bedroom": (8, 28), "study": (5, 22), "bathroom": (2.8, 12),
+    "living": (12, 70), "dining": (7, 36), "kitchen": (6, 40), "utility": (2.5, 12),
+    "master_bedroom": (15, 46), "bedroom": (11, 34), "study": (6, 26), "bathroom": (3.5, 18),
+    "lounge": (8, 50),
 }
 
 
@@ -1286,15 +1357,14 @@ def rooms_from_rects(rects: list[dict]) -> list[Room]:
     counts: dict[str, int] = {}
     for rc in rects:
         kind = rc["kind"]
-        if kind != "hallway" and kind not in KIND_SPEC:
+        if kind not in KIND_SPEC:
             raise LayoutError(f"unknown room kind {kind}")
         x, y, w, h = (int(round(rc[k])) for k in ("x", "y", "w", "h"))
         if w < 2 or h < 2 or x < 0 or y < 0:
             raise LayoutError("bad rectangle")
         counts[kind] = counts.get(kind, 0) + 1
-        room = Room(id=f"hall{counts[kind] - 1}" if kind == "hallway" else f"r{len(rooms)}",
-                    kind=kind, name="Hallway" if kind == "hallway" else KIND_SPEC[kind][0],
-                    area=w * h * 0.25, row="hall" if kind == "hallway" else KIND_SPEC[kind][5],
+        room = Room(id=f"r{len(rooms)}", kind=kind, name=KIND_SPEC[kind][0],
+                    area=w * h * 0.25, row=KIND_SPEC[kind][5],
                     x0=ORIGIN_X + x * CELL, y0=ORIGIN_Y + y * CELL,
                     x1=ORIGIN_X + (x + w) * CELL, y1=ORIGIN_Y + (y + h) * CELL)
         rooms.append(room)
@@ -1329,21 +1399,21 @@ def rooms_from_rects(rects: list[dict]) -> list[Room]:
 
 def _size_fail(rooms: list[Room]):
     for r in rooms:
-        if r.kind == "hallway":
-            continue
         lo, hi = _SIZE_LIMITS[r.kind]
         if not (lo <= r.area <= hi):
             return f"size:{r.kind}:{r.area:.0f}"
     return None
 
 
-def layout_from_rects(rects: list[dict]) -> Layout:
+def layout_from_rects(rects: list[dict], open_kitchen: bool | None = None) -> Layout:
     """Validate and build a plan given as rectangles. Raises LayoutError when it is not a good house."""
     rooms = rooms_from_rects(rects)
     why = _size_fail(rooms) or _zone_fail(rooms)
     if why:
         raise LayoutError(why)
-    lay = Layout(rooms, False, preplaced=True).build()
+    lay = Layout(rooms, False, preplaced=True)
+    lay.open_kitchen = (random.random() < 0.35) if open_kitchen is None else open_kitchen
+    lay.build()
     why = _post_fail(lay)
     if why:
         raise LayoutError(why)

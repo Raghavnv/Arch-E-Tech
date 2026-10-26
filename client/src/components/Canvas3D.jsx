@@ -457,12 +457,28 @@ function ProceduralFurniture({ el }) {
   }
 
   if (el.type === 'furniture_sofa') {
+    const arm = w * 0.09;
+    const n = w > 2.2 ? 3 : 2;
+    const cw = (w - arm * 2) / n;
     return (
       <group position={[cx, 0, cz]} rotation={[0, rotY, 0]}>
-        <mesh position={[0, 0.25, 0]} castShadow receiveShadow><boxGeometry args={[w, 0.35, d * 0.85]} /><meshStandardMaterial color="#4f46e5" roughness={0.85} /></mesh>
-        <mesh position={[0, 0.65, -d * 0.35]} castShadow receiveShadow><boxGeometry args={[w, 0.55, d * 0.25]} /><meshStandardMaterial color="#4338ca" roughness={0.85} /></mesh>
-        <mesh position={[-w * 0.46, 0.45, 0]} castShadow receiveShadow><boxGeometry args={[w * 0.08, 0.35, d * 0.85]} /><meshStandardMaterial color="#4338ca" roughness={0.85} /></mesh>
-        <mesh position={[w * 0.46, 0.45, 0]} castShadow receiveShadow><boxGeometry args={[w * 0.08, 0.35, d * 0.85]} /><meshStandardMaterial color="#4338ca" roughness={0.85} /></mesh>
+        <mesh position={[0, 0.2, 0]} castShadow receiveShadow><boxGeometry args={[w, 0.22, d * 0.9]} /><meshStandardMaterial color="#3f4a66" roughness={0.9} /></mesh>
+        <mesh position={[0, 0.58, -d * 0.38]} castShadow receiveShadow><boxGeometry args={[w, 0.56, d * 0.2]} /><meshStandardMaterial color="#46537a" roughness={0.9} /></mesh>
+        {[-1, 1].map((sx) => (
+          <mesh key={sx} position={[sx * (w / 2 - arm / 2), 0.4, 0]} castShadow receiveShadow><boxGeometry args={[arm, 0.42, d * 0.9]} /><meshStandardMaterial color="#46537a" roughness={0.9} /></mesh>
+        ))}
+        {Array.from({ length: n }).map((_, i) => {
+          const x = -w / 2 + arm + cw * (i + 0.5);
+          return (
+            <group key={i}>
+              <mesh position={[x, 0.39, d * 0.07]} castShadow receiveShadow><boxGeometry args={[cw - 0.03, 0.17, d * 0.58]} /><meshStandardMaterial color="#5b6b94" roughness={0.95} /></mesh>
+              <mesh position={[x, 0.66, -d * 0.24]} rotation={[-0.18, 0, 0]} castShadow><boxGeometry args={[cw - 0.05, 0.38, d * 0.13]} /><meshStandardMaterial color="#5b6b94" roughness={0.95} /></mesh>
+            </group>
+          );
+        })}
+        {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([lx, lz], i) => (
+          <mesh key={i} position={[lx * (w / 2 - 0.08), 0.045, lz * (d * 0.4)]}><cylinderGeometry args={[0.03, 0.025, 0.09]} /><meshStandardMaterial color="#1c1917" roughness={0.5} /></mesh>
+        ))}
       </group>
     );
   }
@@ -481,8 +497,12 @@ function ProceduralFurniture({ el }) {
   if (el.type === 'furniture_armchair') {
     return (
       <group position={[cx, 0, cz]} rotation={[0, rotY, 0]}>
-        <mesh position={[0, 0.2, 0]} castShadow receiveShadow><boxGeometry args={[w, 0.3, d]} /><meshStandardMaterial color="#3b82f6" roughness={0.8} /></mesh>
-        <mesh position={[0, 0.55, -d * 0.3]} castShadow receiveShadow><boxGeometry args={[w, 0.45, 0.2]} /><meshStandardMaterial color="#2563eb" roughness={0.8} /></mesh>
+        <mesh position={[0, 0.2, 0]} castShadow receiveShadow><boxGeometry args={[w, 0.2, d * 0.92]} /><meshStandardMaterial color="#2f6574" roughness={0.85} /></mesh>
+        <mesh position={[0, 0.34, d * 0.04]} castShadow receiveShadow><boxGeometry args={[w * 0.68, 0.14, d * 0.66]} /><meshStandardMaterial color="#4a8fa3" roughness={0.95} /></mesh>
+        <mesh position={[0, 0.58, -d * 0.4]} castShadow receiveShadow><boxGeometry args={[w, 0.5, d * 0.16]} /><meshStandardMaterial color="#2f6574" roughness={0.85} /></mesh>
+        {[-1, 1].map((sx) => (
+          <mesh key={sx} position={[sx * (w / 2 - w * 0.08), 0.38, 0]} castShadow><boxGeometry args={[w * 0.16, 0.3, d * 0.9]} /><meshStandardMaterial color="#2f6574" roughness={0.85} /></mesh>
+        ))}
       </group>
     );
   }
@@ -490,8 +510,10 @@ function ProceduralFurniture({ el }) {
   if (el.type === 'furniture_bathtub') {
     return (
       <group position={[cx, 0, cz]} rotation={[0, rotY, 0]}>
-        <mesh position={[0, 0.3, 0]} castShadow receiveShadow><boxGeometry args={[w, 0.6, d]} /><meshStandardMaterial color="#ffffff" roughness={0.1} metalness={0.1} /></mesh>
-        <mesh position={[0, 0.7, -d * 0.45]} castShadow><cylinderGeometry args={[0.02, 0.02, 0.2]} /><meshStandardMaterial color="#e2e8f0" metalness={0.9} roughness={0.1} /></mesh>
+        <mesh position={[0, 0.27, 0]} castShadow receiveShadow><boxGeometry args={[w, 0.54, d]} /><meshStandardMaterial color="#f8fafc" roughness={0.15} metalness={0.05} /></mesh>
+        <mesh position={[0, 0.55, 0]}><boxGeometry args={[w - 0.14, 0.02, d - 0.14]} /><meshStandardMaterial color="#9ec9e8" roughness={0.05} metalness={0.2} /></mesh>
+        <mesh position={[-w * 0.4, 0.68, 0]} castShadow><cylinderGeometry args={[0.018, 0.018, 0.22]} /><meshStandardMaterial color="#cbd5e1" metalness={0.95} roughness={0.12} /></mesh>
+        <mesh position={[w * 0.4, 0.56, 0]}><cylinderGeometry args={[0.035, 0.035, 0.015]} /><meshStandardMaterial color="#94a3b8" metalness={0.9} roughness={0.2} /></mesh>
       </group>
     );
   }
@@ -499,17 +521,33 @@ function ProceduralFurniture({ el }) {
   if (el.type === 'furniture_vanity') {
     return (
       <group position={[cx, 0, cz]} rotation={[0, rotY, 0]}>
-        <mesh position={[0, 0.4, 0]} castShadow receiveShadow><boxGeometry args={[w, 0.8, d]} /><meshStandardMaterial color="#27272a" roughness={0.6} /></mesh>
-        <mesh position={[0, 0.82, 0]} castShadow><boxGeometry args={[w * 0.95, 0.04, d * 0.9]} /><meshStandardMaterial color="#f8fafc" roughness={0.2} /></mesh>
+        <mesh position={[0, 0.38, 0]} castShadow receiveShadow><boxGeometry args={[w, 0.76, d]} /><meshStandardMaterial color="#6b5d52" roughness={0.6} /></mesh>
+        <mesh position={[0, 0.78, 0]} castShadow><boxGeometry args={[w * 1.02, 0.04, d * 1.02]} /><meshStandardMaterial color="#e7e5e4" roughness={0.2} /></mesh>
+        <mesh position={[0, 0.8, d * 0.06]}><cylinderGeometry args={[Math.min(w, d) * 0.3, Math.min(w, d) * 0.26, 0.04, 28]} /><meshStandardMaterial color="#fafafa" roughness={0.1} /></mesh>
+        <mesh position={[0, 0.9, -d * 0.3]} castShadow><cylinderGeometry args={[0.014, 0.014, 0.2]} /><meshStandardMaterial color="#d4d4d8" metalness={0.95} roughness={0.1} /></mesh>
+        <mesh position={[0, 1.25, -d * 0.5 - 0.01]}><boxGeometry args={[w * 0.8, 0.7, 0.02]} /><meshStandardMaterial color="#dbeafe" metalness={0.9} roughness={0.05} /></mesh>
       </group>
     );
   }
 
   if (el.type === 'furniture_kitchen') {
+    const long = w >= d;
+    const run = long ? w : d;
+    const hob = (sign) => [long ? sign * run * 0.22 : 0, 0.945, long ? 0 : sign * run * 0.22];
     return (
       <group position={[cx, 0, cz]} rotation={[0, rotY, 0]}>
-        <mesh position={[0, 0.45, 0]} castShadow receiveShadow><boxGeometry args={[w, 0.9, d]} /><meshStandardMaterial color="#18181b" roughness={0.5} /></mesh>
-        <mesh position={[0, 0.92, 0]} castShadow><boxGeometry args={[w * 1.02, 0.04, d * 1.02]} /><meshStandardMaterial color="#cbd5e1" metalness={0.8} roughness={0.2} /></mesh>
+        <mesh position={[0, 0.43, 0]} castShadow receiveShadow><boxGeometry args={[w, 0.86, d]} /><meshStandardMaterial color="#e7e2da" roughness={0.55} /></mesh>
+        <mesh position={[0, 0.89, 0]} castShadow><boxGeometry args={[w * 1.02, 0.05, d * 1.02]} /><meshStandardMaterial color="#44403c" roughness={0.25} metalness={0.15} /></mesh>
+        <mesh position={hob(-1).map((v, i) => (i === 1 ? 0.92 : v))}><boxGeometry args={[long ? Math.min(run * 0.26, 0.9) : d * 0.7, 0.02, long ? d * 0.7 : Math.min(run * 0.26, 0.9)]} /><meshStandardMaterial color="#d4d4d8" metalness={0.9} roughness={0.2} /></mesh>
+        {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([ox, oz], i) => {
+          const [hx, hy, hz] = hob(1);
+          return (
+            <mesh key={i} position={[hx + ox * Math.min(w, d) * 0.17, hy, hz + oz * Math.min(w, d) * 0.17]}>
+              <cylinderGeometry args={[Math.min(w, d) * 0.1, Math.min(w, d) * 0.1, 0.012, 20]} /><meshStandardMaterial color="#18181b" roughness={0.4} />
+            </mesh>
+          );
+        })}
+        <mesh position={[0, 0.5, 0]}><boxGeometry args={[w * 1.003, 0.012, d * 1.003]} /><meshStandardMaterial color="#a8a29e" /></mesh>
       </group>
     );
   }
@@ -577,7 +615,64 @@ function ProceduralStairs({ el }) {
 // 6. AUTOMATIC FOUNDATION, INTERIOR SLAB & ROOF/CEILING (Feature B)
 // =================================================================
 
-function ArchitecturalSlabs({ bounds, showCeiling }) {
+const FLOOR_LOOK = {
+  living: ['wood', '#b98a5b'], dining: ['wood', '#b98a5b'], lounge: ['wood', '#b98a5b'],
+  master_bedroom: ['wood', '#c9a77c'], bedroom: ['wood', '#c9a77c'], study: ['wood', '#a9825a'],
+  kitchen: ['tile', '#d8d4cf'], utility: ['tile', '#d8d4cf'], bathroom: ['tile', '#b9d3e0'],
+};
+const floorTextureCache = {};
+
+function floorTexture(pattern, color) {
+  const key = `${pattern}:${color}`;
+  if (floorTextureCache[key]) return floorTextureCache[key];
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = color;
+  g.fillRect(0, 0, 256, 256);
+  g.strokeStyle = 'rgba(0,0,0,0.22)';
+  g.lineWidth = 2;
+  if (pattern === 'wood') {
+    for (let y = 0; y < 256; y += 32) {
+      g.beginPath(); g.moveTo(0, y); g.lineTo(256, y); g.stroke();
+      const off = ((y / 32) % 2) * 96 + 40;
+      g.beginPath(); g.moveTo(off, y); g.lineTo(off, y + 32); g.stroke();
+      g.fillStyle = `rgba(${(y * 7) % 40},${(y * 3) % 25},0,0.06)`;
+      g.fillRect(0, y + 2, 256, 28);
+    }
+  } else {
+    for (let i = 0; i <= 256; i += 64) {
+      g.beginPath(); g.moveTo(i, 0); g.lineTo(i, 256); g.stroke();
+      g.beginPath(); g.moveTo(0, i); g.lineTo(256, i); g.stroke();
+    }
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  floorTextureCache[key] = tex;
+  return tex;
+}
+
+function RoomFloor({ room }) {
+  const [pattern, color] = FLOOR_LOOK[room.kind] || FLOOR_LOOK.living;
+  const w = room.width * SCALE;
+  const d = room.height * SCALE;
+  const tex = useMemo(() => {
+    const t = floorTexture(pattern, color).clone();
+    t.needsUpdate = true;
+    const tile = pattern === 'wood' ? 1.4 : 1.2;   // metres per texture repeat
+    t.repeat.set(w / tile, d / tile);
+    return t;
+  }, [pattern, color, w, d]);
+  return (
+    <mesh position={[room.left * SCALE + w / 2, 0.025, room.top * SCALE]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <planeGeometry args={[w, d]} />
+      <meshStandardMaterial map={tex} roughness={pattern === 'wood' ? 0.55 : 0.25} metalness={0.02} />
+    </mesh>
+  );
+}
+
+function ArchitecturalSlabs({ bounds, showCeiling, rooms = [] }) {
   const { width, depth, centerX, centerZ } = bounds;
   const padding = 2.5;
   const slabW = width + padding * 2;
@@ -591,11 +686,15 @@ function ArchitecturalSlabs({ bounds, showCeiling }) {
         <meshStandardMaterial color="#27272a" roughness={0.9} />
       </mesh>
 
-      {/* 2. Interior Floor Surface (Warm Oak Hardwood / Travertine) - Horizontal floor slab */}
-      <mesh position={[centerX, 0.01, centerZ]} receiveShadow>
-        <boxGeometry args={[width + 0.4, 0.02, depth + 0.4]} />
-        <meshStandardMaterial color="#d4b996" roughness={0.75} />
-      </mesh>
+      {/* 2. Interior floor: one finished floor per room when the plan has rooms, else a single slab */}
+      {rooms.length > 0 ? (
+        rooms.map((room, i) => <RoomFloor key={room.id || i} room={room} />)
+      ) : (
+        <mesh position={[centerX, 0.01, centerZ]} receiveShadow>
+          <boxGeometry args={[width + 0.4, 0.02, depth + 0.4]} />
+          <meshStandardMaterial color="#d4b996" roughness={0.75} />
+        </mesh>
+      )}
 
       {/* 3. Modern Cantilevered Ceiling & Roof Slab (Toggled ON/OFF) */}
       {showCeiling && (
@@ -815,6 +914,7 @@ export default function Canvas3D({
 }) {
   const { wallData, standaloneOpenings, furniture, stairs, collisionSegments, bounds } = useProcessedArchitecture(elements);
   const [isPointerLocked, setIsPointerLocked] = useState(false);
+  const rooms = useMemo(() => elements.filter(el => el && el.type === 'room'), [elements]);
 
   // Sun calculation using SunCalc
   const date = new Date();
@@ -862,7 +962,7 @@ export default function Canvas3D({
         />
 
         {/* Realistic Architectural Slabs: Foundation, Flooring & Optional Ceiling (Feature B) */}
-        <ArchitecturalSlabs bounds={bounds} showCeiling={showCeiling || (walkthroughMode && showCeiling)} />
+        <ArchitecturalSlabs bounds={bounds} rooms={rooms} showCeiling={showCeiling || (walkthroughMode && showCeiling)} />
 
         {/* Segmented Walls with Physical Doorway Cutouts & Window Panes (Feature B) */}
         {wallData.map(wall => (

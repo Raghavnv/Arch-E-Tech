@@ -121,7 +121,7 @@ export default function Studio() {
 
     let counts = {};
     (canvasElements || []).forEach(el => {
-      if (el.isGrid) return;
+      if (el.isGrid || el.type === 'room') return;
       const type = el.type || 'unknown';
       if (!counts[type]) counts[type] = { count: 0, length: 0, cost: 0 };
       
@@ -158,7 +158,8 @@ export default function Studio() {
     let isMounted = true;
     const loadData = async () => {
       const projectKey = projectId ? `archetech_project_${projectId}` : 'archetech_draft_project';
-      const cached = localStorage.getItem(projectKey) || localStorage.getItem('draftElements');
+      // a saved project only trusts its own cache; the shared draft belongs to unsaved sketches
+      const cached = localStorage.getItem(projectKey) || (projectId ? null : localStorage.getItem('draftElements'));
       let cachedElements = null;
       
       if (cached) {

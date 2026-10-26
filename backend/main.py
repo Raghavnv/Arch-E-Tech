@@ -88,7 +88,7 @@ class RoomProgramSchema(BaseModel):
 
 class RoomRect(BaseModel):
     kind: Literal["living", "dining", "kitchen", "master_bedroom", "bedroom",
-                  "bathroom", "study", "utility", "hallway"]
+                  "bathroom", "study", "utility", "lounge"]
     x: int
     y: int
     w: int
@@ -228,8 +228,8 @@ layout_style is the house concept, chosen like an architect would for this kind 
 "auto" if unsure. Vary your choice between requests when more than one suits the brief.
 Allowed kinds: living, dining, kitchen, master_bedroom, bedroom, bathroom, study, utility.
 Rules: always include one living and one kitchen; exactly one master_bedroom if any bedroom is wanted,
-extra bedrooms use "bedroom"; at least one bathroom; typical areas: living 16-30, dining 9-14,
-kitchen 8-14, master_bedroom 13-20, bedroom 9-14, bathroom 4-6, study 7-10, utility 3-5.
+extra bedrooms use "bedroom"; at least one bathroom; typical areas: living 20-35, dining 10-16,
+kitchen 9-15, master_bedroom 18-26, bedroom 12-16 (the master is always the biggest bedroom), bathroom 4-7, study 8-12, utility 3-5.
 Respect counts and total area stated by the user."""
 
 
@@ -269,25 +269,30 @@ def _ask_room_program(prompt: str):
     return None
 
 
+# the layout step needs real spatial reasoning, so it can use a bigger model than the room-list step
+LAYOUT_MODEL = os.getenv("LAYOUT_MODEL", "openai/gpt-oss-120b")
+
 LAYOUT_PROMPT = """You are an experienced residential architect. Design a NEW house floor plan as axis-aligned room rectangles.
 Grid: 1 unit = 0.5 m, x grows right, y grows down, (x, y) is a room's top-left corner, w and h are its size in units.
 Output JSON: {"rooms": [{"kind": string, "x": int, "y": int, "w": int, "h": int}]}.
-Kinds: living, dining, kitchen, master_bedroom, bedroom, bathroom, study, utility, hallway.
+Kinds: living, dining, kitchen, master_bedroom, bedroom, bathroom, study, utility, lounge.
 
 You are given REFERENCE PLANS of real-style houses. Study how they are organised, then design something different
-in the same spirit: change the footprint (rectangle, L, T, U or staggered wings; leave unused corners empty), the wing
+in the same spirit: change the footprint (rectangle, L, T, Z or staggered wings; leave unused corners empty), the wing
 arrangement, room order and proportions, and mirror or rotate the idea. Never copy a reference.
 
 Rules:
 - Rooms are solid rectangles and never overlap. Rooms that are neighbours touch exactly along a shared wall (no gaps inside the house).
-- Group the day zone together: living, dining and kitchen are neighbours; dining touches living (open plan); kitchen touches dining or living; utility touches the kitchen.
-- Bedrooms and bathrooms form their own wing(s). Every bedroom, study and bathroom must touch the living room, the dining room, or a short
-  hallway lobby (kind "hallway", 4-6 units wide, at most 18 units long, serving at most 5 rooms, at most 2 lobbies, touching the living or dining room).
-  NEVER make a long corridor with a row of doors; most 1-3 bedroom homes need no hallway at all.
-- The master_bedroom touches its own ensuite bathroom. Other bathrooms touch a bedroom or the lobby.
-- The living room has at least 6 units of outside wall (the entrance). Living, dining, kitchen, bedrooms and study each touch an outside wall (for windows).
-- No tiny leftover rooms: habitable rooms are at least 5 units on their short side, bathrooms at least 4.
-- Typical sizes in m2 (units x units / 4): living 18-40, dining 9-18, kitchen 8-16, master bedroom 14-24, bedroom 10-18, study 7-14, bathroom 4-9, utility 3-7.
+- ONLY enclose the rooms in the brief. Do not invent extra rooms, corridors, lobbies, halls, closets or filler boxes. Circulation is open space:
+  living, dining and (optionally) a "lounge" form one open area with no walls between them.
+- Day zone: living, dining and kitchen are neighbours; dining touches living; kitchen touches dining or living; utility touches the kitchen.
+- Every bedroom and study opens straight off the living room, dining room or lounge, so each must share at least 5 units of wall with one of them.
+  Never line bedrooms along a corridor. Use a lounge (7+ units wide, open to the living/dining area, at most 2) only when 4+ bedrooms cannot all touch the living area.
+- The master_bedroom touches its own ensuite bathroom. Other bathrooms touch a bedroom or the living area (at least 5 units of shared wall).
+- Bedrooms are generous: each at least 11 m2 and at least 6 units on its short side. The master_bedroom is clearly the biggest bedroom (at least 15 m2 and at least 10% larger than any other bedroom).
+- The living room has at least 6 units of outside wall for the entrance. Living, kitchen, bedrooms and study each touch an outside wall (for windows).
+- No tiny leftover rooms: habitable rooms are at least 6 units on their short side, bathrooms at least 4.
+- Sizes in m2 (units x units / 4): living 20-45, dining 10-20, kitchen 9-18, master bedroom 18-30, bedroom 12-20, study 8-14, bathroom 4-10, utility 3-7.
 Use exactly the rooms listed in the brief."""
 
 
@@ -304,7 +309,7 @@ def _ask_layout(prompt: str, program, style: str, rng):
     beds = want["master_bedroom"] + want["bedroom"]
     refs = pd.pick_references(beds, want["bathroom"], bool(want["study"]), rng, k=3)
     rooms_txt = ", ".join(f"{n} x {k}" for k, n in want.items())
-    brief = (f"BRIEF: {prompt}\nRooms to include (exactly): {rooms_txt}. Hallway lobbies are extra and optional.\n"
+    brief = (f"BRIEF: {prompt}\nRooms to include (exactly): {rooms_txt}. A lounge is the only optional extra.\n"
              f"Target total area about {round(pd.program_target_area(program))} m2.\n"
              f"Suggested concept: {style}.\n\nREFERENCE PLANS:\n"
              + "\n".join(json.dumps(pd.describe(m), separators=(",", ":")) for m in refs))
@@ -314,7 +319,7 @@ def _ask_layout(prompt: str, program, style: str, rng):
     for attempt in range(1, 4):
         try:
             resp = client.chat.completions.create(
-                model="openai/gpt-oss-20b",
+                model=LAYOUT_MODEL,
                 messages=messages,
                 response_format={"type": "json_schema",
                                  "json_schema": {"name": "floor_plan", "strict": True, "schema": schema}},

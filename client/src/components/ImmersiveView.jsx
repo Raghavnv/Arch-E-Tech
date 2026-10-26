@@ -228,7 +228,7 @@ export default function ImmersiveView() {
         {/* Render House */}
         <group position={[-20, 0, -15]}>
           {elements.map((el, i) => {
-            if (!el) return null;
+            if (!el || el.type === 'room') return null;
             return el.type && el.type.startsWith('furniture_') ? (
               <ProceduralFurniture key={i} el={el} />
             ) : (

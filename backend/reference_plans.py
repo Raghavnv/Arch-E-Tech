@@ -1,180 +1,127 @@
 """
-Reference house plans drawn on a 0.5 m grid (1 character = 1 cell = 0.5 m).
+Reference house plans drawn on a 0.5 m grid (1 cell = 0.5 m).
 
-Each plan is an ASCII drawing. Every letter is one room and must be a solid
-rectangle; '.' is outside the house (so L / U shaped footprints are possible).
-The legend maps each letter to a room kind.  These are shown to the LLM as
-examples of how real houses are organised and are also stretched / mirrored
-by the backend when it needs a plan without the LLM.
+A plan is a stack of horizontal bands.  Each band has a height in cells and a list of
+"<letter><width>" tokens laid out left to right; ".<width>" is outside the house, so
+L / T / Z shaped footprints are possible.  A letter that repeats in the same columns of
+consecutive bands is one taller room.  Every letter must end up a solid rectangle.
 
-Conventions that make a plan read as a house and not a hotel:
-  * living / dining / kitchen form one day zone with the entrance on the living room
-  * bedrooms sit in a wing of their own, reached from a short lobby ("H", <= 5 doors)
-    or directly from the living area, never along a long corridor
-  * a master bedroom has its own ensuite, bathrooms sit next to bedrooms
+Rules every reference follows (they are what make a plan read as a house, not a hotel):
+  * no corridors or lobbies: living, dining and lounge are one open space with no walls
+    between them, and every bedroom opens straight off that open space
+  * only the rooms that were asked for are enclosed (bedrooms, bathrooms, kitchen,
+    study, utility); everything else stays open
+  * the master bedroom has an ensuite and is bigger than every other bedroom
+  * bedrooms are at least ~14 m2; bathrooms sit next to a bedroom or the living area
+  * the entrance is on the living room; every habitable room has an outside wall
 """
 from __future__ import annotations
 
+LEGEND = {
+    "K": "kitchen", "D": "dining", "L": "living", "N": "lounge", "W": "utility", "S": "study",
+    "M": "master_bedroom", "B": "bedroom", "C": "bedroom", "F": "bedroom", "G": "bedroom", "H": "bedroom",
+    "E": "bathroom", "T": "bathroom", "U": "bathroom", "V": "bathroom",
+}
+
+
+def _grid(bands):
+    rows = []
+    for h, spec in bands:
+        row = ""
+        for tok in spec.split():
+            row += tok[0] * int(tok[1:])
+        rows += [row] * h
+    return rows
+
+
+def _plan(name, style, bands):
+    return {"name": name, "style": style, "legend": LEGEND, "grid": _grid(bands)}
+
+
 PLANS = [
-    {
-        "name": "studio_1bhk",
-        "style": "compact",
-        "legend": {"K": "kitchen", "L": "living", "M": "master_bedroom", "E": "bathroom"},
-        "grid": [
-            "KKKKKKLLLLLLLLLL",
-            "KKKKKKLLLLLLLLLL",
-            "KKKKKKLLLLLLLLLL",
-            "KKKKKKLLLLLLLLLL",
-            "KKKKKKLLLLLLLLLL",
-            "KKKKKKLLLLLLLLLL",
-            "KKKKKKLLLLLLLLLL",
-            "KKKKKKLLLLLLLLLL",
-            "KKKKKKLLLLLLLLLL",
-            "MMMMMMMMMMMEEEEE",
-            "MMMMMMMMMMMEEEEE",
-            "MMMMMMMMMMMEEEEE",
-            "MMMMMMMMMMMEEEEE",
-            "MMMMMMMMMMMEEEEE",
-            "MMMMMMMMMMMEEEEE",
-            "MMMMMMMMMMMEEEEE",
-        ],
-    },
-    {
-        "name": "twobhk_lobby",
-        "style": "wing",
-        "legend": {"K": "kitchen", "D": "dining", "L": "living", "B": "bedroom", "M": "master_bedroom",
-                   "E": "bathroom", "T": "bathroom", "H": "hallway"},
-        "grid": [
-            "KKKKKKKDDDDDDDLLLLLLLLLLLL",
-            "KKKKKKKDDDDDDDLLLLLLLLLLLL",
-            "KKKKKKKDDDDDDDLLLLLLLLLLLL",
-            "KKKKKKKDDDDDDDLLLLLLLLLLLL",
-            "KKKKKKKDDDDDDDLLLLLLLLLLLL",
-            "KKKKKKKDDDDDDDLLLLLLLLLLLL",
-            "KKKKKKKDDDDDDDLLLLLLLLLLLL",
-            "KKKKKKKDDDDDDDLLLLLLLLLLLL",
-            "KKKKKKKDDDDDDDLLLLLLLLLLLL",
-            "KKKKKKKDDDDDDDLLLLLLLLLLLL",
-            "BBBBBBBBBHHHHHMMMMMMMMEEEE",
-            "BBBBBBBBBHHHHHMMMMMMMMEEEE",
-            "BBBBBBBBBHHHHHMMMMMMMMEEEE",
-            "BBBBBBBBBHHHHHMMMMMMMMEEEE",
-            "BBBBBBBBBHHHHHMMMMMMMMEEEE",
-            "BBBBBBBBBTTTTTMMMMMMMMEEEE",
-            "BBBBBBBBBTTTTTMMMMMMMMEEEE",
-            "BBBBBBBBBTTTTTMMMMMMMMEEEE",
-            "BBBBBBBBBTTTTTMMMMMMMMEEEE",
-            "BBBBBBBBBTTTTTMMMMMMMMEEEE",
-        ],
-    },
-    {
-        "name": "threebhk_l_bungalow",
-        "style": "wing",
-        "legend": {"K": "kitchen", "D": "dining", "L": "living", "M": "master_bedroom", "E": "bathroom",
-                   "B": "bedroom", "C": "bedroom", "T": "bathroom", "H": "hallway"},
-        "grid": [
-            "KKKKKKKKKDDDDDDDDLLLLLLLLLLLLLLL",
-            "KKKKKKKKKDDDDDDDDLLLLLLLLLLLLLLL",
-            "KKKKKKKKKDDDDDDDDLLLLLLLLLLLLLLL",
-            "KKKKKKKKKDDDDDDDDLLLLLLLLLLLLLLL",
-            "KKKKKKKKKDDDDDDDDLLLLLLLLLLLLLLL",
-            "KKKKKKKKKDDDDDDDDLLLLLLLLLLLLLLL",
-            "KKKKKKKKKDDDDDDDDLLLLLLLLLLLLLLL",
-            "KKKKKKKKKDDDDDDDDLLLLLLLLLLLLLLL",
-            "KKKKKKKKKDDDDDDDDLLLLLLLLLLLLLLL",
-            "KKKKKKKKKDDDDDDDDLLLLLLLLLLLLLLL",
-            "MMMMMMMMMHHHHHBBBBBBBBB.........",
-            "MMMMMMMMMHHHHHBBBBBBBBB.........",
-            "MMMMMMMMMHHHHHBBBBBBBBB.........",
-            "MMMMMMMMMHHHHHBBBBBBBBB.........",
-            "MMMMMMMMMHHHHHBBBBBBBBB.........",
-            "MMMMMMMMMHHHHHBBBBBBBBB.........",
-            "MMMMMMMMMHHHHHBBBBBBBBB.........",
-            "MMMMMMMMMHHHHHCCCCCCCCC.........",
-            "MMMMMMMMMHHHHHCCCCCCCCC.........",
-            "EEEEEEEEETTTTTCCCCCCCCC.........",
-            "EEEEEEEEETTTTTCCCCCCCCC.........",
-            "EEEEEEEEETTTTTCCCCCCCCC.........",
-            "EEEEEEEEETTTTTCCCCCCCCC.........",
-            "EEEEEEEEETTTTTCCCCCCCCC.........",
-        ],
-    },
-    {
-        "name": "threebhk_central_living",
-        "style": "compact",
-        "legend": {"K": "kitchen", "D": "dining", "L": "living", "M": "master_bedroom", "E": "bathroom",
-                   "B": "bedroom", "C": "bedroom", "S": "study", "U": "utility", "T": "bathroom"},
-        "grid": [
-            "EEEEEMMMMMMMMMMBBBBBBBBCCCCCCC",
-            "EEEEEMMMMMMMMMMBBBBBBBBCCCCCCC",
-            "EEEEEMMMMMMMMMMBBBBBBBBCCCCCCC",
-            "EEEEEMMMMMMMMMMBBBBBBBBCCCCCCC",
-            "EEEEEMMMMMMMMMMBBBBBBBBCCCCCCC",
-            "EEEEEMMMMMMMMMMBBBBBBBBCCCCCCC",
-            "EEEEEMMMMMMMMMMBBBBBBBBCCCCCCC",
-            "EEEEEMMMMMMMMMMBBBBBBBBCCCCCCC",
-            "KKKKKKKKDDDDDDDDLLLLLLLLLLLLLL",
-            "KKKKKKKKDDDDDDDDLLLLLLLLLLLLLL",
-            "KKKKKKKKDDDDDDDDLLLLLLLLLLLLLL",
-            "KKKKKKKKDDDDDDDDLLLLLLLLLLLLLL",
-            "KKKKKKKKDDDDDDDDLLLLLLLLLLLLLL",
-            "KKKKKKKKDDDDDDDDLLLLLLLLLLLLLL",
-            "KKKKKKKKDDDDDDDDLLLLLLLLLLLLLL",
-            "KKKKKKKKDDDDDDDDLLLLLLLLLLLLLL",
-            "UUUUUUSSSSSSSS..........TTTTTT",
-            "UUUUUUSSSSSSSS..........TTTTTT",
-            "UUUUUUSSSSSSSS..........TTTTTT",
-            "UUUUUUSSSSSSSS..........TTTTTT",
-            "UUUUUUSSSSSSSS..........TTTTTT",
-            "UUUUUUSSSSSSSS..........TTTTTT",
-        ],
-    },
-    {
-        "name": "fourbhk_villa_wings",
-        "style": "split",
-        "legend": {"K": "kitchen", "D": "dining", "L": "living", "M": "master_bedroom", "E": "bathroom",
-                   "B": "bedroom", "C": "bedroom", "F": "bedroom", "H": "hallway", "G": "hallway",
-                   "S": "study", "U": "bathroom", "V": "bathroom"},
-        "grid": [
-            "MMMMMMMMMHHHHHBBBBBBBBB...............",
-            "MMMMMMMMMHHHHHBBBBBBBBB...............",
-            "MMMMMMMMMHHHHHBBBBBBBBB...............",
-            "MMMMMMMMMHHHHHBBBBBBBBB...............",
-            "MMMMMMMMMHHHHHBBBBBBBBB...............",
-            "MMMMMMMMMHHHHHBBBBBBBBB...............",
-            "MMMMMMMMMHHHHHCCCCCCCCC...............",
-            "EEEEEEEEEHHHHHCCCCCCCCC...............",
-            "EEEEEEEEEHHHHHCCCCCCCCC...............",
-            "EEEEEEEEEHHHHHCCCCCCCCC...............",
-            "EEEEEEEEEHHHHHCCCCCCCCC...............",
-            "EEEEEEEEEHHHHHCCCCCCCCC...............",
-            "KKKKKKKKKDDDDDDDDDLLLLLLLLLLLLLLLL....",
-            "KKKKKKKKKDDDDDDDDDLLLLLLLLLLLLLLLL....",
-            "KKKKKKKKKDDDDDDDDDLLLLLLLLLLLLLLLL....",
-            "KKKKKKKKKDDDDDDDDDLLLLLLLLLLLLLLLL....",
-            "KKKKKKKKKDDDDDDDDDLLLLLLLLLLLLLLLL....",
-            "KKKKKKKKKDDDDDDDDDLLLLLLLLLLLLLLLL....",
-            "KKKKKKKKKDDDDDDDDDLLLLLLLLLLLLLLLL....",
-            "KKKKKKKKKDDDDDDDDDLLLLLLLLLLLLLLLL....",
-            "KKKKKKKKKDDDDDDDDDLLLLLLLLLLLLLLLL....",
-            "KKKKKKKKKDDDDDDDDDLLLLLLLLLLLLLLLL....",
-            "KKKKKKKKKDDDDDDDDDLLLLLLLLLLLLLLLL....",
-            "KKKKKKKKKDDDDDDDDDLLLLLLLLLLLLLLLL....",
-            "...............FFFFFFFFFGGGGGSSSSSSSSS",
-            "...............FFFFFFFFFGGGGGSSSSSSSSS",
-            "...............FFFFFFFFFGGGGGSSSSSSSSS",
-            "...............FFFFFFFFFGGGGGSSSSSSSSS",
-            "...............FFFFFFFFFGGGGGSSSSSSSSS",
-            "...............FFFFFFFFFGGGGGSSSSSSSSS",
-            "...............FFFFFFFFFGGGGGSSSSSSSSS",
-            "...............UUUUUUUUUGGGGGVVVVVVVVV",
-            "...............UUUUUUUUUGGGGGVVVVVVVVV",
-            "...............UUUUUUUUUGGGGGVVVVVVVVV",
-            "...............UUUUUUUUUGGGGGVVVVVVVVV",
-            "...............UUUUUUUUUGGGGGVVVVVVVVV",
-        ],
-    },
+    # ---- 1 bedroom -------------------------------------------------------------------------
+    _plan("studio_1bhk", "compact", [
+        (9, "K6 L10"),
+        (7, "M11 E5"),
+    ]),
+    _plan("onebhk_corner", "compact", [
+        (9, "K6 D6 L10"),
+        (8, "M12 E5 .5"),
+    ]),
+    # ---- 2 bedrooms ------------------------------------------------------------------------
+    _plan("twobhk_front_back", "wing", [
+        (10, "K7 D8 L11"),
+        (9, "E5 M11 B10"),
+        (5, ".16 T5 .5"),
+    ]),
+    _plan("twobhk_side_by_side", "wing", [
+        (10, "E5 M10 L10 K7"),
+        (8, "T5 B10 L10 D7"),
+    ]),
+    _plan("twobhk_sandwich", "compact", [
+        (8, "E5 M10 B9"),
+        (9, "K7 D7 L10"),
+        (5, ".14 T5 .5"),
+    ]),
+    _plan("twobhk_wing_right", "wing", [
+        (9, "K7 D7 L12"),
+        (9, ".2 T5 B7 M12"),
+        (5, ".14 E5 .7"),
+    ]),
+    # ---- 3 bedrooms ------------------------------------------------------------------------
+    _plan("threebhk_central_living", "compact", [
+        (8, "E5 M10 B8 C7"),
+        (9, "K8 D8 L14"),
+        (6, "W6 S8 .10 T6"),
+    ]),
+    _plan("threebhk_l_lounge", "wing", [
+        (10, "K8 D8 L17"),
+        (9, "M10 N7 B9 .7"),
+        (8, "E5 T5 N7 C9 .7"),
+    ]),
+    _plan("threebhk_bungalow_row", "wing", [
+        (12, "K8 D8 L16"),
+        (9, "E5 M11 B10 C6"),
+        (5, ".16 T5 .11"),
+    ]),
+    _plan("threebhk_sandwich", "compact", [
+        (9, "E5 M11 B8 C8"),
+        (10, "K8 D8 L16"),
+        (6, "W8 S8 T5 .11"),
+    ]),
+    _plan("threebhk_three_columns", "wing", [
+        (9, "E5 M10 L12 K8"),
+        (8, "T5 B10 L12 D8"),
+        (8, ".10 V5 C10 .10"),
+    ]),
+    # ---- 4 bedrooms ------------------------------------------------------------------------
+    _plan("fourbhk_sandwich", "split", [
+        (9, "E5 M11 B9 C9"),
+        (11, "K8 D9 L17"),
+        (8, ".3 U5 F10 S8 .8"),
+    ]),
+    _plan("fourbhk_z_lounge", "split", [
+        (9, "M12 N7 B9 .13"),
+        (8, "E6 T6 N7 C9 .13"),
+        (12, "K8 D9 L19 .5"),
+        (8, ".18 F10 S9 .4"),
+        (5, ".18 V5 .18"),
+    ]),
+    # ---- 5 bedrooms ------------------------------------------------------------------------
+    _plan("fivebhk_z_lounge", "split", [
+        (9, "M12 N7 B9 .13"),
+        (8, "E6 T6 N7 C9 .13"),
+        (12, "K8 D9 L19 .5"),
+        (8, ".18 F9 G9 V5"),
+    ]),
 ]
+
+
+PLANS.append(_plan("sixbhk_sandwich", "split", [
+    (9, "E5 M12 B10 C9 .7"),
+    (12, "K9 D9 L18 .7"),
+    (8, ".3 T5 F10 G10 H8 V5 .2"),
+]))
 
 
 def parse(plan: dict) -> list[dict]:
