@@ -78,13 +78,19 @@ class ElementSchema(BaseModel):
     width: float
     height: float
     angle: float
+    
+    # This tells Groq to strictly forbid the AI from hallucinating extra fields
+    model_config = {"extra": "forbid"}
 
 class FloorPlanSchema(BaseModel):
     elements: list[ElementSchema]
+    model_config = {"extra": "forbid"}
 
 class ComplianceSchema(BaseModel):
     status: str
     messages: list[str]
+    model_config = {"extra": "forbid"}
+
 
 # -----------------------------------------------------------------
 # Auth Helpers & Endpoints
