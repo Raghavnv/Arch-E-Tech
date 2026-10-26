@@ -71,29 +71,17 @@ class ReportRequest(BaseModel):
 # -----------------------------------------------------------------
 # Pydantic Schemas (Structured Outputs)
 # -----------------------------------------------------------------
-# Adjust this list to the exact type strings your frontend canvas renders.
-ELEMENT_TYPES = [
-    "wall", "door", "window",
-    "furniture_bed", "furniture_sofa", "furniture_table",
-]
+ROOM_KIND_LITERAL = Literal["living", "dining", "kitchen", "master_bedroom", "bedroom",
+                            "bathroom", "study", "utility"]
 
-class ElementSchema(BaseModel):
-    id: str
-    type: Literal["wall", "door", "window",
-                  "furniture_bed", "furniture_sofa", "furniture_table"]
-    left: float
-    top: float
-    width: float
-    height: float
-    angle: float
-    
-    # This tells Groq to strictly forbid the AI from hallucinating extra fields
+class RoomItem(BaseModel):
+    kind: ROOM_KIND_LITERAL
+    area_sqm: float
     model_config = {"extra": "forbid"}
 
-class FloorPlanSchema(BaseModel):
-    # No min_length here: minItems breaks Groq's strict decoding. The 15-element
-    # minimum is enforced in the prompt and checked in Python with a retry.
-    elements: list[ElementSchema]
+class RoomProgramSchema(BaseModel):
+    total_area_sqm: float
+    rooms: list[RoomItem]
     model_config = {"extra": "forbid"}
 
 
@@ -214,121 +202,73 @@ def duplicate_project(project_id: int, db: Session = Depends(get_db), current_us
 # -----------------------------------------------------------------
 # Generative Blueprint Synthesis (Groq GPT-OSS-20B)
 # -----------------------------------------------------------------
-def create_element(el_type, left, top, width, height, angle=0, **kwargs):
-    import uuid
-    el = {
-        "id": f"{el_type}_{uuid.uuid4().hex[:7]}",
-        "type": el_type,
-        "left": round(left),
-        "top": round(top),
-        "width": round(width),
-        "height": round(height),
-        "angle": angle
-    }
-    el.update(kwargs)
-    return el
+ROOM_PROGRAM_PROMPT = """You are an architect's assistant. Convert the user's request into a ROOM PROGRAM only.
+Do not output coordinates or geometry; software draws the plan.
+Output JSON: {"total_area_sqm": number, "rooms": [{"kind": string, "area_sqm": number}]}.
+Allowed kinds: living, dining, kitchen, master_bedroom, bedroom, bathroom, study, utility.
+Rules: always include one living and one kitchen; exactly one master_bedroom if any bedroom is wanted,
+extra bedrooms use "bedroom"; at least one bathroom; typical areas: living 16-30, dining 9-14,
+kitchen 8-14, master_bedroom 13-20, bedroom 9-14, bathroom 4-6, study 7-10, utility 3-5.
+Respect counts and total area stated by the user."""
+
+
+def _ask_room_program(prompt: str):
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        return None
+    client = Groq(api_key=api_key)
+    schema = RoomProgramSchema.model_json_schema()
+    for attempt in range(1, 4):
+        try:
+            if attempt < 3:
+                rf = {"type": "json_schema",
+                      "json_schema": {"name": "room_program", "strict": True, "schema": schema}}
+            else:
+                rf = {"type": "json_object"}
+            resp = client.chat.completions.create(
+                model="openai/gpt-oss-20b",
+                messages=[{"role": "system", "content": ROOM_PROGRAM_PROMPT},
+                          {"role": "user", "content": f"User Request: {prompt}"}],
+                response_format=rf,
+                temperature=0.3,
+                max_completion_tokens=3000,
+                reasoning_effort="low",
+            )
+            raw = resp.choices[0].message.content
+            if not raw:
+                raise ValueError("empty response")
+            data = json.loads(raw)
+            rooms = [r for r in data.get("rooms", []) if isinstance(r, dict) and "kind" in r]
+            if not rooms:
+                raise ValueError("no rooms")
+            return rooms, float(data.get("total_area_sqm") or 0)
+        except Exception as e:
+            print(f"Room program error (attempt {attempt}/3): {e}")
+    return None
+
 
 @app.post("/api/ai/generate-plan")
 async def generate_floor_plan(payload: AIPrompt):
-    api_key = os.getenv("GROQ_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=500, detail="GROQ_API_KEY is missing. Please configure it in your Environment Variables.")
+    from floorplan_builder import build_program, generate_layout, LayoutError
 
-    client = Groq(api_key=api_key)
+    source = "ai"
+    ai = _ask_room_program(payload.prompt)
+    llm_rooms, llm_total = ai if ai else ([], 0)
+    if not ai:
+        source = "fallback"
 
-    # We removed the confusing JSON example and instead gave it a checklist to force it to generate more items.
-    system_instruction = f"""You are an expert AI Architectural Floor Plan Generator.
-    Output ONLY a JSON object with a single key "elements": an array of objects.
-    Each object has exactly these fields: id (string), type (string), left, top,
-    width, height, angle (numbers).
-
-    ALLOWED TYPES (use these exact strings only): {", ".join(ELEMENT_TYPES)}
-
-    CRITICAL RULES:
-    1. 1 unit = 0.05 meters. Start outer walls around (100, 100). Walls are 8 units thick.
-    2. You MUST include ALL of the following items in your layout:
-       - 4 outer walls to enclose the space
-       - At least 3 interior walls to divide rooms
-       - At least 2 doors and 2 windows
-       - A bed (furniture_bed)
-       - A sofa (furniture_sofa)
-       - A table (furniture_table)
-    3. Generate a minimum of 15 elements total. Do not skip any requested furniture or structural items.
-    4. Give every element a unique id like "wall_1", "door_2". Keep angle at 0 or 90.
-    """
-
-    MIN_ELEMENTS = 15
-    MAX_ATTEMPTS = 3
-
-    schema_dict = FloorPlanSchema.model_json_schema()
-    messages = [
-        {"role": "system", "content": system_instruction},
-        {"role": "user", "content": f"User Request: {payload.prompt}"}
-    ]
-
-    last_err = "unknown error"
-    elements = None
-
-    for attempt in range(1, MAX_ATTEMPTS + 1):
+    layout = None
+    try:
+        layout = generate_layout(build_program(llm_rooms, llm_total, payload.prompt))
+    except (LayoutError, Exception) as e:
+        print(f"Layout failed with AI program ({e}); using prompt-only program")
+        source = "fallback"
         try:
-            # Attempts 1-2: strict schema. Final attempt: plain json_object mode as a fallback.
-            if attempt < MAX_ATTEMPTS:
-                response_format = {
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": "floor_plan_schema",
-                        "strict": True,
-                        "schema": schema_dict
-                    }
-                }
-            else:
-                response_format = {"type": "json_object"}
+            layout = generate_layout(build_program([], 0, payload.prompt))
+        except Exception as e2:
+            raise HTTPException(status_code=500, detail=f"Layout generation failed: {e2}")
 
-            response = client.chat.completions.create(
-                model="openai/gpt-oss-20b",
-                messages=messages,
-                response_format=response_format,
-                temperature=0.4,
-                # gpt-oss is a reasoning model: reasoning tokens count against the output
-                # limit. Without a generous cap it can run out before writing any JSON,
-                # which shows up as json_validate_failed with an empty failed_generation.
-                max_completion_tokens=8000,
-                reasoning_effort="low",
-            )
-
-            raw_response = response.choices[0].message.content
-            finish_reason = response.choices[0].finish_reason
-            print(f"[attempt {attempt}] finish_reason={finish_reason} usage={response.usage}")
-            print("Raw AI Output:", raw_response)
-
-            if not raw_response:
-                raise ValueError(f"Empty response (finish_reason={finish_reason})")
-
-            data = json.loads(raw_response)
-            candidate = data.get("elements", [])
-
-            valid = [e for e in candidate if isinstance(e, dict) and e.get("type") in ELEMENT_TYPES]
-            if len(valid) < MIN_ELEMENTS:
-                raise ValueError(f"Only {len(valid)} valid elements (need {MIN_ELEMENTS})")
-
-            elements = valid
-            break
-
-        except Exception as e:
-            last_err = str(e)
-            print(f"Groq Generation Error (attempt {attempt}/{MAX_ATTEMPTS}): {last_err}")
-
-    if elements is None:
-        raise HTTPException(status_code=500, detail=f"Groq Engine Failed: {last_err}")
-
-    import uuid
-    seen = set()
-    for el in elements:
-        if not el.get("id") or el["id"] in seen:
-            el["id"] = f"{el.get('type', 'item')}_{uuid.uuid4().hex[:7]}"
-        seen.add(el["id"])
-
-    return {"status": "success", "elements": elements}
+    return {"status": "success", "elements": layout.elements(), "source": source}
 
 
 @app.get("/")

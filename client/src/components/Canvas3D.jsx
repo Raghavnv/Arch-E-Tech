@@ -441,8 +441,8 @@ function ProceduralFurniture({ el }) {
   const d = (el?.height || 50) * 0.05;
   const rotY = -((el?.angle || 0) * Math.PI) / 180;
   const rad = ((el?.angle || 0) * Math.PI) / 180;
-  const cx = (el?.left || 0) * 0.05 + (w / 2) * Math.cos(rad) - (d / 2) * Math.sin(rad);
-  const cz = (el?.top || 0) * 0.05 + (w / 2) * Math.sin(rad) + (d / 2) * Math.cos(rad);
+  const cx = (el?.left || 0) * 0.05 + (w / 2) * Math.cos(rad);
+  const cz = (el?.top || 0) * 0.05 + (w / 2) * Math.sin(rad);
 
   if (el.type === 'furniture_bed') {
     return (
