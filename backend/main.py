@@ -9,8 +9,8 @@ import json
 import os
 import shutil
 from tempfile import NamedTemporaryFile
-import google.generativeai as genai
 from fastapi.security import OAuth2PasswordBearer
+from groq import Groq
 
 import models
 from database import engine, Base, get_db
@@ -66,25 +66,6 @@ class ComplianceRequest(BaseModel):
 
 class ReportRequest(BaseModel):
     elements: list
-
-# -----------------------------------------------------------------
-# Pydantic Schemas (Gemini Structured Outputs)
-# -----------------------------------------------------------------
-class ElementSchema(BaseModel):
-    id: str
-    type: str
-    left: float
-    top: float
-    width: float
-    height: float
-    angle: float
-
-class FloorPlanSchema(BaseModel):
-    elements: list[ElementSchema]
-
-class ComplianceSchema(BaseModel):
-    status: str
-    messages: list[str]
 
 # -----------------------------------------------------------------
 # Auth Helpers & Endpoints
@@ -195,7 +176,7 @@ def duplicate_project(project_id: int, db: Session = Depends(get_db), current_us
     return new_project
 
 # -----------------------------------------------------------------
-# Generative Blueprint Synthesis (Gemini 1.5 Flash)
+# Generative Blueprint Synthesis (Groq GPT-OSS-20B)
 # -----------------------------------------------------------------
 def create_element(el_type, left, top, width, height, angle=0, **kwargs):
     import uuid
@@ -213,39 +194,40 @@ def create_element(el_type, left, top, width, height, angle=0, **kwargs):
 
 @app.post("/api/ai/generate-plan")
 async def generate_floor_plan(payload: AIPrompt):
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        raise HTTPException(status_code=500, detail="GEMINI_API_KEY is missing. Please configure it in your Environment Variables.")
+        raise HTTPException(status_code=500, detail="GROQ_API_KEY is missing. Please configure it in your Environment Variables.")
 
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-3.8-flash")
+    client = Groq(api_key=api_key)
 
     system_instruction = """You are an expert AI Architectural Floor Plan Generator.
-    You MUST generate a complete, fully furnished 2D floor plan.
+    You MUST generate a complete, fully furnished 2D floor plan and output strictly valid JSON.
     
     CRITICAL RULES:
-    1. You MUST generate AT LEAST 15 elements in your JSON array. Do not return an empty list.
-    2. Include 4 outer walls, interior walls, doors, windows, and multiple pieces of furniture (e.g., furniture_bed, furniture_sofa).
-    3. 1 unit = 0.05 meters. Start outer walls around (100, 100).
-    4. Walls are 8 units thick. Horizontal walls: height=8. Vertical walls: width=8.
+    1. Return a JSON object with a single key "elements" containing a list of objects.
+    2. Each object MUST have: id (string), type (string), left (number), top (number), width (number), height (number), angle (number).
+    3. You MUST generate AT LEAST 15 elements. Do not return an empty list.
+    4. Include 4 outer walls, interior walls, doors, windows, and multiple pieces of furniture (e.g., furniture_bed, furniture_sofa).
+    5. 1 unit = 0.05 meters. Start outer walls around (100, 100).
+    6. Walls are 8 units thick. Horizontal walls: height=8. Vertical walls: width=8.
     """
     
     try:
-        response = model.generate_content(
-            f"{system_instruction}\n\nUser Request: {payload.prompt}",
-            generation_config=genai.GenerationConfig(
-                response_mime_type="application/json",
-                response_schema=FloorPlanSchema,
-                temperature=0.4, # Lowered from 0.8 so it focuses on following instructions rather than going rogue
-            ),
+        response = client.chat.completions.create(
+            model="openai/gpt-oss-20b",
+            messages=[
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": f"User Request: {payload.prompt}"}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.4,
         )
         
-        # Add this print statement so you can see exactly what the AI generated in your Render logs!
-        print("Raw AI Output:", response.text)
+        raw_response = response.choices[0].message.content
+        print("Raw AI Output:", raw_response)
         
-        data = json.loads(response.text)
+        data = json.loads(raw_response)
         elements = data.get("elements", [])
-
         
         if not elements or len(elements) < 4:
             raise ValueError("AI generated an incomplete layout with fewer than 4 items.")
@@ -258,8 +240,8 @@ async def generate_floor_plan(payload: AIPrompt):
         return {"status": "success", "elements": elements}
         
     except Exception as e:
-        print(f"Gemini Generation Error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Gemini Engine Failed: {str(e)}")
+        print(f"Groq Generation Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Groq Engine Failed: {str(e)}")
 
 # -----------------------------------------------------------------
 # Sketch Upload (YOLOv11 Hook)
@@ -298,52 +280,57 @@ def read_root():
     return {"status": "ok", "message": "Arch-E-Tech Backend Running"}
 
 # -----------------------------------------------------------------
-# AI Copilot & Compliance (Gemini)
+# AI Copilot & Compliance (Groq)
 # -----------------------------------------------------------------
 @app.post("/api/ai/chat")
 async def ai_copilot_chat(payload: AIChatRequest):
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        return {"status": "error", "reply": "Warning: GEMINI_API_KEY is missing on Render."}
+        return {"status": "error", "reply": "Warning: GROQ_API_KEY is missing on Render."}
         
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("2")
+    client = Groq(api_key=api_key)
         
     system_prompt = """You are an expert Architectural AI Copilot assisting a user currently designing a floor plan.
     Keep your answers concise, helpful, and professional. 
     Analyze their layout if they ask for feedback. Point out missing doors, weirdly placed walls, etc.
     """
     try:
-        response = model.generate_content(
-            f"{system_prompt}\n\nMy layout data: {json.dumps(payload.elements)}\n\nMy question: {payload.message}",
-            generation_config=genai.GenerationConfig(temperature=0.5)
+        response = client.chat.completions.create(
+            model="openai/gpt-oss-20b",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"My layout data: {json.dumps(payload.elements)}\n\nMy question: {payload.message}"}
+            ],
+            temperature=0.5
         )
-        return {"status": "success", "reply": response.text}
+        return {"status": "success", "reply": response.choices[0].message.content}
     except Exception as e:
         return {"status": "error", "reply": f"AI Copilot Error: {str(e)}"}
 
 @app.post("/api/ai/compliance")
 async def check_compliance(payload: ComplianceRequest):
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        return {"status": "error", "messages": ["GEMINI_API_KEY missing on Render."]}
+        return {"status": "error", "messages": ["GROQ_API_KEY missing on Render."]}
         
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("2")
+    client = Groq(api_key=api_key)
         
     system_prompt = """You are an AI Building Inspector evaluating a 2D floor plan JSON.
-    1 unit = 0.05 meters. Analyze the layout for IBC / ADA code compliance."""
+    1 unit = 0.05 meters. Analyze the layout for IBC / ADA code compliance.
+    You MUST output valid JSON format with exactly two keys: "status" (string) and "messages" (array of strings).
+    """
     
     try:
-        response = model.generate_content(
-            f"{system_prompt}\n\nLayout data: {json.dumps(payload.elements)}",
-            generation_config=genai.GenerationConfig(
-                response_mime_type="application/json",
-                response_schema=ComplianceSchema,
-                temperature=0.1
-            )
+        response = client.chat.completions.create(
+            model="openai/gpt-oss-20b",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Layout data: {json.dumps(payload.elements)}"}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.1
         )
-        data = json.loads(response.text)
+        data = json.loads(response.choices[0].message.content)
         return {
             "status": data.get("status", "success"),
             "messages": data.get("messages", ["All designs meet local compliance codes."])
@@ -353,12 +340,11 @@ async def check_compliance(payload: ComplianceRequest):
 
 @app.post("/api/ai/report-narrative")
 async def generate_report_narrative(payload: ReportRequest):
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        return {"status": "error", "narrative": "Warning: GEMINI_API_KEY is missing on Render."}
+        return {"status": "error", "narrative": "Warning: GROQ_API_KEY is missing on Render."}
         
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("2")
+    client = Groq(api_key=api_key)
         
     system_prompt = """You are an AI Architectural Analyst. 
     Write a 3-paragraph executive summary based on the JSON layout. 
@@ -366,10 +352,14 @@ async def generate_report_narrative(payload: ReportRequest):
     Do NOT use markdown, just plain text with double newlines between paragraphs."""
     
     try:
-        response = model.generate_content(
-            f"{system_prompt}\n\nLayout data: {json.dumps(payload.elements)}",
-            generation_config=genai.GenerationConfig(temperature=0.3)
+        response = client.chat.completions.create(
+            model="openai/gpt-oss-20b",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Layout data: {json.dumps(payload.elements)}"}
+            ],
+            temperature=0.3
         )
-        return {"status": "success", "narrative": response.text.strip()}
+        return {"status": "success", "narrative": response.choices[0].message.content.strip()}
     except Exception as e:
         return {"status": "error", "narrative": f"Failed to generate report narrative: {str(e)}"}
