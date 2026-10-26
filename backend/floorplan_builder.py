@@ -696,6 +696,8 @@ class Layout:
             # does it open through a neighbouring room (an ensuite via its master first)
             best = None
             for r in missing:
+                if r.ensuite and master and master.id not in seen:
+                    continue            # an ensuite is reached through its master, once that is reachable
                 if r.row == "private":
                     through_ok = {"hallway": 3, "living": 2, "dining": 1}
                 else:
@@ -1203,7 +1205,7 @@ def _zone_ok(rooms):
 
 
 _NEED_FURN = {"living": "furniture_sofa", "dining": "furniture_table", "kitchen": "furniture_kitchen",
-              "master_bedroom": "furniture_bed", "bedroom": "furniture_bed", "bathroom": "furniture_vanity"}
+              "master_bedroom": "furniture_bed", "bedroom": "furniture_bed"}
 
 
 def _post_fail(lay: Layout):
@@ -1267,3 +1269,82 @@ def _generate_rows(rooms: list[Room]) -> Layout:
         except LayoutError as e:
             last = e
     raise last or LayoutError("layout failed")
+
+
+# --------------------------------------------------------------------------
+# Plans given as room rectangles (from the LLM or from a reference house)
+# --------------------------------------------------------------------------
+_SIZE_LIMITS = {   # kind: (min m2, max m2) a believable room can have
+    "living": (12, 60), "dining": (7, 32), "kitchen": (6, 28), "utility": (2.5, 12),
+    "master_bedroom": (10, 40), "bedroom": (8, 28), "study": (5, 22), "bathroom": (2.8, 12),
+}
+
+
+def rooms_from_rects(rects: list[dict]) -> list[Room]:
+    """[{"kind","x","y","w","h"}] in grid cells -> Room objects (names, ensuite, rows)."""
+    rooms: list[Room] = []
+    counts: dict[str, int] = {}
+    for rc in rects:
+        kind = rc["kind"]
+        if kind != "hallway" and kind not in KIND_SPEC:
+            raise LayoutError(f"unknown room kind {kind}")
+        x, y, w, h = (int(round(rc[k])) for k in ("x", "y", "w", "h"))
+        if w < 2 or h < 2 or x < 0 or y < 0:
+            raise LayoutError("bad rectangle")
+        counts[kind] = counts.get(kind, 0) + 1
+        room = Room(id=f"hall{counts[kind] - 1}" if kind == "hallway" else f"r{len(rooms)}",
+                    kind=kind, name="Hallway" if kind == "hallway" else KIND_SPEC[kind][0],
+                    area=w * h * 0.25, row="hall" if kind == "hallway" else KIND_SPEC[kind][5],
+                    x0=ORIGIN_X + x * CELL, y0=ORIGIN_Y + y * CELL,
+                    x1=ORIGIN_X + (x + w) * CELL, y1=ORIGIN_Y + (y + h) * CELL)
+        rooms.append(room)
+    # overlaps are fatal
+    for i, a in enumerate(rooms):
+        for b in rooms[i + 1:]:
+            if a.x0 < b.x1 and b.x0 < a.x1 and a.y0 < b.y1 and b.y0 < a.y1:
+                raise LayoutError("rooms overlap")
+    for kind in ("living", "kitchen"):
+        if not any(r.kind == kind for r in rooms):
+            raise LayoutError(f"no {kind}")
+    # the bathroom touching a master bedroom is its ensuite; extra baths get numbered
+    masters = [r for r in rooms if r.kind == "master_bedroom"]
+    baths = [r for r in rooms if r.kind == "bathroom"]
+    for m in masters[:1]:
+        for b in sorted(baths, key=lambda r: -(_shared_boundary(m, r) or (0, 0, 0, 0))[3] + (_shared_boundary(m, r) or (0, 0, 0, 0))[2]):
+            sb = _shared_boundary(m, b)
+            if sb and (sb[3] - sb[2]) >= DOOR_W + 2 * MARGIN:
+                b.ensuite, b.name = True, "Ensuite Bath"
+                break
+    n_bed = n_bath = 0
+    multi_bath = sum(1 for r in baths if not r.ensuite) > 1
+    for r in rooms:
+        if r.kind == "bedroom":
+            n_bed += 1
+            r.name = f"Bedroom {n_bed + 1}" if masters else f"Bedroom {n_bed}"
+        elif r.kind == "bathroom" and not r.ensuite:
+            n_bath += 1
+            r.name = f"Bathroom {n_bath}" if multi_bath else "Bathroom"
+    return rooms
+
+
+def _size_fail(rooms: list[Room]):
+    for r in rooms:
+        if r.kind == "hallway":
+            continue
+        lo, hi = _SIZE_LIMITS[r.kind]
+        if not (lo <= r.area <= hi):
+            return f"size:{r.kind}:{r.area:.0f}"
+    return None
+
+
+def layout_from_rects(rects: list[dict]) -> Layout:
+    """Validate and build a plan given as rectangles. Raises LayoutError when it is not a good house."""
+    rooms = rooms_from_rects(rects)
+    why = _size_fail(rooms) or _zone_fail(rooms)
+    if why:
+        raise LayoutError(why)
+    lay = Layout(rooms, False, preplaced=True).build()
+    why = _post_fail(lay)
+    if why:
+        raise LayoutError(why)
+    return lay

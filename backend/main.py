@@ -86,6 +86,21 @@ class RoomProgramSchema(BaseModel):
     model_config = {"extra": "forbid"}
 
 
+class RoomRect(BaseModel):
+    kind: Literal["living", "dining", "kitchen", "master_bedroom", "bedroom",
+                  "bathroom", "study", "utility", "hallway"]
+    x: int
+    y: int
+    w: int
+    h: int
+    model_config = {"extra": "forbid"}
+
+
+class LayoutSchema(BaseModel):
+    rooms: list[RoomRect]
+    model_config = {"extra": "forbid"}
+
+
 class ComplianceSchema(BaseModel):
     status: str
     messages: list[str]
@@ -254,26 +269,104 @@ def _ask_room_program(prompt: str):
     return None
 
 
+LAYOUT_PROMPT = """You are an experienced residential architect. Design a NEW house floor plan as axis-aligned room rectangles.
+Grid: 1 unit = 0.5 m, x grows right, y grows down, (x, y) is a room's top-left corner, w and h are its size in units.
+Output JSON: {"rooms": [{"kind": string, "x": int, "y": int, "w": int, "h": int}]}.
+Kinds: living, dining, kitchen, master_bedroom, bedroom, bathroom, study, utility, hallway.
+
+You are given REFERENCE PLANS of real-style houses. Study how they are organised, then design something different
+in the same spirit: change the footprint (rectangle, L, T, U or staggered wings; leave unused corners empty), the wing
+arrangement, room order and proportions, and mirror or rotate the idea. Never copy a reference.
+
+Rules:
+- Rooms are solid rectangles and never overlap. Rooms that are neighbours touch exactly along a shared wall (no gaps inside the house).
+- Group the day zone together: living, dining and kitchen are neighbours; dining touches living (open plan); kitchen touches dining or living; utility touches the kitchen.
+- Bedrooms and bathrooms form their own wing(s). Every bedroom, study and bathroom must touch the living room, the dining room, or a short
+  hallway lobby (kind "hallway", 4-6 units wide, at most 18 units long, serving at most 5 rooms, at most 2 lobbies, touching the living or dining room).
+  NEVER make a long corridor with a row of doors; most 1-3 bedroom homes need no hallway at all.
+- The master_bedroom touches its own ensuite bathroom. Other bathrooms touch a bedroom or the lobby.
+- The living room has at least 6 units of outside wall (the entrance). Living, dining, kitchen, bedrooms and study each touch an outside wall (for windows).
+- No tiny leftover rooms: habitable rooms are at least 5 units on their short side, bathrooms at least 4.
+- Typical sizes in m2 (units x units / 4): living 18-40, dining 9-18, kitchen 8-16, master bedroom 14-24, bedroom 10-18, study 7-14, bathroom 4-9, utility 3-7.
+Use exactly the rooms listed in the brief."""
+
+
+def _ask_layout(prompt: str, program, style: str, rng):
+    """LLM designs the plan from reference houses; returns a validated Layout or None."""
+    from collections import Counter
+    import plan_designer as pd
+    from floorplan_builder import LayoutError
+
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        return None
+    want = Counter(r.kind for r in program)
+    beds = want["master_bedroom"] + want["bedroom"]
+    refs = pd.pick_references(beds, want["bathroom"], bool(want["study"]), rng, k=3)
+    rooms_txt = ", ".join(f"{n} x {k}" for k, n in want.items())
+    brief = (f"BRIEF: {prompt}\nRooms to include (exactly): {rooms_txt}. Hallway lobbies are extra and optional.\n"
+             f"Target total area about {round(pd.program_target_area(program))} m2.\n"
+             f"Suggested concept: {style}.\n\nREFERENCE PLANS:\n"
+             + "\n".join(json.dumps(pd.describe(m), separators=(",", ":")) for m in refs))
+    client = Groq(api_key=api_key, timeout=45)
+    schema = LayoutSchema.model_json_schema()
+    messages = [{"role": "system", "content": LAYOUT_PROMPT}, {"role": "user", "content": brief}]
+    for attempt in range(1, 4):
+        try:
+            resp = client.chat.completions.create(
+                model="openai/gpt-oss-20b",
+                messages=messages,
+                response_format={"type": "json_schema",
+                                 "json_schema": {"name": "floor_plan", "strict": True, "schema": schema}},
+                temperature=0.9,
+                max_completion_tokens=6000,
+                reasoning_effort="medium",
+            )
+            raw = resp.choices[0].message.content
+            if not raw:
+                raise ValueError("empty response")
+            return pd.design_from_llm_rects(json.loads(raw).get("rooms", []), program)
+        except LayoutError as e:
+            print(f"LLM layout rejected (attempt {attempt}/3): {e}")
+            messages += [{"role": "assistant", "content": raw},
+                         {"role": "user", "content": f"That plan was rejected: {e}. Fix it and return the complete corrected plan."}]
+        except Exception as e:
+            print(f"LLM layout error (attempt {attempt}/3): {e}")
+    return None
+
+
 @app.post("/api/ai/generate-plan")
 async def generate_floor_plan(payload: AIPrompt):
-    from floorplan_builder import build_program, generate_layout, LayoutError
+    import random
+    import plan_designer as pd
+    from floorplan_builder import build_program, generate_layout
 
     source = "ai"
     ai = _ask_room_program(payload.prompt)
     llm_rooms, llm_total, style = ai if ai else ([], 0, "auto")
     if not ai:
         source = "fallback"
+    rng = random.Random()
 
-    layout = None
     try:
-        layout = generate_layout(build_program(llm_rooms, llm_total, payload.prompt), style=style)
-    except (LayoutError, Exception) as e:
-        print(f"Layout failed with AI program ({e}); using prompt-only program")
+        program = build_program(llm_rooms, llm_total, payload.prompt)
+    except Exception as e:
+        print(f"Program from AI failed ({e}); using prompt-only program")
         source = "fallback"
+        program = build_program([], 0, payload.prompt)
+
+    layout = _ask_layout(payload.prompt, program, style, rng)       # 1. LLM designs it from reference houses
+    if layout:
+        source += "+designed"
+    if not layout:                                                   # 2. a reference house, reshaped
+        layout = pd.adapt_reference(program, rng, pd.program_target_area(program))
+        if layout:
+            source += "+reference"
+    if not layout:                                                   # 3. zoned generator
         try:
-            layout = generate_layout(build_program([], 0, payload.prompt))
-        except Exception as e2:
-            raise HTTPException(status_code=500, detail=f"Layout generation failed: {e2}")
+            layout = generate_layout(program, style=style)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Layout generation failed: {e}")
 
     return {"status": "success", "elements": layout.elements(), "source": source}
 
