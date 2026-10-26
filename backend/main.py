@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from datetime import datetime, timezone, timedelta
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import jwt
 import json
 import os
@@ -83,8 +83,13 @@ class ElementSchema(BaseModel):
     model_config = {"extra": "forbid"}
 
 class FloorPlanSchema(BaseModel):
-    elements: list[ElementSchema]
+    # This physically forces Groq's strict JSON engine to generate at least 15 items
+    elements: list[ElementSchema] = Field(
+        min_length=15, 
+        description="You MUST generate at least 15 elements to form a complete, enclosed, and furnished room."
+    )
     model_config = {"extra": "forbid"}
+
 
 class ComplianceSchema(BaseModel):
     status: str
