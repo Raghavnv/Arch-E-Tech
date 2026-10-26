@@ -201,16 +201,31 @@ async def generate_floor_plan(payload: AIPrompt):
     client = Groq(api_key=api_key)
 
     system_instruction = """You are an expert AI Architectural Floor Plan Generator.
-    You MUST generate a complete, fully furnished 2D floor plan and output strictly valid JSON.
+    You MUST output ONLY valid JSON. Do not include any conversational text, markdown formatting, or explanations.
     
     CRITICAL RULES:
     1. Return a JSON object with a single key "elements" containing a list of objects.
     2. Each object MUST have: id (string), type (string), left (number), top (number), width (number), height (number), angle (number).
-    3. You MUST generate AT LEAST 15 elements. Do not return an empty list.
-    4. Include 4 outer walls, interior walls, doors, windows, and multiple pieces of furniture (e.g., furniture_bed, furniture_sofa).
-    5. 1 unit = 0.05 meters. Start outer walls around (100, 100).
-    6. Walls are 8 units thick. Horizontal walls: height=8. Vertical walls: width=8.
+    3. You MUST generate AT LEAST 15 elements to create a fully furnished layout.
+    4. 1 unit = 0.05 meters. Start outer walls around (100, 100). Walls are 8 units thick.
+    
+    EXPECTED JSON STRUCTURE (GENERATE YOUR OWN VALUES AND AT LEAST 15 ITEMS):
+    {
+      "elements": [
+        {
+          "id": "<generate_unique_string>",
+          "type": "<wall | door | window | furniture_bed | furniture_sofa | furniture_table>",
+          "left": <number_coordinate>,
+          "top": <number_coordinate>,
+          "width": <number_dimension>,
+          "height": <number_dimension>,
+          "angle": <number_rotation>
+        }
+      ]
+    }
     """
+
+
     
     try:
         response = client.chat.completions.create(
