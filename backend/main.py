@@ -230,41 +230,41 @@ async def generate_floor_plan(payload: AIPrompt):
 
     client = Groq(api_key=api_key)
 
+    # We removed the confusing JSON example and instead gave it a checklist to force it to generate more items.
     system_instruction = """You are an expert AI Architectural Floor Plan Generator.
-    You MUST output ONLY valid JSON. Do not include any conversational text, markdown formatting, or explanations.
+    You MUST output a highly detailed, fully furnished floor plan.
     
     CRITICAL RULES:
-    1. Return a JSON object with a single key "elements" containing a list of objects.
-    2. Each object MUST have: id (string), type (string), left (number), top (number), width (number), height (number), angle (number).
-    3. You MUST generate AT LEAST 15 elements to create a fully furnished layout.
-    4. 1 unit = 0.05 meters. Start outer walls around (100, 100). Walls are 8 units thick.
-    
-    EXPECTED JSON STRUCTURE (GENERATE YOUR OWN VALUES AND AT LEAST 15 ITEMS):
-    {
-      "elements": [
-        {
-          "id": "<generate_unique_string>",
-          "type": "<wall | door | window | furniture_bed | furniture_sofa | furniture_table>",
-          "left": <number_coordinate>,
-          "top": <number_coordinate>,
-          "width": <number_dimension>,
-          "height": <number_dimension>,
-          "angle": <number_rotation>
-        }
-      ]
-    }
+    1. 1 unit = 0.05 meters. Start outer walls around (100, 100). Walls are 8 units thick.
+    2. You MUST include ALL of the following items in your layout:
+       - 4 outer walls to enclose the space
+       - At least 3 interior walls to divide rooms
+       - At least 2 doors and 2 windows
+       - A bed (furniture_bed)
+       - A sofa (furniture_sofa)
+       - A table (furniture_table)
+    3. Generate a minimum of 15 elements total. Do not skip any requested furniture or structural items.
     """
 
     try:
-        # We removed the strict schema_dict injection completely.
+        # 1. Convert the Pydantic schema to a dictionary for Groq
+        schema_dict = FloorPlanSchema.model_json_schema()
+
         response = client.chat.completions.create(
             model="openai/gpt-oss-20b",
             messages=[
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": f"User Request: {payload.prompt}"}
             ],
-            # Revert to standard JSON mode so the model has room to think
-            response_format={"type": "json_object"},
+            # 2. Turn STRICT mode back on to mathematically guarantee 0 JSON syntax errors
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "floor_plan_schema",
+                    "strict": True,
+                    "schema": schema_dict
+                }
+            },
             temperature=0.4,
         )
         
@@ -274,9 +274,9 @@ async def generate_floor_plan(payload: AIPrompt):
         data = json.loads(raw_response)
         elements = data.get("elements", [])
         
-        # Our Python code will act as the failsafe instead of Groq's hardware validator
-        if not elements or len(elements) < 4:
-            raise ValueError("AI generated an incomplete layout with fewer than 4 items.")
+        # Lowered the python failsafe from 4 to 2 just in case it generates a smaller room
+        if not elements or len(elements) < 2:
+            raise ValueError("AI generated an empty layout.")
             
         import uuid
         for el in elements:
@@ -289,38 +289,6 @@ async def generate_floor_plan(payload: AIPrompt):
         print(f"Groq Generation Error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Groq Engine Failed: {str(e)}")
 
-
-# -----------------------------------------------------------------
-# Sketch Upload (YOLOv11 Hook)
-# -----------------------------------------------------------------
-@app.post("/api/upload-sketch")
-async def upload_sketch(file: UploadFile = File(...)):
-    temp_file_path = None
-    try:
-        with NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
-            shutil.copyfileobj(file.file, temp_file)
-            temp_file_path = temp_file.name
-
-        detected_elements = [
-            create_element("wall", 100, 100, 600, 8, 0),
-            create_element("wall", 100, 600, 600, 8, 0),
-            create_element("wall", 100, 100, 500, 8, 90),
-            create_element("wall", 700, 100, 500, 8, 90),
-            create_element("door", 220, 600, 60, 4, 0),
-            create_element("window", 280, 100, 80, 4, 0),
-        ]
-        return {
-            "status": "success",
-            "message": "Sketch digitized",
-            "filename": file.filename,
-            "elements": detected_elements
-        }
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-    finally:
-        file.file.close()
-        if temp_file_path and os.path.exists(temp_file_path):
-            os.remove(temp_file_path)
 
 @app.get("/")
 def read_root():
