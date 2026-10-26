@@ -80,6 +80,7 @@ class RoomItem(BaseModel):
     model_config = {"extra": "forbid"}
 
 class RoomProgramSchema(BaseModel):
+    layout_style: Literal["auto", "compact", "wing", "split"]
     total_area_sqm: float
     rooms: list[RoomItem]
     model_config = {"extra": "forbid"}
@@ -204,7 +205,12 @@ def duplicate_project(project_id: int, db: Session = Depends(get_db), current_us
 # -----------------------------------------------------------------
 ROOM_PROGRAM_PROMPT = """You are an architect's assistant. Convert the user's request into a ROOM PROGRAM only.
 Do not output coordinates or geometry; software draws the plan.
-Output JSON: {"total_area_sqm": number, "rooms": [{"kind": string, "area_sqm": number}]}.
+Output JSON: {"layout_style": string, "total_area_sqm": number, "rooms": [{"kind": string, "area_sqm": number}]}.
+layout_style is the house concept, chosen like an architect would for this kind of home:
+"compact" = bedrooms open straight off the living area (small flats, studios, 1-2 bed homes, cottages);
+"wing" = one day zone with a single bedroom wing (typical 2-4 bed houses, bungalows, duplex-style homes);
+"split" = day zone in the middle with separate bedroom wings either side (villas, large or luxury homes, 4+ beds);
+"auto" if unsure. Vary your choice between requests when more than one suits the brief.
 Allowed kinds: living, dining, kitchen, master_bedroom, bedroom, bathroom, study, utility.
 Rules: always include one living and one kitchen; exactly one master_bedroom if any bedroom is wanted,
 extra bedrooms use "bedroom"; at least one bathroom; typical areas: living 16-30, dining 9-14,
@@ -241,7 +247,8 @@ def _ask_room_program(prompt: str):
             rooms = [r for r in data.get("rooms", []) if isinstance(r, dict) and "kind" in r]
             if not rooms:
                 raise ValueError("no rooms")
-            return rooms, float(data.get("total_area_sqm") or 0)
+            style = data.get("layout_style") if data.get("layout_style") in ("compact", "wing", "split") else "auto"
+            return rooms, float(data.get("total_area_sqm") or 0), style
         except Exception as e:
             print(f"Room program error (attempt {attempt}/3): {e}")
     return None
@@ -253,13 +260,13 @@ async def generate_floor_plan(payload: AIPrompt):
 
     source = "ai"
     ai = _ask_room_program(payload.prompt)
-    llm_rooms, llm_total = ai if ai else ([], 0)
+    llm_rooms, llm_total, style = ai if ai else ([], 0, "auto")
     if not ai:
         source = "fallback"
 
     layout = None
     try:
-        layout = generate_layout(build_program(llm_rooms, llm_total, payload.prompt))
+        layout = generate_layout(build_program(llm_rooms, llm_total, payload.prompt), style=style)
     except (LayoutError, Exception) as e:
         print(f"Layout failed with AI program ({e}); using prompt-only program")
         source = "fallback"
