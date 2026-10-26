@@ -68,6 +68,25 @@ class ReportRequest(BaseModel):
     elements: list
 
 # -----------------------------------------------------------------
+# Pydantic Schemas (Structured Outputs)
+# -----------------------------------------------------------------
+class ElementSchema(BaseModel):
+    id: str
+    type: str
+    left: float
+    top: float
+    width: float
+    height: float
+    angle: float
+
+class FloorPlanSchema(BaseModel):
+    elements: list[ElementSchema]
+
+class ComplianceSchema(BaseModel):
+    status: str
+    messages: list[str]
+
+# -----------------------------------------------------------------
 # Auth Helpers & Endpoints
 # -----------------------------------------------------------------
 def create_access_token(email: str):
@@ -225,16 +244,25 @@ async def generate_floor_plan(payload: AIPrompt):
     }
     """
 
-
-    
     try:
+        # CONVERT PYDANTIC SCHEMA FOR GROQ
+        schema_dict = FloorPlanSchema.model_json_schema()
+
         response = client.chat.completions.create(
             model="openai/gpt-oss-20b",
             messages=[
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": f"User Request: {payload.prompt}"}
             ],
-            response_format={"type": "json_object"},
+            # APPLY STRICT JSON SCHEMA
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "floor_plan_schema",
+                    "strict": True,
+                    "schema": schema_dict
+                }
+            },
             temperature=0.4,
         )
         
@@ -336,13 +364,24 @@ async def check_compliance(payload: ComplianceRequest):
     """
     
     try:
+        # CONVERT PYDANTIC SCHEMA FOR GROQ
+        schema_dict = ComplianceSchema.model_json_schema()
+
         response = client.chat.completions.create(
             model="openai/gpt-oss-20b",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Layout data: {json.dumps(payload.elements)}"}
             ],
-            response_format={"type": "json_object"},
+            # APPLY STRICT JSON SCHEMA
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "compliance_schema",
+                    "strict": True,
+                    "schema": schema_dict
+                }
+            },
             temperature=0.1
         )
         data = json.loads(response.choices[0].message.content)
