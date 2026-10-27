@@ -206,13 +206,15 @@ function useWallMaterial(material, isColor, length, height) {
     }
   }, [material, isColor, length, height]);
 
+  // `key` makes React build a fresh material when the kind of surface changes: a material compiled
+  // without a map never picks one up later, which is what turned painted walls black
   if (texture) {
-    return { map: texture, roughness: 0.7 };
+    return { key: `map-${texture.uuid}`, map: texture, color: '#ffffff', roughness: 0.7 };
   }
   if (isColor && material) {
-    return { color: material, roughness: 0.9 };
+    return { key: `color-${material}`, color: material, roughness: 0.9 };
   }
-  return { color: '#f4f4f5', roughness: 0.85 };
+  return { key: 'plain', color: '#f4f4f5', roughness: 0.85 };
 }
 
 
@@ -221,8 +223,8 @@ function useWallMaterial(material, isColor, length, height) {
  * This ensures each mesh gets its own material instance.
  */
 function WallMaterial({ matProps }) {
-  const { key: _key, ...props } = matProps;
-  return <meshStandardMaterial {...props} />;
+  const { key, ...props } = matProps;
+  return <meshStandardMaterial key={key} {...props} />;
 }
 
 // =================================================================

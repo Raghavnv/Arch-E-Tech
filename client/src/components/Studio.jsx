@@ -733,15 +733,18 @@ export default function Studio() {
         <div className={activeTab === '2D' ? 'absolute inset-0' : 'hidden'}>
           <Canvas2D elements={canvasElements} drawingMode={drawingMode} setCanvasElements={setCanvasElements} blueprintMode={blueprintMode} activeTab={activeTab} />
         </div>
-        <div className={activeTab === '3D' ? 'absolute inset-0' : 'hidden'}>
-          <Canvas3D 
-            elements={canvasElements} 
-            timeOfDay={timeOfDay} 
-            onPaint={handlePaintWall} 
-            walkthroughMode={walkthroughMode}
-            showCeiling={showCeiling}
-          />
-        </div>
+        {/* mounted only while visible: a WebGL canvas created inside a display:none box stays blank after it is shown */}
+        {activeTab === '3D' && (
+          <div className="absolute inset-0">
+            <Canvas3D 
+              elements={canvasElements} 
+              timeOfDay={timeOfDay} 
+              onPaint={handlePaintWall} 
+              walkthroughMode={walkthroughMode}
+              showCeiling={showCeiling}
+            />
+          </div>
+        )}
 
         {activeTab === '2D' && showFurnitureCatalog && (
           <div className="absolute top-24 left-6 w-72 bg-zinc-950/90 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl p-4 z-20 max-h-[450px] overflow-y-auto custom-scrollbar">
@@ -844,9 +847,10 @@ export default function Studio() {
         )}
 
         {/* AI Copilot */}
-        <div className="absolute bottom-6 right-6 z-40 flex flex-col items-end">
+        {/* the wrapper is click-through: it is as big as the chat box even when closed, and used to block the panels beneath it */}
+        <div className="absolute bottom-6 right-6 z-40 flex flex-col items-end pointer-events-none">
           <div className={`mb-4 w-80 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl flex flex-col transition-all origin-bottom-right duration-300 ${
-            chatOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 pointer-events-none translate-y-4'
+            chatOpen ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 pointer-events-none translate-y-4'
           }`} style={{ height: '400px' }}>
             <div className="p-4 border-b border-zinc-800 bg-zinc-900/50 flex items-center justify-between rounded-t-2xl">
               <div className="flex items-center gap-2 text-indigo-400 font-semibold text-sm">
@@ -923,7 +927,7 @@ export default function Studio() {
 
           <button 
             onClick={() => setChatOpen(!chatOpen)}
-            className="w-14 h-14 bg-indigo-500 hover:bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-[0_0_20px_rgba(99,102,241,0.5)] transition-transform hover:scale-105 active:scale-95"
+            className="pointer-events-auto w-14 h-14 bg-indigo-500 hover:bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-[0_0_20px_rgba(99,102,241,0.5)] transition-transform hover:scale-105 active:scale-95"
           >
             {chatOpen ? <X className="w-6 h-6" /> : <MessageSquare className="w-6 h-6" />}
           </button>

@@ -453,6 +453,8 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('keydown', handleKeyDown);
       canvas.dispose();
+      if (fabricRef.current === canvas) fabricRef.current = null;   // effects re-run in StrictMode: never keep a disposed canvas
+      hasLoadedElements.current = false;
     };
   }, []);
 
