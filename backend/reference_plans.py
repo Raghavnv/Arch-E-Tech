@@ -14,6 +14,8 @@ Rules every reference follows (they are what make a plan read as a house, not a 
   * the master bedroom has an ensuite and is bigger than every other bedroom
   * bedrooms are at least ~14 m2; bathrooms sit next to a bedroom or the living area
   * the entrance is on the living room; every habitable room has an outside wall
+  * bedrooms are spread around the house: the master suite has its own side and never
+    shares a wall with another bedroom, and bedrooms are never lined up in one long row
 """
 from __future__ import annotations
 
@@ -49,63 +51,46 @@ PLANS = [
         (8, "M12 E5 .5"),
     ]),
     # ---- 2 bedrooms ------------------------------------------------------------------------
-    _plan("twobhk_front_back", "wing", [
-        (10, "K7 D8 L11"),
-        (9, "E5 M11 B10"),
-        (5, ".16 T5 .5"),
+    # master suite and second bedroom on opposite sides of the living room
+    _plan("twobhk_split", "split", [
+        (8, "E5 M10 L12 B8"),
+        (7, ".15 K6 D6 T5 .3"),
     ]),
-    _plan("twobhk_side_by_side", "wing", [
-        (10, "E5 M10 L10 K7"),
-        (8, "T5 B10 L10 D7"),
-    ]),
-    _plan("twobhk_sandwich", "compact", [
-        (8, "E5 M10 B9"),
-        (9, "K7 D7 L10"),
-        (5, ".14 T5 .5"),
-    ]),
-    _plan("twobhk_wing_right", "wing", [
-        (9, "K7 D7 L12"),
-        (9, ".2 T5 B7 M12"),
-        (5, ".14 E5 .7"),
+    # second bedroom at the front, master suite at the back
+    _plan("twobhk_front_back_split", "wing", [
+        (8, "B8 L13 K9"),
+        (9, "T5 .3 D7 M10 E5"),
     ]),
     # ---- 3 bedrooms ------------------------------------------------------------------------
-    _plan("threebhk_central_living", "compact", [
-        (8, "E5 M10 B8 C7"),
-        (9, "K8 D8 L14"),
-        (6, "W6 S8 .10 T6"),
+    # master wing on one side of the day zone, children's wing on the other
+    _plan("threebhk_split_wings", "split", [
+        (8, "E5 M10 L14 B8"),
+        (8, ".15 K7 D7 C8"),
+        (5, ".29 T6 .2"),
+    ]),
+    # two bedrooms flank the living room at the front, master suite behind the dining room
+    _plan("threebhk_master_rear", "split", [
+        (8, "B8 L14 C8"),
+        (6, "T5 .3 D7 K7 .8"),
+        (9, ".8 M10 E4 .8"),
+    ]),
+    # staggered footprint: one bedroom at the front, master off the living room, one behind dining
+    _plan("threebhk_staggered", "wing", [
+        (8, "B8 L14 K8"),
+        (8, "T5 .3 D8 M10 E4"),
+        (8, ".8 C8 .14"),
     ]),
     _plan("threebhk_l_lounge", "wing", [
         (10, "K8 D8 L17"),
         (9, "M10 N7 B9 .7"),
         (8, "E5 T5 N7 C9 .7"),
     ]),
-    _plan("threebhk_bungalow_row", "wing", [
-        (12, "K8 D8 L16"),
-        (9, "E5 M11 B10 C6"),
-        (5, ".16 T5 .11"),
-    ]),
-    _plan("threebhk_sandwich", "compact", [
-        (9, "E5 M11 B8 C8"),
-        (10, "K8 D8 L16"),
-        (6, "W8 S8 T5 .11"),
-    ]),
-    _plan("threebhk_three_columns", "wing", [
-        (9, "E5 M10 L12 K8"),
-        (8, "T5 B10 L12 D8"),
-        (8, ".10 V5 C10 .10"),
-    ]),
     # ---- 4 bedrooms ------------------------------------------------------------------------
-    _plan("fourbhk_sandwich", "split", [
-        (9, "E5 M11 B9 C9"),
-        (11, "K8 D9 L17"),
-        (8, ".3 U5 F10 S8 .8"),
-    ]),
-    _plan("fourbhk_z_lounge", "split", [
-        (9, "M12 N7 B9 .13"),
-        (8, "E6 T6 N7 C9 .13"),
-        (12, "K8 D9 L19 .5"),
-        (8, ".18 F10 S9 .4"),
-        (5, ".18 V5 .18"),
+    # master suite alone at one end; two bedrooms at the other end, one behind the dining room
+    _plan("fourbhk_split", "split", [
+        (8, "E5 M11 L16 B8"),
+        (8, ".16 K7 D9 C8"),
+        (8, ".23 F8 T5 .4"),
     ]),
     # ---- 5 bedrooms ------------------------------------------------------------------------
     _plan("fivebhk_z_lounge", "split", [

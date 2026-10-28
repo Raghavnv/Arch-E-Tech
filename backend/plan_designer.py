@@ -113,6 +113,41 @@ def matches_program(rects: list[dict], program) -> str | None:
         return f"need at least {max(1, want['bathroom'] - 1)} bathrooms"
     if got["lounge"] > 2:
         return "use at most 2 lounges"
+    if got["study"] != want["study"]:
+        return f"include exactly {want['study']} study rooms" if want["study"] else "do not add a study, it was not asked for"
+    if got["utility"] > want["utility"]:
+        return "do not add a utility room, it was not asked for"
+    return None
+
+
+def _touch(a: dict, b: dict) -> bool:
+    """True when two rectangles share a stretch of wall (not just a corner)."""
+    if a["x"] + a["w"] == b["x"] or b["x"] + b["w"] == a["x"]:
+        return min(a["y"] + a["h"], b["y"] + b["h"]) - max(a["y"], b["y"]) > 0
+    if a["y"] + a["h"] == b["y"] or b["y"] + b["h"] == a["y"]:
+        return min(a["x"] + a["w"], b["x"] + b["w"]) - max(a["x"], b["x"]) > 0
+    return False
+
+
+def bedroom_spread_fail(rects: list[dict]) -> str | None:
+    """Bedrooms spread around the house like a real home, not a hotel row. None if fine, else why."""
+    beds = [r for r in rects if r["kind"] in ("master_bedroom", "bedroom")]
+    if len(beds) < 2:
+        return None
+    master = next((r for r in beds if r["kind"] == "master_bedroom"), None)
+    # with 5+ bedrooms some sharing is unavoidable, so only the row rule applies there
+    if master and len(beds) <= 4 and any(_touch(master, b) for b in beds if b is not master):
+        return "the master_bedroom shares a wall with another bedroom; give the master suite its own side of the house"
+    # no straight line through the plan may pass through more than `cap` bedrooms
+    cap = 2 if len(beds) <= 4 else 3
+    for lo, size in (("y", "h"), ("x", "w")):
+        for b in beds:
+            line = b[lo] + 0.5          # a line just inside each bedroom's edge finds every band
+            crossed = sum(1 for o in beds if o[lo] < line < o[lo] + o[size])
+            if crossed > cap:
+                way = "row" if lo == "y" else "column"
+                return (f"{crossed} bedrooms are lined up in one {way}; spread the bedrooms around the "
+                        f"living area (at most {cap} in any row or column)")
     return None
 
 
@@ -122,7 +157,7 @@ def design_from_llm_rects(rects: list[dict], program) -> fb.Layout:
     if not rects:
         raise fb.LayoutError("no rooms")
     rects = snap_rects(rects)
-    why = matches_program(rects, program)
+    why = matches_program(rects, program) or bedroom_spread_fail(rects)
     if why:
         raise fb.LayoutError(why)
     return fb.layout_from_rects(rects)
@@ -170,6 +205,11 @@ def adapt_reference(program, rng: random.Random, target_area: float | None = Non
     beds = want["master_bedroom"] + want["bedroom"]
     refs = pick_references(beds, want["bathroom"], bool(want["study"]), rng, k=len(rp.PLANS))
     refs = [m for m in refs if m["beds"] == beds]       # never hand back the wrong number of bedrooms
+    # prefer houses with the bedrooms spread out, and without a study or utility nobody asked for
+    good = [m for m in refs if not bedroom_spread_fail(m["rects"])
+            and (m["study"] > 0) == bool(want["study"])
+            and (want["utility"] > 0 or not any(r["kind"] == "utility" for r in m["rects"]))]
+    refs = good or refs
     if not refs:
         return None
     for target in (target_area, None):      # if scaling to the stated area keeps failing, use the reference's own size

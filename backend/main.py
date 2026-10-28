@@ -236,6 +236,9 @@ Allowed kinds: living, dining, kitchen, master_bedroom, bedroom, bathroom, study
 Rules: always include one living and one kitchen; exactly one master_bedroom if any bedroom is wanted,
 extra bedrooms use "bedroom"; at least one bathroom; typical areas: living 20-35, dining 10-16,
 kitchen 9-15, master_bedroom 18-26, bedroom 12-16 (the master is always the biggest bedroom), bathroom 4-7, study 8-12, utility 3-5.
+A request for N bedrooms means N bedrooms in total with the master counted among them
+("3 bedroom house" = 1 master_bedroom + 2 bedroom, never 3 extra bedrooms).
+Only add a study or utility when the user asks for one.
 Respect counts and total area stated by the user."""
 
 
@@ -292,6 +295,10 @@ Rules:
 - ONLY enclose the rooms in the brief. Do not invent extra rooms, corridors, lobbies, halls, closets or filler boxes. Circulation is open space:
   living, dining and (optionally) a "lounge" form one open area with no walls between them.
 - Day zone: living, dining and kitchen are neighbours; dining touches living; kitchen touches dining or living; utility touches the kitchen.
+- Spread the bedrooms around the house like a real home, never a hotel row: the master suite gets its own side of the
+  house and must not share a wall with any other bedroom; the other bedrooms sit on a different side of the living area
+  (front, back or the far end), and no straight row or column of the plan passes through more than 2 bedrooms.
+  Vary where they go between designs.
 - Every bedroom and study opens straight off the living room, dining room or lounge, so each must share at least 5 units of wall with one of them.
   Never line bedrooms along a corridor. Use a lounge (7+ units wide, open to the living/dining area, at most 2) only when 4+ bedrooms cannot all touch the living area.
 - The master_bedroom touches its own ensuite bathroom. Other bathrooms touch a bedroom or the living area (at least 5 units of shared wall).

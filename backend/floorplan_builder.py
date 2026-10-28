@@ -103,7 +103,8 @@ def parse_prompt(prompt: str) -> dict:
     out = {"bedrooms": None, "bathrooms": None, "area_sqm": None,
            "study": False, "dining": False, "utility": False, "studio": False}
 
-    m = re.search(_NUM + r"\s*[- ]?\s*(?:bhk|bed\s*rooms?|beds\b|br\b)", t)
+    # "3 bed", "3-bed", "3 bedrooms", "3BHK", "3 BR", "3bd": all mean three bedrooms, master included
+    m = re.search(r"\b" + _NUM + r"\s*[- ]?\s*(?:bhk|bed\s*rooms?\b|beds?\b|brs?\b|bds?\b)", t)
     if m:
         out["bedrooms"] = _to_int(m.group(1))
     m = re.search(_NUM + r"\s*[- ]?\s*(?:bath(?:room)?s?\b|ba\b|toilets?)", t)
