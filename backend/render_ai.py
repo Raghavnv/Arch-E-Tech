@@ -161,6 +161,23 @@ def furnish_prompt(style: str, kind: str, user_prompt: str | None) -> str:
             f"realistic materials, soft natural shadows, photorealistic interior design photograph.")
 
 
+def concept_prompt(mode: str, style: str, rooms: list[str], user_prompt: str | None) -> str:
+    """Concept Viz: the floor plan (reference image) as a 3D cutaway or as the finished house outside."""
+    st = STYLES.get(style, STYLES["modern"])
+    extra = f" Also: {user_prompt.strip()}." if user_prompt and user_prompt.strip() else ""
+    names = ", ".join(rooms[:14]) if rooms else "the rooms shown"
+    if mode == "exterior":
+        return (f"Photorealistic exterior photograph of the house whose floor plan is the reference image: the same "
+                f"footprint shape, the same number of wings and the same window and door positions, built as a "
+                f"{st['name'].lower()} home with matching materials ({st['shell']}). Seen from the front garden at eye "
+                f"level, landscaped lawn and plants, soft golden-hour light, sharp architectural photography.{extra}")
+    return (f"Photorealistic 3D isometric cutaway (dollhouse view) of the house in the reference floor plan, roof "
+            f"removed and walls cut at waist height, viewed from above at 45 degrees. Keep exactly the same room "
+            f"layout, room positions, wall lines, doors and windows as the plan. Rooms: {names}. Furnish every room "
+            f"to suit its use in {st['furnish']}, with {st['shell']}. Soft daylight, realistic materials and "
+            f"shadows, high-end architectural visualisation, plain light background.{extra}")
+
+
 # --------------------------------------------------------------------------
 # Images
 # --------------------------------------------------------------------------
@@ -195,13 +212,13 @@ def normalise_upload(data_url: str) -> str:
     return "data:image/jpeg;base64," + base64.b64encode(out.getvalue()).decode()
 
 
-def generate(prompt: str, references: list[str] | None = None) -> str:
+def generate(prompt: str, references: list[str] | None = None, width: int = WIDTH, height: int = HEIGHT) -> str:
     """Run the model; references are data URLs. Returns the image as a JPEG data URL."""
     if not configured():
         raise RenderNotConfigured(
             "AI photos aren't set up yet: add CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN to the backend on Render.")
     account, token = os.environ["CLOUDFLARE_ACCOUNT_ID"], os.environ["CLOUDFLARE_API_TOKEN"]
-    form = {"prompt": (None, prompt), "width": (None, str(WIDTH)), "height": (None, str(HEIGHT))}
+    form = {"prompt": (None, prompt), "width": (None, str(width)), "height": (None, str(height))}
     for i, ref in enumerate((references or [])[:MAX_REFS]):
         form[f"input_image_{i}"] = (f"ref{i}.jpg", _reference(ref), "image/jpeg")
     try:

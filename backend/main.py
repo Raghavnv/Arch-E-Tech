@@ -324,6 +324,33 @@ def upload_empty_room(project_id: int, shot: RoomUpload, db: Session = Depends(g
     return _render_out(row)
 
 
+class ConceptRequest(BaseModel):
+    plan_image: str             # data URL of the 2D plan, framed tightly
+    aspect: float = 1.33        # plan width / height, so the picture is oriented like the plan
+    mode: Literal["cutaway", "exterior"] = "cutaway"
+    style: str = "modern"
+    prompt: str = ""
+    rooms: list[str] = []
+
+
+@app.post("/api/projects/{project_id}/concept")
+def render_concept(project_id: int, req: ConceptRequest, db: Session = Depends(get_db),
+                   current_user: models.User = Depends(get_current_user)):
+    """Concept Viz: turn the floor plan into a 3D cutaway or an exterior view of the finished house."""
+    import render_ai
+    _owned_project(project_id, db, current_user)
+    w, h = (1024, 768) if req.aspect >= 1 else (768, 1024)
+    if req.mode == "exterior":
+        w, h = 1024, 768
+    prompt = render_ai.concept_prompt(req.mode, req.style, req.rooms, req.prompt)
+    image = _render_call(render_ai.generate, prompt, [req.plan_image], w, h)
+    key = f"__concept_{req.mode}__"
+    row = _render_row(db, project_id, RoomShot(room_key=key, room_name=f"Concept ({req.mode})", kind="concept", style=req.style))
+    row.furnished_image, row.prompt = image, req.prompt     # the plan picture is cheap to remake, so not stored
+    db.commit()
+    return {"mode": req.mode, "image": image}
+
+
 @app.post("/api/projects/{project_id}/renders/furnish")
 def render_furnished_room(project_id: int, req: RoomFurnish, db: Session = Depends(get_db),
                           current_user: models.User = Depends(get_current_user)):

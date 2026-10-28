@@ -61,6 +61,12 @@ PLANS = [
         (8, "B8 L13 K9"),
         (9, "T5 .3 D7 M10 E5"),
     ]),
+    # the split plan with a study behind the dining room
+    _plan("twobhk_split_study", "split", [
+        (8, "E5 M10 L12 B8"),
+        (7, ".15 K6 D6 T5 .3"),
+        (6, ".21 S6 .8"),
+    ]),
     # ---- 3 bedrooms ------------------------------------------------------------------------
     # master wing on one side of the day zone, children's wing on the other
     _plan("threebhk_split_wings", "split", [
@@ -79,6 +85,11 @@ PLANS = [
         (8, "B8 L14 K8"),
         (8, "T5 .3 D8 M10 E4"),
         (8, ".8 C8 .14"),
+    ]),
+    _plan("threebhk_split_study", "split", [
+        (8, "E5 M10 L14 B8"),
+        (8, ".15 K7 D7 C8"),
+        (6, ".22 S7 T6 .2"),
     ]),
     _plan("threebhk_l_lounge", "wing", [
         (10, "K8 D8 L17"),

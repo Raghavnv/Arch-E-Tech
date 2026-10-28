@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
+import { AutoDetectPanel, AiLayoutPanel, ConceptVizPanel } from './StudioTools';
 import { ARCHITECTURAL_TEXTURES } from '../utils/textureLibrary';
 
 const PLAIN_WALL = { id: 'mat_plain', name: 'Plain', color: '#f4f4f5' };
@@ -20,6 +21,12 @@ const cleanElements = (list) => (Array.isArray(list) ? list : [])
   // zero-length walls, doors and windows are invisible leftovers of a click without a drag
   .filter(el => !['wall', 'door', 'window'].includes(el.type) || Number(el.width) > 1);
 
+// what makes two versions of a plan different for undo: geometry, materials and room labels
+const planSignature = (list) => JSON.stringify((list || []).map(el => [
+  el.id, el.type, Math.round(el.left), Math.round(el.top), Math.round(el.width), Math.round(el.height),
+  Math.round(el.angle || 0), el.material || null, el.kind || null, el.name || null,
+]));
+
 export default function Studio() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -29,6 +36,18 @@ export default function Studio() {
   const [drawingMode, setDrawingMode] = useState(null);
   const [activeTab, setActiveTab] = useState('2D');
   const [showFurnitureCatalog, setShowFurnitureCatalog] = useState(false);
+  const [toolPanel, setToolPanel] = useState(null);     // 'detect' | 'layout' | 'concept'
+  const [smartSnap, setSmartSnap] = useState(() => localStorage.getItem('pref_smart_snap') === '1');
+  const toggleSmartSnap = () => setSmartSnap(on => {
+    try { localStorage.setItem('pref_smart_snap', on ? '0' : '1'); } catch { /* private mode */ }
+    return !on;
+  });
+  // the tools work on the 2D plan, so opening one switches there and closes the furniture list
+  const openTool = (name) => {
+    setActiveTab('2D');
+    setShowFurnitureCatalog(false);
+    setToolPanel(t => (t === name ? null : name));
+  };
   const [activeFloor, setActiveFloor] = useState(1);
   const [canvasElements, setCanvasElements] = useState([]);
   const [timeOfDay, setTimeOfDay] = useState(12);
@@ -52,8 +71,8 @@ export default function Studio() {
   ]);
   const [isTyping, setIsTyping] = useState(false);
 
-  const [history, setHistory] = useState([]);
-  const [historyPointer, setHistoryPointer] = useState(-1);
+  // undo history: the list and the position in it live in one state, so they can never drift apart
+  const [hist, setHist] = useState({ list: [], ptr: -1 });
   const isUndoing = useRef(false);
 
   useEffect(() => {
@@ -61,37 +80,27 @@ export default function Studio() {
       isUndoing.current = false;
       return;
     }
-    if (historyPointer >= 0 && JSON.stringify(history[historyPointer]) === JSON.stringify(canvasElements)) return;
-    
-    setHistory(h => {
-      const newHistory = h.slice(0, historyPointer + 1);
-      newHistory.push(canvasElements);
-      return newHistory.slice(-30);
+    setHist(({ list, ptr }) => {
+      // the 2D canvas echoes a plan back with extra blank fields; that echo is not a new step to undo
+      if (ptr >= 0 && planSignature(list[ptr]) === planSignature(canvasElements)) return { list, ptr };
+      const next = [...list.slice(0, ptr + 1), canvasElements].slice(-30);
+      return { list: next, ptr: next.length - 1 };
     });
-    setHistoryPointer(p => Math.min(p + 1, 29));
   }, [canvasElements]);
 
   useEffect(() => {
     const handleGlobalKeyDown = (e) => {
       if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
       
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
-        if (e.shiftKey) {
-          if (historyPointer < history.length - 1 && history[historyPointer + 1]) {
-            isUndoing.current = true;
-            const nextPtr = historyPointer + 1;
-            setHistoryPointer(nextPtr);
-            setCanvasElements(history[nextPtr]);
-          }
-        } else {
-          if (historyPointer > 0 && history[historyPointer - 1]) {
-            isUndoing.current = true;
-            const prevPtr = historyPointer - 1;
-            setHistoryPointer(prevPtr);
-            setCanvasElements(history[prevPtr]);
-          }
+        const target = hist.ptr + (e.shiftKey ? 1 : -1);
+        if (target >= 0 && target < hist.list.length && hist.list[target]) {
+          isUndoing.current = true;
+          setHist(h => ({ ...h, ptr: target }));
+          setCanvasElements(hist.list[target]);
         }
+        return;
       }
       
       if (e.key.toLowerCase() === 'w') setDrawingMode(prev => prev === 'wall' ? null : 'wall');
@@ -107,7 +116,7 @@ export default function Studio() {
     
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [history, historyPointer]);
+  }, [hist]);
   
   const calculateCosts = () => {
     let total = 0;
@@ -521,22 +530,23 @@ export default function Studio() {
         </div>
 
         <div className="p-3 border-b border-zinc-800 grid grid-cols-4 gap-2">
-          <button className="flex flex-col items-center justify-center p-2 rounded hover:bg-zinc-900 transition-colors text-zinc-400 hover:text-white">
-            <ScanLine className="w-4 h-4 mb-1.5" />
-            <span className="text-[9px] font-medium text-center leading-tight">Auto Detect</span>
-          </button>
-          <button className="flex flex-col items-center justify-center p-2 rounded hover:bg-zinc-900 transition-colors text-zinc-400 hover:text-white">
-            <Magnet className="w-4 h-4 mb-1.5" />
-            <span className="text-[9px] font-medium text-center leading-tight">Smart Snap</span>
-          </button>
-          <button className="flex flex-col items-center justify-center p-2 rounded hover:bg-zinc-900 transition-colors text-zinc-400 hover:text-white">
-            <LayoutTemplate className="w-4 h-4 mb-1.5" />
-            <span className="text-[9px] font-medium text-center leading-tight">AI Layout</span>
-          </button>
-          <button className="flex flex-col items-center justify-center p-2 rounded hover:bg-zinc-900 transition-colors text-zinc-400 hover:text-white">
-            <ImageIcon className="w-4 h-4 mb-1.5" />
-            <span className="text-[9px] font-medium text-center leading-tight">Concept Viz</span>
-          </button>
+          {[
+            { id: 'detect', icon: ScanLine, label: 'Auto Detect', tip: 'Turn the spaces your walls enclose into labelled rooms', onClick: () => openTool('detect'), on: toolPanel === 'detect' },
+            { id: 'snap', icon: Magnet, label: smartSnap ? 'Snap: On' : 'Smart Snap', tip: 'Walls lock onto wall ends, doors and windows onto walls, moves onto a 25 cm grid', onClick: toggleSmartSnap, on: smartSnap },
+            { id: 'layout', icon: LayoutTemplate, label: 'AI Layout', tip: 'Generate a new floor plan from a description', onClick: () => openTool('layout'), on: toolPanel === 'layout' },
+            { id: 'concept', icon: ImageIcon, label: 'Concept Viz', tip: 'Turn the plan into a 3D cutaway or exterior image', onClick: () => openTool('concept'), on: toolPanel === 'concept' },
+          ].map(({ id, icon: Icon, label, tip, onClick, on }) => (
+            <button
+              key={id}
+              onClick={onClick}
+              title={tip}
+              aria-pressed={on}
+              className={`flex flex-col items-center justify-center p-2 rounded transition-colors ${on ? 'bg-indigo-500/15 text-indigo-200' : 'text-zinc-400 hover:bg-zinc-900 hover:text-white'}`}
+            >
+              <Icon className="w-4 h-4 mb-1.5" />
+              <span className="text-[9px] font-medium text-center leading-tight">{label}</span>
+            </button>
+          ))}
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-6 custom-scrollbar">
@@ -695,7 +705,7 @@ export default function Studio() {
           <div className="w-px h-6 bg-zinc-800 mx-1"></div>
 
           <button 
-            onClick={() => setShowFurnitureCatalog(!showFurnitureCatalog)}
+            onClick={() => { setToolPanel(null); setShowFurnitureCatalog(!showFurnitureCatalog); }}
             className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${showFurnitureCatalog ? 'bg-emerald-400 text-black' : 'bg-zinc-800 text-emerald-400/70 hover:bg-zinc-700 hover:text-emerald-400'}`}
           >
             <Home className="w-3.5 h-3.5" /> Furniture
@@ -758,7 +768,7 @@ export default function Studio() {
         </div>
 
         <div className={activeTab === '2D' ? 'absolute inset-0' : 'hidden'}>
-          <Canvas2D elements={canvasElements} drawingMode={drawingMode} setCanvasElements={setCanvasElements} blueprintMode={blueprintMode} activeTab={activeTab} />
+          <Canvas2D elements={canvasElements} drawingMode={drawingMode} setCanvasElements={setCanvasElements} blueprintMode={blueprintMode} activeTab={activeTab} smartSnap={smartSnap} />
         </div>
         {/* mounted only while visible: a WebGL canvas created inside a display:none box stays blank after it is shown */}
         {activeTab === '3D' && (
@@ -771,6 +781,16 @@ export default function Studio() {
               showCeiling={showCeiling}
             />
           </div>
+        )}
+
+        {activeTab === '2D' && toolPanel === 'detect' && (
+          <AutoDetectPanel elements={canvasElements} setElements={setCanvasElements} onClose={() => setToolPanel(null)} />
+        )}
+        {activeTab === '2D' && toolPanel === 'layout' && (
+          <AiLayoutPanel elements={canvasElements} setElements={setCanvasElements} onClose={() => setToolPanel(null)} apiUrl={API_URL} />
+        )}
+        {activeTab === '2D' && toolPanel === 'concept' && (
+          <ConceptVizPanel elements={canvasElements} projectId={projectId} onClose={() => setToolPanel(null)} apiUrl={API_URL} />
         )}
 
         {activeTab === '2D' && showFurnitureCatalog && (

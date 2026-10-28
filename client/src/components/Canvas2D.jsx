@@ -92,7 +92,49 @@ const FURNITURE_SIZE = {
   furniture_kitchen: [56, 13, '#a8a29e'],   // 2.8 x 0.65 m counter run
 };
 
-export default function Canvas2D({ elements, drawingMode, setCanvasElements, blueprintMode, activeTab }) {
+// Smart Snap
+const SNAP_GRID = 10;        // 0.5 m, for new wall ends and lengths
+const MOVE_GRID = 5;         // 0.25 m, for things being moved
+const SNAP_REACH = 16;       // how close (canvas units) a point must be to lock onto a wall end
+const WALL_REACH = 22;       // how close a door / window must be to a wall to sit on it
+
+// wall centre lines as segments (walls are drawn from their left/top along their angle)
+function wallSegments(canvas, exclude) {
+  return canvas.getObjects().filter(o => o.type === 'wall' && o !== exclude).map(o => {
+    const a = ((o.angle || 0) * Math.PI) / 180;
+    const len = o.width * (o.scaleX || 1);
+    return { o, angle: o.angle || 0, x0: o.left, y0: o.top, x1: o.left + len * Math.cos(a), y1: o.top + len * Math.sin(a) };
+  });
+}
+
+// the closest wall end within reach, else the 0.5 m grid
+function snapPoint(canvas, p, exclude) {
+  let best = null;
+  for (const s of wallSegments(canvas, exclude)) {
+    for (const q of [{ x: s.x0, y: s.y0 }, { x: s.x1, y: s.y1 }]) {
+      const d = Math.hypot(q.x - p.x, q.y - p.y);
+      if (d < SNAP_REACH && (!best || d < best.d)) best = { ...q, d };
+    }
+  }
+  if (best) return { x: best.x, y: best.y, end: true };
+  return { x: Math.round(p.x / SNAP_GRID) * SNAP_GRID, y: Math.round(p.y / SNAP_GRID) * SNAP_GRID, end: false };
+}
+
+// the nearest point on any wall's centre line, if one is within reach
+function nearestWall(canvas, p) {
+  let best = null;
+  for (const s of wallSegments(canvas)) {
+    const dx = s.x1 - s.x0, dy = s.y1 - s.y0;
+    const len2 = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((p.x - s.x0) * dx + (p.y - s.y0) * dy) / len2));
+    const x = s.x0 + t * dx, y = s.y0 + t * dy;
+    const d = Math.hypot(x - p.x, y - p.y);
+    if (d < WALL_REACH && (!best || d < best.d)) best = { x, y, d, seg: s };
+  }
+  return best;
+}
+
+export default function Canvas2D({ elements, drawingMode, setCanvasElements, blueprintMode, activeTab, smartSnap = false }) {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const fabricRef = useRef(null);
@@ -110,6 +152,9 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
   // Sync ref to prevent stale closures and ghost drawing
   const drawingModeRef = useRef(drawingMode);
   drawingModeRef.current = drawingMode;
+  const smartSnapRef = useRef(smartSnap);
+  smartSnapRef.current = smartSnap;
+  const lockedWall = useRef(null);     // the wall a door / window being drawn is sitting on
 
   // Real-time HUD states
   const [drawingHUD, setDrawingHUD] = useState(null);
@@ -280,7 +325,19 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
     canvas.on('selection:created', updateSelectedHUD);
     canvas.on('selection:updated', updateSelectedHUD);
     canvas.on('selection:cleared', () => setSelectedHUD(null));
-    canvas.on('object:moving', updateSelectedHUD);
+    canvas.on('object:moving', (opt) => {
+      const o = opt.target;
+      if (smartSnapRef.current && o && !o.isGrid) {
+        const onWall = (o.type === 'door' || o.type === 'window') && nearestWall(canvas, { x: o.left, y: o.top });
+        if (onWall) {
+          // a dragged door / window clicks onto the nearest wall and turns to match it
+          o.set({ left: onWall.x, top: onWall.y, angle: onWall.seg.angle });
+        } else {
+          o.set({ left: Math.round(o.left / MOVE_GRID) * MOVE_GRID, top: Math.round(o.top / MOVE_GRID) * MOVE_GRID });
+        }
+      }
+      updateSelectedHUD();
+    });
     canvas.on('object:scaling', updateSelectedHUD);
     canvas.on('object:rotating', updateSelectedHUD);
 
@@ -333,7 +390,18 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
       if (!currentMode) return;
 
       isDrawing.current = true;
-      const pointer = canvas.getPointer(opt.e);
+      let pointer = canvas.getPointer(opt.e);
+      lockedWall.current = null;
+      if (smartSnapRef.current) {
+        const onWall = (currentMode === 'door' || currentMode === 'window') && nearestWall(canvas, pointer);
+        if (onWall) {
+          // openings start on the wall's centre line and run along it
+          pointer = { x: onWall.x, y: onWall.y };
+          lockedWall.current = onWall.seg;
+        } else {
+          pointer = snapPoint(canvas, pointer);
+        }
+      }
       startPos.current = { x: pointer.x, y: pointer.y };
 
       let strokeColor = '#e4e4e7';
@@ -383,7 +451,13 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
       // 2. Handle Drawing
       if (!isDrawing.current || !currentLine.current || !drawingModeRef.current) return;
       const currentMode = drawingModeRef.current;
-      const pointer = canvas.getPointer(opt.e);
+      let pointer = canvas.getPointer(opt.e);
+      const snapOn = smartSnapRef.current;
+      let endLocked = false;
+      if (snapOn && !lockedWall.current) {
+        const sp = snapPoint(canvas, pointer, currentLine.current);
+        if (sp.end) { pointer = sp; endLocked = true; }     // land exactly on another wall's end
+      }
 
       const dx = pointer.x - startPos.current.x;
       const dy = pointer.y - startPos.current.y;
@@ -394,14 +468,24 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
       // Smart Snapping (Shift key or proximity to 45 degree angles)
       const snapThreshold = 6; // degrees
       const snappedAngle = Math.round(angle / 45) * 45;
-      const isSnapped = Math.abs(angle - snappedAngle) < snapThreshold || opt.e.shiftKey;
+      let isSnapped = !endLocked && (Math.abs(angle - snappedAngle) < snapThreshold || opt.e.shiftKey || snapOn);
 
-      if (isSnapped) {
+      if (lockedWall.current) {
+        // a door / window follows its wall: either direction along it
+        const wa = lockedWall.current.angle;
+        const rad = wa * Math.PI / 180;
+        const along = dx * Math.cos(rad) + dy * Math.sin(rad);
+        angle = along >= 0 ? wa : wa + 180;
+        length = Math.abs(along);
+        isSnapped = true;
+      } else if (isSnapped) {
         angle = snappedAngle;
         const rad = angle * Math.PI / 180;
         const dot = (dx * Math.cos(rad) + dy * Math.sin(rad));
         length = Math.max(0, dot);
       }
+      if (snapOn && !endLocked) length = Math.round(length / SNAP_GRID) * SNAP_GRID;
+      if (endLocked) isSnapped = true;
 
       currentLine.current.set({
         width: length,
@@ -523,7 +607,8 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
     const existingObjs = canvas.getObjects().filter(o => !o.isGrid);
 
     // If canvas already has these elements, check for property updates without full redraw
-    if (existingObjs.length > 0 && elements.length === existingObjs.length) {
+    const sameSet = elements.length === existingObjs.length && elements.every(el => existingObjs.some(o => o.id === el.id));
+    if (existingObjs.length > 0 && sameSet) {
       let needsRerender = false;
       elements.forEach(el => {
         const match = existingObjs.find(o => o.id === el.id);
@@ -594,6 +679,31 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
       canvas.renderAll();
     }
   }, [elements]);
+
+  // Concept Viz asks for a picture of the whole plan, framed tightly, whatever the pan and zoom
+  useEffect(() => {
+    const handleSnapshot = (e) => {
+      const canvas = fabricRef.current;
+      const objs = canvas ? canvas.getObjects().filter(o => !o.isGrid) : [];
+      if (!objs.length) { e.detail.resolve(null); return; }
+      const boxes = objs.map(o => o.getBoundingRect(true, true));
+      const pad = 20;
+      const x0 = Math.min(...boxes.map(b => b.left)) - pad, y0 = Math.min(...boxes.map(b => b.top)) - pad;
+      const x1 = Math.max(...boxes.map(b => b.left + b.width)) + pad, y1 = Math.max(...boxes.map(b => b.top + b.height)) + pad;
+      const vpt = canvas.viewportTransform.slice();
+      const grid = canvas.getObjects().filter(o => o.isGrid);
+      grid.forEach(g => { g.visible = false; });
+      canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+      const scale = Math.min(4, 1400 / Math.max(x1 - x0, y1 - y0));
+      const url = canvas.toDataURL({ left: x0, top: y0, width: x1 - x0, height: y1 - y0, multiplier: scale, format: 'png' });
+      grid.forEach(g => { g.visible = true; });
+      canvas.setViewportTransform(vpt);
+      canvas.requestRenderAll();
+      e.detail.resolve({ url, aspect: (x1 - x0) / (y1 - y0) });
+    };
+    window.addEventListener('plan-snapshot', handleSnapshot);
+    return () => window.removeEventListener('plan-snapshot', handleSnapshot);
+  }, []);
 
   // Handle Dynamic Addition of Furniture
   useEffect(() => {

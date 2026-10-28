@@ -209,6 +209,8 @@ def adapt_reference(program, rng: random.Random, target_area: float | None = Non
     good = [m for m in refs if not bedroom_spread_fail(m["rects"])
             and (m["study"] > 0) == bool(want["study"])
             and (want["utility"] > 0 or not any(r["kind"] == "utility" for r in m["rects"]))]
+    if want["study"] and not any(m["study"] for m in good):
+        return None         # no house with a study: let the zoned generator build exactly what was asked
     refs = good or refs
     if not refs:
         return None
