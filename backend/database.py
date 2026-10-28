@@ -16,8 +16,11 @@ SQLITE_URL = f"sqlite:///{SQLITE_DB_PATH}"
 
 # Render, Heroku and Neon hand out "postgres://" URLs; SQLAlchemy only accepts "postgresql://"
 SQLALCHEMY_DATABASE_URL = (os.getenv("DATABASE_URL") or "").strip()
-if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
-    SQLALCHEMY_DATABASE_URL = "postgresql://" + SQLALCHEMY_DATABASE_URL[len("postgres://"):]
+# and SQLAlchemy 2.1 defaults "postgresql://" to the psycopg 3 driver, which isn't installed —
+# name psycopg2 (in requirements.txt) explicitly
+for prefix in ("postgres://", "postgresql://"):
+    if SQLALCHEMY_DATABASE_URL.startswith(prefix):
+        SQLALCHEMY_DATABASE_URL = "postgresql+psycopg2://" + SQLALCHEMY_DATABASE_URL[len(prefix):]
 
 # On a host (Render sets RENDER) the disk is wiped on every deploy and restart, so a SQLite
 # file there silently loses every account and project. Refuse to start instead.
