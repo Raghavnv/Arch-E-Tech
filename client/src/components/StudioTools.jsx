@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, Loader2, AlertTriangle, Download, ScanLine, LayoutTemplate, Image as ImageIcon } from 'lucide-react';
+import { X, Loader2, AlertTriangle, Download, ScanLine, LayoutTemplate, Image as ImageIcon, Wand2 as Wand } from 'lucide-react';
 import { detectRooms } from '../utils/detectRooms';
 
 /*
@@ -251,5 +251,92 @@ export function ConceptVizPanel({ elements, projectId, onClose, apiUrl }) {
         </div>
       )}
     </Panel>
+  );
+}
+
+// ------------------------------------------------------------------------------------------------
+// Edit with AI: a command bar under the plan ("make this door narrower")
+// ------------------------------------------------------------------------------------------------
+const TYPE_LABEL = {
+  wall: 'Wall', door: 'Door', window: 'Window', stairs: 'Stairs', furniture_bed: 'Bed', furniture_sofa: 'Sofa',
+  furniture_table: 'Table', furniture_armchair: 'Armchair', furniture_bathtub: 'Bathtub', furniture_vanity: 'Vanity',
+  furniture_kitchen: 'Kitchen counter',
+};
+const EXAMPLES = {
+  door: ['Make this door narrower', 'Make it 1 m wide', 'Move it 50 cm to the left'],
+  window: ['Make this window wider', 'Make it 1.8 m long', 'Delete this window'],
+  wall: ['Extend this wall by 1 m', 'Shorten it by 50 cm', 'Add a window in the middle of it'],
+  none: ['Make the kitchen door 1 m wide', 'Add a window to the living room', 'Make the master bedroom bigger'],
+};
+
+export function EditBar({ elements, setElements, selected, apiUrl }) {
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState(null);     // { ok, text }
+
+  const sel = selected[0];
+  const examples = EXAMPLES[sel?.type] || (sel ? EXAMPLES.door.slice(1, 2).concat(['Delete this', 'Rotate it 90 degrees']) : EXAMPLES.none);
+
+  const run = async (instruction) => {
+    const ask = (instruction ?? text).trim();
+    if (!ask || busy) return;
+    setBusy(true); setNote(null);
+    try {
+      const data = await post(`${apiUrl}/api/ai/edit-plan`, { instruction: ask, elements, selected: selected.map(s => s.id) });
+      if (data.changed > 0) {
+        setElements(data.elements);
+        setText('');
+        setNote({ ok: true, text: `${data.summary} Press Ctrl+Z (⌘Z) to undo.` });
+      } else {
+        setNote({ ok: false, text: data.summary });
+      }
+    } catch (e) {
+      setNote({ ok: false, text: e.message === 'Failed to fetch' ? "Can't reach the server. It may be waking up; try again in a few seconds." : e.message });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    // starts right of the scale box (bottom-left) and stops short of the chat button (bottom-right)
+    <div className="absolute bottom-6 left-[21rem] right-24 z-20 max-w-2xl">
+      {note && (
+        <p className={`mb-2 rounded-lg px-3 py-2 text-xs shadow-lg ${note.ok ? 'bg-emerald-500/15 text-emerald-200' : 'bg-amber-500/15 text-amber-100'}`}>
+          {note.text}
+        </p>
+      )}
+      <div className="rounded-2xl border border-zinc-700/80 bg-zinc-950/95 p-2 shadow-2xl backdrop-blur-xl">
+        <div className="flex items-center gap-2">
+          <Wand className="ml-1.5 h-4 w-4 shrink-0 text-indigo-300" />
+          {sel && (
+            <span className="shrink-0 rounded-md bg-indigo-500/15 px-2 py-1 text-[11px] text-indigo-200">
+              {selected.length > 1 ? `${selected.length} selected` : `${TYPE_LABEL[sel.type] || sel.type}${sel.length ? ` · ${sel.length.toFixed(1)} m` : ''}`}
+            </span>
+          )}
+          <input
+            value={text}
+            onChange={e => setText(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') run(); e.stopPropagation(); }}
+            placeholder={sel ? `Describe a change to the selected ${(TYPE_LABEL[sel.type] || 'item').toLowerCase()}…` : 'Edit the plan with AI, e.g. "make the kitchen door 1 m wide"'}
+            className="min-w-0 flex-1 bg-transparent px-1 py-1.5 text-sm text-white placeholder:text-zinc-500 focus:outline-none"
+            disabled={busy}
+          />
+          <button
+            onClick={() => run()}
+            disabled={busy || !text.trim()}
+            className="flex shrink-0 items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-40"
+          >
+            {busy ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Editing…</> : 'Apply'}
+          </button>
+        </div>
+        {!busy && !text && (
+          <div className="mt-1.5 flex flex-wrap gap-1.5 px-1">
+            {examples.map(x => (
+              <button key={x} onClick={() => setText(x)} className="rounded-full border border-zinc-800 px-2 py-0.5 text-[11px] text-zinc-400 hover:border-zinc-600 hover:text-zinc-200">{x}</button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

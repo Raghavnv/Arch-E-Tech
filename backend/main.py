@@ -500,6 +500,27 @@ def _ask_layout(prompt: str, program, style: str, rng):
     return None
 
 
+class PlanEditRequest(BaseModel):
+    instruction: str
+    elements: list
+    selected: list[str] = []
+
+
+@app.post("/api/ai/edit-plan")
+def edit_plan(req: PlanEditRequest):
+    """Change the plan as described ("make this door narrower"); returns the edited elements."""
+    import plan_editor
+    if not req.instruction.strip():
+        raise HTTPException(status_code=400, detail="Describe the change you want.")
+    try:
+        return plan_editor.ask(req.instruction, req.elements, req.selected, os.getenv("GROQ_API_KEY"))
+    except plan_editor.EditError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"Plan edit failed: {e}")
+        raise HTTPException(status_code=502, detail="The AI service didn't answer. Try again in a moment.")
+
+
 @app.post("/api/ai/generate-plan")
 async def generate_floor_plan(payload: AIPrompt):
     import random

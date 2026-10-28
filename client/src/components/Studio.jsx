@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
-import { AutoDetectPanel, AiLayoutPanel, ConceptVizPanel } from './StudioTools';
+import { AutoDetectPanel, AiLayoutPanel, ConceptVizPanel, EditBar } from './StudioTools';
 import { ARCHITECTURAL_TEXTURES } from '../utils/textureLibrary';
 
 const PLAIN_WALL = { id: 'mat_plain', name: 'Plain', color: '#f4f4f5' };
@@ -37,6 +37,10 @@ export default function Studio() {
   const [activeTab, setActiveTab] = useState('2D');
   const [showFurnitureCatalog, setShowFurnitureCatalog] = useState(false);
   const [toolPanel, setToolPanel] = useState(null);     // 'detect' | 'layout' | 'concept'
+  const [selectedEls, setSelectedEls] = useState([]);
+  // a one-time pointer at Photo Render for people who haven't opened it yet
+  const [showRenderTip, setShowRenderTip] = useState(() => { try { return !localStorage.getItem('seen_photo_render'); } catch { return false; } });
+  const dismissRenderTip = () => { setShowRenderTip(false); try { localStorage.setItem('seen_photo_render', '1'); } catch { /* private mode */ } };   // what is selected on the 2D plan, for "edit this" 
   const [smartSnap, setSmartSnap] = useState(() => localStorage.getItem('pref_smart_snap') === '1');
   const toggleSmartSnap = () => setSmartSnap(on => {
     try { localStorage.setItem('pref_smart_snap', on ? '0' : '1'); } catch { /* private mode */ }
@@ -651,12 +655,12 @@ export default function Studio() {
           <button 
             onClick={handleOpenRenderStudio}
             disabled={isCapturingForRender}
-            className="flex items-center justify-center gap-2 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-xs font-semibold text-white transition-colors shadow-[0_0_15px_rgba(99,102,241,0.3)] disabled:opacity-50"
+            className="flex items-center justify-center gap-2 py-2.5 rounded-lg bg-gradient-to-r from-fuchsia-500 via-violet-500 to-indigo-500 hover:brightness-110 text-xs font-semibold text-white transition-all disabled:opacity-50"
           >
             {isCapturingForRender ? (
-              <span className="flex items-center gap-1.5 animate-pulse"><Sparkles className="w-3.5 h-3.5" /> Prepping...</span>
+              <span className="flex items-center gap-1.5 animate-pulse"><Sparkles className="w-3.5 h-3.5" /> Opening...</span>
             ) : (
-              <><ImageIcon className="w-3.5 h-3.5" /> Photo Render</>
+              <><Sparkles className="w-3.5 h-3.5" /> Photo Render</>
             )}
           </button>
         </div>
@@ -716,16 +720,16 @@ export default function Studio() {
           {projectId && (
             <span
               title={syncState === 'error' ? 'Changes are kept in this browser and will be sent when the server answers' : undefined}
-              className={`text-[11px] ${syncState === 'error' ? 'text-amber-400' : 'text-zinc-500'}`}
+              className={`whitespace-nowrap px-1 text-[11px] ${syncState === 'error' ? 'text-amber-400' : 'text-zinc-500'}`}
             >
-              {syncState === 'saving' ? 'Saving…' : syncState === 'error' ? 'Not synced' : 'All changes saved'}
+              {syncState === 'saving' ? 'Saving…' : syncState === 'error' ? 'Not synced' : 'Saved'}
             </span>
           )}
 
           <button 
             onClick={saveProject}
             disabled={isSaving}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${saveSuccess ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-white/10 hover:bg-white/20 text-white'}`}
+            className={`flex items-center gap-2 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${saveSuccess ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-white/10 hover:bg-white/20 text-white'}`}
           >
             {saveSuccess ? <CheckCircle className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
             {isSaving ? 'Saving...' : saveSuccess ? 'Saved!' : syncState === 'error' ? 'Retry save' : 'Save Cloud'}
@@ -733,11 +737,35 @@ export default function Studio() {
           
           <button 
             onClick={() => flushSave('/immersive')}
-            className="flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors bg-indigo-500 hover:bg-indigo-600 text-white shadow-[0_0_15px_rgba(99,102,241,0.4)]"
+            className="flex items-center gap-2 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-medium transition-colors bg-white/10 hover:bg-white/20 text-white"
           >
-            <ImageIcon className="w-3.5 h-3.5" />
-            Immersive View
+            <Eye className="w-3.5 h-3.5" />
+            Walkthrough
           </button>
+
+          {/* the headline feature: its own colour and a NEW badge so it gets noticed */}
+          <div className="relative">
+            <button
+              onClick={() => { dismissRenderTip(); handleOpenRenderStudio(); }}
+              disabled={isCapturingForRender}
+              className="group flex items-center gap-2 whitespace-nowrap rounded-full bg-gradient-to-r from-fuchsia-500 via-violet-500 to-indigo-500 px-4 py-1.5 text-xs font-semibold text-white shadow-[0_0_18px_rgba(192,38,211,0.45)] transition-all hover:brightness-110 disabled:opacity-60"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              {isCapturingForRender ? 'Opening…' : 'Photo Render'}
+              <span className="rounded-full bg-white/25 px-1.5 py-px text-[9px] font-bold tracking-wide">NEW</span>
+            </button>
+            {showRenderTip && projectId && (
+              <div className="absolute right-0 top-full mt-3 w-64 rounded-xl border border-fuchsia-400/30 bg-zinc-900 p-3 text-left shadow-2xl">
+                <div className="absolute -top-1.5 right-8 h-3 w-3 rotate-45 border-l border-t border-fuchsia-400/30 bg-zinc-900" />
+                <p className="text-xs font-semibold text-white">See your rooms come to life</p>
+                <p className="mt-1 text-[11px] leading-snug text-zinc-400">Every room of this plan as a photo: empty first, then furnished the way you describe.</p>
+                <div className="mt-2 flex gap-2">
+                  <button onClick={() => { dismissRenderTip(); handleOpenRenderStudio(); }} className="rounded-md bg-white px-2.5 py-1 text-[11px] font-semibold text-black">Try it</button>
+                  <button onClick={dismissRenderTip} className="rounded-md px-2 py-1 text-[11px] text-zinc-400 hover:text-white">Later</button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="absolute bottom-6 left-6 z-20 flex gap-2">
@@ -768,7 +796,7 @@ export default function Studio() {
         </div>
 
         <div className={activeTab === '2D' ? 'absolute inset-0' : 'hidden'}>
-          <Canvas2D elements={canvasElements} drawingMode={drawingMode} setCanvasElements={setCanvasElements} blueprintMode={blueprintMode} activeTab={activeTab} smartSnap={smartSnap} />
+          <Canvas2D elements={canvasElements} drawingMode={drawingMode} setCanvasElements={setCanvasElements} blueprintMode={blueprintMode} activeTab={activeTab} smartSnap={smartSnap} onSelectionChange={setSelectedEls} />
         </div>
         {/* mounted only while visible: a WebGL canvas created inside a display:none box stays blank after it is shown */}
         {activeTab === '3D' && (
@@ -783,6 +811,9 @@ export default function Studio() {
           </div>
         )}
 
+        {activeTab === '2D' && !drawingMode && (
+          <EditBar elements={canvasElements} setElements={(els) => setCanvasElements(cleanElements(els))} selected={selectedEls} apiUrl={API_URL} />
+        )}
         {activeTab === '2D' && toolPanel === 'detect' && (
           <AutoDetectPanel elements={canvasElements} setElements={setCanvasElements} onClose={() => setToolPanel(null)} />
         )}

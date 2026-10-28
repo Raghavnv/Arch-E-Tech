@@ -540,6 +540,27 @@ export default function Dashboard() {
 
             </div>
 
+            {/* Photo Render feature banner */}
+            {projects.length > 0 && (
+              <div className="mx-10 mt-6 flex flex-wrap items-center gap-4 rounded-2xl border border-fuchsia-400/25 bg-gradient-to-r from-fuchsia-500/10 via-violet-500/10 to-indigo-500/10 px-5 py-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500 to-indigo-500">
+                  <Sparkles className="h-5 w-5 text-white" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-white">
+                    Photo Render <span className="rounded-full bg-fuchsia-500/20 px-1.5 py-px text-[9px] font-bold tracking-wide text-fuchsia-200">NEW</span>
+                  </p>
+                  <p className="text-xs text-zinc-400">See every room of your plan as a photo: empty first, then furnished exactly the way you describe.</p>
+                </div>
+                <Link
+                  to={`/render-studio?projectId=${projects[0].id}`}
+                  className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-fuchsia-500 via-violet-500 to-indigo-500 px-4 py-2 text-xs font-semibold text-white hover:brightness-110"
+                >
+                  Try it on {projects[0].name?.length > 22 ? 'your latest project' : `"${projects[0].name}"`} <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            )}
+
             {/* Search & Filter Toolbar */}
             <div className="px-10 pt-4 pb-2 flex flex-wrap items-center justify-between gap-4">
               <div className="relative flex-1 max-w-md">
@@ -690,10 +711,10 @@ export default function Dashboard() {
                           <div className="flex items-center gap-1.5">
                             <Link 
                               to={`/render-studio?projectId=${project.id}`} 
-                              className="p-1.5 rounded-lg bg-zinc-800/80 text-zinc-400 hover:text-purple-300 hover:bg-purple-950/40 border border-zinc-700/60 transition-colors text-xs" 
-                              title="8K Neural Render Studio"
+                              className="flex items-center gap-1 rounded-full bg-gradient-to-r from-fuchsia-500 via-violet-500 to-indigo-500 px-2.5 py-1 text-[11px] font-semibold text-white hover:brightness-110"
+                              title="See this plan's rooms as AI photos, empty and furnished"
                             >
-                              <Sparkles className="w-3.5 h-3.5" />
+                              <Sparkles className="w-3 h-3" /> Photo Render
                             </Link>
                             <Link 
                               to={`/war-room?projectId=${project.id}`} 

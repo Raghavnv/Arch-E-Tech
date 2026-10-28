@@ -134,7 +134,7 @@ function nearestWall(canvas, p) {
   return best;
 }
 
-export default function Canvas2D({ elements, drawingMode, setCanvasElements, blueprintMode, activeTab, smartSnap = false }) {
+export default function Canvas2D({ elements, drawingMode, setCanvasElements, blueprintMode, activeTab, smartSnap = false, onSelectionChange }) {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const fabricRef = useRef(null);
@@ -154,6 +154,9 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
   drawingModeRef.current = drawingMode;
   const smartSnapRef = useRef(smartSnap);
   smartSnapRef.current = smartSnap;
+  const onSelectionRef = useRef(onSelectionChange);
+  onSelectionRef.current = onSelectionChange;
+  const refreshSelectionRef = useRef(() => {});   // re-measure the selection after an outside change
   const lockedWall = useRef(null);     // the wall a door / window being drawn is sitting on
 
   // Real-time HUD states
@@ -322,9 +325,14 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
       syncElements();
       setSelectedHUD(null);
     });
-    canvas.on('selection:created', updateSelectedHUD);
-    canvas.on('selection:updated', updateSelectedHUD);
-    canvas.on('selection:cleared', () => setSelectedHUD(null));
+    const reportSelection = () => {
+      const objs = canvas.getActiveObjects().filter(o => !o.isGrid && o.id);
+      onSelectionRef.current?.(objs.map(o => ({ id: o.id, type: o.type, name: o.name, length: (o.width * (o.scaleX || 1)) / 20 })));
+    };
+    refreshSelectionRef.current = () => { if (canvas.getActiveObject()) { updateSelectedHUD(); reportSelection(); } };
+    canvas.on('selection:created', () => { updateSelectedHUD(); reportSelection(); });
+    canvas.on('selection:updated', () => { updateSelectedHUD(); reportSelection(); });
+    canvas.on('selection:cleared', () => { setSelectedHUD(null); reportSelection(); });
     canvas.on('object:moving', (opt) => {
       const o = opt.target;
       if (smartSnapRef.current && o && !o.isGrid) {
@@ -618,10 +626,24 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
             if (el.isColor) match.set('fill', el.material);
             needsRerender = true;
           }
+          // geometry changed outside the canvas (AI edit, undo/redo): move the object to match
+          const w = match.width * (match.scaleX || 1), h = match.height * (match.scaleY || 1);
+          const moved = ['left', 'top', 'angle'].some(k => Math.abs((Number(el[k]) || 0) - (match[k] || 0)) > 0.01)
+            || Math.abs((Number(el.width) || 0) - w) > 0.01 || Math.abs((Number(el.height) || 0) - h) > 0.01;
+          if (moved) {
+            match.set({ left: el.left, top: el.top, angle: el.angle || 0, width: el.width, height: el.height, scaleX: 1, scaleY: 1 });
+            match.setCoords();
+            needsRerender = true;
+          }
+          if (el.type === 'room' && (match.name !== el.name || match.kind !== el.kind || match.area !== el.area)) {
+            Object.assign(match, { name: el.name, kind: el.kind, area: el.area });
+            needsRerender = true;
+          }
         }
       });
       if (needsRerender) {
         canvas.renderAll();
+        refreshSelectionRef.current();
       }
       return;
     }
