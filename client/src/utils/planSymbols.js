@@ -57,7 +57,7 @@ function line(ctx, x1, y1, x2, y2, stroke, lw = 1) {
 
 function circle(ctx, x, y, r, fill, stroke, lw = 1) {
   ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.arc(x, y, Math.max(0, r), 0, Math.PI * 2);
   fillStroke(ctx, fill, stroke, lw);
 }
 
@@ -147,7 +147,7 @@ export function drawDoor(ctx, w, h, { swing = 1, hinge = 1, bg = '#09090b', blue
   // leaf swung open 90 degrees, with the swing arc
   const hx = hinge >= 0 ? -w / 2 + 1 : w / 2 - 1;
   const dir = hinge >= 0 ? 1 : -1;
-  const leaf = w - 2;
+  const leaf = Math.max(0, w - 2);     // a zero-width door (older saves) must not get a negative radius
   const a0 = swing >= 0 ? Math.PI / 2 : -Math.PI / 2;
   const a1 = dir > 0 ? 0 : Math.PI;
   let delta = a1 - a0;
@@ -275,7 +275,7 @@ function drawVanity(ctx, w, d) {
   box(ctx, x, y, w, d, 1.5, '#7c7370', OUT, 1);
   box(ctx, x + 1, y + 1, w - 2, d - 2, 1, '#cfc9c4', null);
   ctx.beginPath();
-  ctx.ellipse(0, d * 0.08, Math.min(w * 0.3, 7), Math.min(d * 0.3, 4.2), 0, 0, Math.PI * 2);
+  ctx.ellipse(0, d * 0.08, Math.max(0, Math.min(w * 0.3, 7)), Math.max(0, Math.min(d * 0.3, 4.2)), 0, 0, Math.PI * 2);
   fillStroke(ctx, '#f4f4f5', '#8d8782', 0.9);                              // basin
   circle(ctx, 0, -d * 0.28, 1, '#52525b');                                 // tap
 }
@@ -314,11 +314,16 @@ const FURNITURE = {
 export function drawSymbol(type, ctx, w, h, opts = {}) {
   ctx.save();
   ctx.lineJoin = 'round';
-  if (type === 'room') drawRoom(ctx, w, h, opts);
-  else if (type === 'door') drawDoor(ctx, w, h, opts);
-  else if (type === 'window') drawWindow(ctx, w, h, opts);
-  else if (type === 'stairs') drawStairs(ctx, w, h, opts);
-  else if (FURNITURE[type]) FURNITURE[type](ctx, w, h);
+  // one odd element (zero size, missing numbers) must never stop the rest of the plan drawing
+  try {
+    if (type === 'room') drawRoom(ctx, w, h, opts);
+    else if (type === 'door') drawDoor(ctx, w, h, opts);
+    else if (type === 'window') drawWindow(ctx, w, h, opts);
+    else if (type === 'stairs') drawStairs(ctx, w, h, opts);
+    else if (FURNITURE[type]) FURNITURE[type](ctx, w, h);
+  } catch (e) {
+    console.warn(`Could not draw ${type} (${w} x ${h})`, e);
+  }
   ctx.restore();
 }
 

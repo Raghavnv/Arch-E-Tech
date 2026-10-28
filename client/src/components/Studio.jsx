@@ -16,7 +16,9 @@ const PLAIN_WALL = { id: 'mat_plain', name: 'Plain', color: '#f4f4f5' };
 // saved plans can contain empty or broken entries (older versions, interrupted saves); one of them used to
 // crash the whole Studio on open, so only real elements get through
 const cleanElements = (list) => (Array.isArray(list) ? list : [])
-  .filter(el => el && typeof el === 'object' && typeof el.type === 'string');
+  .filter(el => el && typeof el === 'object' && typeof el.type === 'string')
+  // zero-length walls, doors and windows are invisible leftovers of a click without a drag
+  .filter(el => !['wall', 'door', 'window'].includes(el.type) || Number(el.width) > 1);
 
 export default function Studio() {
   const navigate = useNavigate();
