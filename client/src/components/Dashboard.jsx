@@ -82,17 +82,22 @@ export default function Dashboard() {
   // Fetch Projects from backend
   const fetchProjects = async () => {
     const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!token) { navigate('/auth'); return; }
     try {
       const res = await fetch(`${API_URL}/api/projects`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (res.ok) {
-        const data = await res.json();
-        setProjects(data);
+      if (res.status === 401) {
+        // expired login, or an account that no longer exists
+        localStorage.removeItem('token');
+        navigate('/auth');
+        return;
       }
+      if (!res.ok) throw new Error(`server answered ${res.status}`);
+      setProjects(await res.json());
     } catch (e) {
       console.error("Failed to load projects", e);
+      showToast("Couldn't load your projects. The server may be waking up; refresh in a few seconds.");
     }
   };
 
@@ -582,7 +587,12 @@ export default function Dashboard() {
                     .map((project, index) => (
                     <div 
                       key={project.id} 
-                      className="bg-zinc-900/70 backdrop-blur-md border border-zinc-800/90 rounded-2xl overflow-hidden flex flex-col justify-between hover:border-zinc-700 hover:shadow-xl transition-all group relative"
+                      role="link"
+                      tabIndex={0}
+                      // the whole card opens the project; buttons and links inside handle their own clicks
+                      onClick={(e) => { if (!e.target.closest('a, button')) navigate(`/studio?projectId=${project.id}`); }}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && e.target === e.currentTarget) navigate(`/studio?projectId=${project.id}`); }}
+                      className="bg-zinc-900/70 backdrop-blur-md border border-zinc-800/90 rounded-2xl overflow-hidden flex flex-col justify-between hover:border-zinc-700 hover:shadow-xl transition-all group relative cursor-pointer"
                     >
                       {/* Top Blueprint Visual Stage */}
                       <div className="w-full h-36 bg-[#080d1a] border-b border-zinc-800/80 relative overflow-hidden group/canvas">

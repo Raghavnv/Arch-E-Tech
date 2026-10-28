@@ -220,24 +220,20 @@ export default function NewProject() {
                           elements_data: initialElements
                         })
                       });
-                      
-                      if (createRes.ok) {
-                        const newProject = await createRes.json();
-                        navigate(`/studio?projectId=${newProject.id}`);
+                      if (createRes.status === 401) {
+                        localStorage.removeItem('token');
+                        navigate('/auth');
                         return;
                       }
+                      if (!createRes.ok) throw new Error(`server answered ${createRes.status}`);
+                      const newProject = await createRes.json();
+                      navigate(`/studio?projectId=${newProject.id}`);
                     } catch (err) {
+                      // never drop into an unsaved canvas silently: say so and let them retry
                       console.error("Failed to create project in DB", err);
+                      alert(`Couldn't save the new project (${err.message}). Please try again.`);
+                      setIsGenerating(false);
                     }
-                    
-                    setIsGenerating(false);
-                    // Fallback to local storage if DB fails
-                    if (initialElements.length > 0) {
-                      localStorage.setItem('draftElements', JSON.stringify(initialElements));
-                    } else {
-                      localStorage.removeItem('draftElements');
-                    }
-                    navigate('/studio');
                   }}
                   className={`w-full py-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
                     isGenerating || !config.name.trim() ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' : 'bg-white text-black hover:bg-zinc-200'

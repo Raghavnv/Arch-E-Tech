@@ -159,6 +159,7 @@ export default function Studio() {
   // true once the project has been read from the server; until then the empty starting canvas
   // must not be autosaved over the real plan
   const loadedRef = useRef(!projectId);
+  const [loadError, setLoadError] = useState(null);
   // set while applying the server copy, so loading it doesn't count as an unsaved edit
   const fromServerRef = useRef(false);
   const dirtyKey = projectId ? `archetech_dirty_${projectId}` : null;
@@ -188,6 +189,16 @@ export default function Studio() {
         const res = await fetch(`${API_URL}/api/projects/${projectId}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
+        if (res.status === 401) {
+          // expired login, or an account that no longer exists: sign in again, then come back here
+          localStorage.removeItem('token');
+          navigate('/auth', { replace: true });
+          return;
+        }
+        if (res.status === 404) {
+          if (isMounted) setLoadError("This project doesn't exist any more, or belongs to another account.");
+          return;
+        }
         if (!res.ok) throw new Error(`Load failed (${res.status})`);
         const data = await res.json();
         if (!isMounted) return;
@@ -204,7 +215,10 @@ export default function Studio() {
         loadedRef.current = true;
       } catch (e) {
         console.error("Cloud fetch failed, using local cache", e);
-        if (isMounted) setSyncState('error');
+        if (isMounted) {
+          setSyncState('error');
+          if (!cachedElements?.length) setLoadError("Couldn't reach the server to load this project. It may be waking up; try again in a few seconds.");
+        }
       }
     };
     loadData();
@@ -836,6 +850,18 @@ export default function Studio() {
                     </button>
                   );
                 })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {loadError && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm">
+            <div className="max-w-sm rounded-2xl border border-zinc-800 bg-zinc-900 p-6 text-center">
+              <p className="text-sm text-zinc-200">{loadError}</p>
+              <div className="mt-4 flex justify-center gap-2">
+                <button onClick={() => window.location.reload()} className="rounded-lg bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-zinc-200">Try again</button>
+                <Link to="/dashboard" className="rounded-lg bg-zinc-800 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-700">Back to dashboard</Link>
               </div>
             </div>
           </div>
