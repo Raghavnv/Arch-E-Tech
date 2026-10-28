@@ -4,6 +4,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Grid, Environment, PointerLockControls } from '@react-three/drei';
 import * as SunCalc from 'suncalc';
 import { Eye, Layers, Compass, Maximize2, X } from 'lucide-react';
+import { useWallMaterial } from '../utils/wallTexture';
 
 const SCALE = 0.05; // 1 unit in 2D (px) = 0.05m in 3D (e.g. 100px = 5m)
 const WALL_HEIGHT = 3.0; // 3 meters
@@ -182,42 +183,6 @@ function useProcessedArchitecture(elements) {
 // 2. TEXTURE & MATERIAL LOADER HELPER
 // =================================================================
 
-function useWallMaterial(material, isColor, length, height) {
-  const [texture, setTexture] = useState(null);
-
-  useEffect(() => {
-    if (material && !isColor && (material.startsWith('http') || material.startsWith('data:image'))) {
-      const loader = new THREE.TextureLoader();
-      loader.setCrossOrigin('anonymous');
-      loader.load(
-        material,
-        tex => {
-          tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-          tex.repeat.set(Math.max(length / 2, 1), Math.max(height / 2, 1));
-          tex.colorSpace = THREE.SRGBColorSpace;
-          tex.needsUpdate = true;
-          setTexture(tex);
-        },
-        undefined,
-        () => setTexture(null)
-      );
-    } else {
-      setTexture(null);
-    }
-  }, [material, isColor, length, height]);
-
-  // `key` makes React build a fresh material when the kind of surface changes: a material compiled
-  // without a map never picks one up later, which is what turned painted walls black
-  if (texture) {
-    return { key: `map-${texture.uuid}`, map: texture, color: '#ffffff', roughness: 0.7 };
-  }
-  if (isColor && material) {
-    return { key: `color-${material}`, color: material, roughness: 0.9 };
-  }
-  return { key: 'plain', color: '#f4f4f5', roughness: 0.85 };
-}
-
-
 /**
  * Renders a <meshStandardMaterial> from the props object returned by useWallMaterial.
  * This ensures each mesh gets its own material instance.
@@ -252,7 +217,7 @@ function ArchitecturalWall({ wall, onPaint }) {
           rotation={[0, rotY, 0]}
           castShadow
           receiveShadow
-          onClick={(e) => { e.stopPropagation(); onPaint?.(id); }}
+          onClick={(e) => { e.stopPropagation(); if (e.delta <= 4) onPaint?.(id); }}
         >
           <boxGeometry args={[segLen, WALL_HEIGHT, depth]} />
           <WallMaterial matProps={matProps} />
@@ -390,7 +355,7 @@ function ArchitecturalWall({ wall, onPaint }) {
         rotation={[0, rotY, 0]}
         castShadow
         receiveShadow
-        onClick={(e) => { e.stopPropagation(); onPaint?.(id); }}
+        onClick={(e) => { e.stopPropagation(); if (e.delta <= 4) onPaint?.(id); }}
       >
         <boxGeometry args={[segLen, WALL_HEIGHT, depth]} />
         <WallMaterial matProps={matProps} />
@@ -451,6 +416,8 @@ function ProceduralFurniture({ el }) {
       <group position={[cx, 0, cz]} rotation={[0, rotY, 0]}>
         <mesh position={[0, 0.15, 0]} castShadow receiveShadow><boxGeometry args={[w, 0.3, d]} /><meshStandardMaterial color="#1e1e24" roughness={0.7} /></mesh>
         <mesh position={[0, 0.45, 0]} castShadow receiveShadow><boxGeometry args={[w * 0.94, 0.3, d * 0.94]} /><meshStandardMaterial color="#f8fafc" roughness={0.9} /></mesh>
+        {/* blanket over the foot end, so the bed reads against a pale floor */}
+        <mesh position={[0, 0.61, d * 0.16]} castShadow receiveShadow><boxGeometry args={[w * 0.96, 0.04, d * 0.6]} /><meshStandardMaterial color="#64748b" roughness={0.95} /></mesh>
         <mesh position={[0, 0.7, -d * 0.46]} castShadow receiveShadow><boxGeometry args={[w, 0.8, 0.1]} /><meshStandardMaterial color="#2d2d38" roughness={0.8} /></mesh>
         <mesh position={[-w * 0.25, 0.65, -d * 0.32]} rotation={[0.2, 0, 0]} castShadow><boxGeometry args={[w * 0.38, 0.12, d * 0.2]} /><meshStandardMaterial color="#e2e8f0" roughness={0.9} /></mesh>
         <mesh position={[w * 0.25, 0.65, -d * 0.32]} rotation={[0.2, 0, 0]} castShadow><boxGeometry args={[w * 0.38, 0.12, d * 0.2]} /><meshStandardMaterial color="#e2e8f0" roughness={0.9} /></mesh>

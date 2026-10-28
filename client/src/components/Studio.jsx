@@ -11,6 +11,8 @@ import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
 import { ARCHITECTURAL_TEXTURES } from '../utils/textureLibrary';
 
+const PLAIN_WALL = { id: 'mat_plain', name: 'Plain', color: '#f4f4f5' };
+
 export default function Studio() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -213,33 +215,25 @@ export default function Studio() {
   const [selectedMaterial, setSelectedMaterial] = useState(null);
   const TEXTURE_LIBRARY = ARCHITECTURAL_TEXTURES;
 
+  // what a wall stores for the active brush ("Plain" clears the paint)
+  const paintFor = (mat) => mat.id === PLAIN_WALL.id
+    ? { material: null, isColor: false }
+    : { material: mat.url || mat.color, isColor: !mat.url };
+
   const handlePaintWall = (elementId) => {
     if (!selectedMaterial) return;
-    setCanvasElements(prev => prev.map((el, idx) => {
-      const matchId = el.id || `wall_${idx}`;
-      if (matchId === elementId || el.id === elementId) {
-        return { 
-          ...el, 
-          material: selectedMaterial.url || selectedMaterial.color, 
-          isColor: !selectedMaterial.url 
-        };
-      }
-      return el;
+    // the 3D view numbers walls that have no id by their position among the walls
+    let wallIdx = -1;
+    setCanvasElements(prev => prev.map(el => {
+      if (el.type !== 'wall') return el;
+      wallIdx += 1;
+      return (el.id || `wall_${wallIdx}`) === elementId ? { ...el, ...paintFor(selectedMaterial) } : el;
     }));
   };
 
   const handlePaintAllWalls = () => {
     if (!selectedMaterial) return;
-    setCanvasElements(prev => prev.map(el => {
-      if (el.type === 'wall') {
-        return {
-          ...el,
-          material: selectedMaterial.url || selectedMaterial.color,
-          isColor: !selectedMaterial.url
-        };
-      }
-      return el;
-    }));
+    setCanvasElements(prev => prev.map(el => (el.type === 'wall' ? { ...el, ...paintFor(selectedMaterial) } : el)));
   };
 
   const generatePDFReport = async () => {
@@ -765,16 +759,16 @@ export default function Studio() {
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-[10px] text-zinc-400 mb-3">Click any item to drop into center.</p>
+            <p className="text-[10px] text-zinc-400 mb-3">Click an item to place it in the middle of the view, then drag it into position.</p>
             <div className="flex flex-col gap-2">
               {[
-                { type: 'furniture_bed', name: 'King Platform Bed', sub: '80" x 75"', badge: 'BED' },
-                { type: 'furniture_sofa', name: 'L-Sectional Lounge', sub: '90" x 40"', badge: 'SOFA' },
-                { type: 'furniture_table', name: 'Executive Dining Table', sub: '75" x 45"', badge: 'DINING' },
-                { type: 'furniture_armchair', name: 'Designer Armchair', sub: '35" x 35"', badge: 'CHAIR' },
-                { type: 'furniture_bathtub', name: 'Freestanding Bathtub', sub: '65" x 32"', badge: 'BATH' },
-                { type: 'furniture_vanity', name: 'Double Vanity Sink', sub: '60" x 22"', badge: 'SINK' },
-                { type: 'furniture_kitchen', name: 'Kitchen Island w/ Stove', sub: '84" x 36"', badge: 'KITCHEN' },
+                { type: 'furniture_bed', name: 'King Platform Bed', sub: '1.8 × 2.1 m', badge: 'BED' },
+                { type: 'furniture_sofa', name: 'L-Sectional Lounge', sub: '2.2 × 0.9 m', badge: 'SOFA' },
+                { type: 'furniture_table', name: 'Executive Dining Table', sub: '1.6 × 0.9 m', badge: 'DINING' },
+                { type: 'furniture_armchair', name: 'Designer Armchair', sub: '0.8 × 0.8 m', badge: 'CHAIR' },
+                { type: 'furniture_bathtub', name: 'Freestanding Bathtub', sub: '1.7 × 0.8 m', badge: 'BATH' },
+                { type: 'furniture_vanity', name: 'Double Vanity Sink', sub: '1.2 × 0.55 m', badge: 'SINK' },
+                { type: 'furniture_kitchen', name: 'Kitchen Island w/ Stove', sub: '2.8 × 0.65 m', badge: 'KITCHEN' },
               ].map((item) => (
                 <button 
                   key={item.type}
@@ -795,63 +789,53 @@ export default function Studio() {
         )}
 
         {activeTab === '3D' && (
-          <div className="absolute top-24 right-6 w-64 bg-zinc-950/90 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col z-20">
+          <div className="absolute top-24 right-6 w-72 max-h-[calc(100%-8rem)] bg-zinc-950/90 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl flex flex-col z-20">
             <div className="p-4 border-b border-zinc-800">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                Material Painter
-              </h3>
-              <p className="text-[10px] text-zinc-400 mt-1">Select a material, then click a wall to paint.</p>
-            </div>
-            
-            {selectedMaterial && (
-              <div className="p-3 bg-zinc-900 border-b border-zinc-800 flex flex-col gap-2">
-                <div className="flex items-center gap-3">
-                  <div 
-                    className="w-10 h-10 rounded border-2 border-indigo-500 overflow-hidden shrink-0"
-                    style={{ backgroundColor: selectedMaterial.color || '#000' }}
+              <h3 className="text-sm font-bold text-white">Material Painter</h3>
+              <p className="text-[11px] text-zinc-400 mt-1">
+                {selectedMaterial
+                  ? <>Painting with <span className="text-white">{selectedMaterial.name}</span>. Click walls to apply, or pick another material.</>
+                  : 'Pick a material, then click walls to paint them.'}
+              </p>
+              {selectedMaterial && (
+                <div className="mt-3 flex gap-2">
+                  <button
+                    onClick={handlePaintAllWalls}
+                    className="flex-1 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition-colors"
                   >
-                    {selectedMaterial.url && <img src={selectedMaterial.url} className="w-full h-full object-cover" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-white truncate">Active Brush</p>
-                    <p className="text-[10px] text-zinc-400 truncate">{selectedMaterial.name}</p>
-                  </div>
-                  <button 
+                    Apply to all walls
+                  </button>
+                  <button
                     onClick={() => setSelectedMaterial(null)}
-                    className="p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-white"
+                    className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] font-medium transition-colors"
                   >
-                    <X className="w-4 h-4" />
+                    Done
                   </button>
                 </div>
-                <button
-                  onClick={handlePaintAllWalls}
-                  className="w-full py-1.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition-all shadow-[0_0_12px_rgba(99,102,241,0.4)] flex items-center justify-center gap-1.5"
-                >
-                  <Sparkles className="w-3.5 h-3.5" /> Apply to All Walls
-                </button>
-              </div>
-            )}
+              )}
+            </div>
 
-            <div className="p-3 h-64 overflow-y-auto overscroll-contain pointer-events-auto custom-scrollbar relative z-50">
-
-              <div className="grid grid-cols-2 gap-2">
-                {TEXTURE_LIBRARY.map((mat) => (
-                  <button
-                    key={mat.id}
-                    type="button"
-                    onClick={() => setSelectedMaterial(mat)}
-                    style={{ backgroundColor: mat.color || '#333' }}
-                    className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
-                      selectedMaterial?.id === mat.id ? 'border-indigo-500 scale-95 ring-2 ring-indigo-500/40' : 'border-zinc-800 hover:border-zinc-500'
-                    }`}
-                  >
-                    {mat.url && <img src={mat.url} alt={mat.name} className="w-full h-full object-cover pointer-events-none" />}
-                    <div className="absolute inset-x-0 bottom-0 bg-black/80 backdrop-blur-md p-1.5 border-t border-white/10">
-                      <p className="text-[9px] font-semibold text-white truncate text-center">{mat.name}</p>
-                    </div>
-                  </button>
-                ))}
+            <div className="p-3 overflow-y-auto overscroll-contain custom-scrollbar">
+              <div className="grid grid-cols-3 gap-2">
+                {[PLAIN_WALL, ...TEXTURE_LIBRARY].map((mat) => {
+                  const active = selectedMaterial?.id === mat.id;
+                  return (
+                    <button
+                      key={mat.id}
+                      type="button"
+                      title={mat.name}
+                      // picking a different material switches the brush straight away; the active one toggles off
+                      onClick={() => setSelectedMaterial(active ? null : mat)}
+                      style={{ backgroundColor: mat.color || '#333' }}
+                      className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                        active ? 'border-indigo-400 ring-2 ring-indigo-400/40' : 'border-zinc-800 hover:border-zinc-500'
+                      }`}
+                    >
+                      {mat.url && <img src={mat.url} alt="" className="w-full h-full object-cover pointer-events-none" />}
+                      <span className="absolute inset-x-0 bottom-0 bg-black/75 px-1 py-0.5 text-[9px] font-medium text-white truncate text-center">{mat.name}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>

@@ -81,6 +81,17 @@ function get3DSpecs(type, lengthMeters) {
   }
 }
 
+// real footprint at 20 px = 1 m (the same sizes the plan generator uses), plus a fill for the 2D symbol
+const FURNITURE_SIZE = {
+  furniture_bed: [36, 42, '#cbd5e1'],       // 1.8 x 2.1 m
+  furniture_sofa: [44, 18, '#818cf8'],      // 2.2 x 0.9 m
+  furniture_table: [32, 18, '#fbbf24'],     // 1.6 x 0.9 m
+  furniture_armchair: [16, 16, '#22d3ee'],  // 0.8 x 0.8 m
+  furniture_bathtub: [34, 16, '#e2e8f0'],   // 1.7 x 0.8 m
+  furniture_vanity: [24, 11, '#e2e8f0'],    // 1.2 x 0.55 m
+  furniture_kitchen: [56, 13, '#a8a29e'],   // 2.8 x 0.65 m counter run
+};
+
 export default function Canvas2D({ elements, drawingMode, setCanvasElements, blueprintMode, activeTab }) {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
@@ -92,6 +103,7 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
   const currentLine = useRef(null);
   const startPos = useRef({ x: 0, y: 0 });
   const hasLoadedElements = useRef(false);
+  const addedCount = useRef(0);
   // true while elements are being swapped in programmatically, so removals don't write a half-empty list back
   const reloadingRef = useRef(false);
 
@@ -590,15 +602,31 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
       const canvas = fabricRef.current;
       if (!canvas) return;
 
-      let width, height, fill;
-      if (type === 'furniture_bed') { width = 120; height = 160; fill = '#cbd5e1'; }
-      else if (type === 'furniture_sofa') { width = 160; height = 70; fill = '#818cf8'; }
-      else if (type === 'furniture_table') { width = 140; height = 90; fill = '#fbbf24'; }
+      const size = FURNITURE_SIZE[type];
+      if (!size) return;
+      const [width, height, fill] = size;
+      // drop it in the middle of what is on screen, whatever the pan and zoom; when that is
+      // outside the house, use the middle of the house instead so it is never lost in empty space
+      let centre = fabric.util.transformPoint(
+        new fabric.Point(canvas.getWidth() / 2, canvas.getHeight() / 2),
+        fabric.util.invertTransform(canvas.viewportTransform)
+      );
+      const shell = canvas.getObjects().filter(o => o.type === 'wall' || o.type === 'room').map(o => o.getBoundingRect(true, true));
+      if (shell.length) {
+        const x0 = Math.min(...shell.map(b => b.left)), y0 = Math.min(...shell.map(b => b.top));
+        const x1 = Math.max(...shell.map(b => b.left + b.width)), y1 = Math.max(...shell.map(b => b.top + b.height));
+        if (centre.x < x0 || centre.x > x1 || centre.y < y0 || centre.y > y1) {
+          centre = new fabric.Point((x0 + x1) / 2, (y0 + y1) / 2);
+        }
+      }
+      // several pieces added in a row fan out instead of stacking on one spot
+      const step = (addedCount.current++ % 6) * 6;
+      centre = new fabric.Point(centre.x + step, centre.y + step);
 
       const rect = new fabric.Rect({
-        id: Math.random().toString(36).substr(2, 9),
-        left: canvas.width / 2 - width / 2,
-        top: canvas.height / 2 - height / 2,
+        id: `${type}_${Math.random().toString(36).slice(2, 9)}`,
+        left: centre.x - width / 2,
+        top: centre.y,
         width, height, fill,
         type: type,
         originX: 'left',

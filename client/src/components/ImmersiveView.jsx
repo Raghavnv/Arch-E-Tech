@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Environment, ContactShadows } from '@react-three/drei';
 import { ArrowLeft, CloudRain, Snowflake, Sun, Cloud, Moon, Image as ImageIcon } from 'lucide-react';
+import { useWallMaterial } from '../utils/wallTexture';
 
 function HighFidelityElement({ el }) {
   const scale = 0.05;
@@ -20,28 +21,7 @@ function HighFidelityElement({ el }) {
   if (el.type === 'door') { height = 2.2; yPos = height / 2; }
   else if (el.type === 'window') { height = 1.2; yPos = 1.5; }
   
-  const [texture, setTexture] = useState(null);
-  
-  useEffect(() => {
-    if (el.material && el.type === 'wall') {
-      if (el.isColor || !el.material.startsWith('http')) {
-        setTexture(null);
-      } else {
-        const loader = new THREE.TextureLoader();
-        loader.setCrossOrigin('anonymous');
-        loader.load(el.material, (tex) => {
-          tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-          tex.repeat.set(length / 2, height / 2);
-          setTexture(tex);
-        }, undefined, (err) => {
-          console.error("Texture load failed", err);
-          setTexture(null);
-        });
-      }
-    } else {
-      setTexture(null);
-    }
-  }, [el.material, length, height, el.isColor]);
+  const wallMat = useWallMaterial(el.type === 'wall' ? el.material : null, el.isColor, length, height);
 
   let materialProps;
   if (el.type === 'door') {
@@ -53,13 +33,8 @@ function HighFidelityElement({ el }) {
       />
     );
   } else {
-    if (texture) {
-      materialProps = <meshStandardMaterial key={texture.uuid} map={texture} roughness={0.8} />;
-    } else if (el.isColor && el.material) {
-      materialProps = <meshStandardMaterial key={el.material} color={el.material} roughness={1} />;
-    } else {
-      materialProps = <meshStandardMaterial key="default" color="#f4f4f5" roughness={1} />;
-    }
+    const { key, ...props } = wallMat;
+    materialProps = <meshStandardMaterial key={key} {...props} />;
   }
 
   const rotationRad = -((el?.angle || 0) * Math.PI) / 180;
