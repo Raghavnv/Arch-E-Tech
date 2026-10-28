@@ -43,3 +43,19 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def add_missing_columns():
+    """create_all() never alters existing tables, so add columns introduced after a table was created."""
+    from sqlalchemy import inspect, text
+    insp = inspect(engine)
+    with engine.begin() as conn:
+        for table in Base.metadata.sorted_tables:
+            if not insp.has_table(table.name):
+                continue
+            have = {c["name"] for c in insp.get_columns(table.name)}
+            for col in table.columns:
+                if col.name not in have:
+                    ddl = col.type.compile(dialect=engine.dialect)
+                    conn.execute(text(f'ALTER TABLE {table.name} ADD COLUMN {col.name} {ddl}'))
+                    logger.info(f"Added column {table.name}.{col.name}")
