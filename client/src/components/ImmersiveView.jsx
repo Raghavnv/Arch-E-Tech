@@ -105,9 +105,12 @@ function ProceduralFurniture({ el }) {
 }
 
 // Particle System for Weather
+// hooks can't sit behind the early return, so the particles live in their own component
 function WeatherSystem({ type }) {
-  if (type === 'clear') return null;
+  return type === 'clear' ? null : <WeatherParticles type={type} />;
+}
 
+function WeatherParticles({ type }) {
   const count = type === 'rain' ? 8000 : 3000;
   const positions = useMemo(() => {
     const p = new Float32Array(count * 3);
