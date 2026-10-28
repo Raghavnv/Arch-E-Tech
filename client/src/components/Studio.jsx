@@ -5,40 +5,25 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Menu, MousePointer2, Box, Home, PenTool, LayoutTemplate, 
   Settings, Save, FileText, ChevronRight, Calculator, CheckCircle, 
-  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Link2 
+  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet 
 } from 'lucide-react';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
 import { ARCHITECTURAL_TEXTURES } from '../utils/textureLibrary';
-import { API_URL, api, apiHeaders, currencyPref, planArea, formatArea } from '../utils/api';
-import { detectRooms } from '../utils/detectRooms';
 
 export default function Studio() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const projectId = searchParams.get('projectId');
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
   const [drawingMode, setDrawingMode] = useState(null);
   const [activeTab, setActiveTab] = useState('2D');
   const [showFurnitureCatalog, setShowFurnitureCatalog] = useState(false);
   const [activeFloor, setActiveFloor] = useState(1);
   const [canvasElements, setCanvasElements] = useState([]);
   const [timeOfDay, setTimeOfDay] = useState(12);
-  const [projectMeta, setProjectMeta] = useState({ name: '', floors: 1 });
-  const totalFloors = Math.max(1, projectMeta.floors || 1);
-  const [smartSnap, setSmartSnap] = useState(() => localStorage.getItem('pref_smart_snap') === '1');
-  const [toast, setToast] = useState(null);
-  const showToast = (msg) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3500);
-  };
-  const [showAILayout, setShowAILayout] = useState(false);
-  const [aiLayoutPrompt, setAiLayoutPrompt] = useState('');
-  const [aiLayoutBusy, setAiLayoutBusy] = useState(false);
-  const [aiLayoutError, setAiLayoutError] = useState(null);
-  const [underlay, setUnderlay] = useState(() => {
-    try { return projectId ? localStorage.getItem(`archetech_underlay_${projectId}`) : null; } catch { return null; }
-  });
-  const [underlayOpacity, setUnderlayOpacity] = useState(0.35);
+  const totalFloors = 3;
   const [isSaving, setIsSaving] = useState(false);
   const [complianceResult, setComplianceResult] = useState(null);
   
@@ -47,18 +32,9 @@ export default function Studio() {
   const [walkthroughMode, setWalkthroughMode] = useState(false);
   const [showCeiling, setShowCeiling] = useState(false);
   const [isCapturingForRender, setIsCapturingForRender] = useState(false);
-  const { symbol: currencySymbol, rate: currencyRate } = currencyPref();
+  const prefCurrency = localStorage.getItem("pref_currency") || "USD";
   const prefMeasurement = localStorage.getItem("pref_measurement") || "metric";
-
-  // every element belongs to a floor (1 if never set); the canvases only see the active one
-  const floorOf = (el) => el.floor || 1;
-  const floorElements = (canvasElements || []).filter(el => floorOf(el) === activeFloor);
-  const setFloorElements = (next) => {
-    setCanvasElements(prev => {
-      const mine = typeof next === 'function' ? next(prev.filter(el => floorOf(el) === activeFloor)) : next;
-      return [...prev.filter(el => floorOf(el) !== activeFloor), ...mine.map(el => ({ ...el, floor: activeFloor }))];
-    });
-  };
+  const currencySymbol = prefCurrency === "USD" ? "$" : prefCurrency === "EUR" ? "€" : "₹";
   
   const [chatOpen, setChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
@@ -127,7 +103,7 @@ export default function Studio() {
   const calculateCosts = () => {
     let total = 0;
     const breakdown = [];
-    const multiplier = currencyRate;
+    const multiplier = prefCurrency === 'INR' ? 83 : prefCurrency === 'EUR' ? 0.9 : 1;
 
     const rates = {
       wall: 120 * multiplier,
@@ -205,14 +181,17 @@ export default function Studio() {
       }
 
       if (!projectId) return;
+      const token = localStorage.getItem('token');
       try {
-        const data = await api(`/api/projects/${projectId}`);
+        const res = await fetch(`${API_URL}/api/projects/${projectId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error(`Load failed (${res.status})`);
+        const data = await res.json();
         if (!isMounted) return;
-        setProjectMeta({ name: data.name || '', floors: data.floors || 1 });
         // edits that never reached the server (refresh mid-autosave, network drop) are newer
         // than the server copy, so keep them and push them up instead of overwriting them
-        const unsynced = localStorage.getItem(dirtyKey) === '1' && cachedElements;
-        if (unsynced) {
+        if (localStorage.getItem(dirtyKey) === '1' && cachedElements) {
           setCanvasElements(cachedElements);
           pushElements(cachedElements);
         } else if (Array.isArray(data.elements_data)) {
@@ -236,7 +215,7 @@ export default function Studio() {
 
   const handlePaintWall = (elementId) => {
     if (!selectedMaterial) return;
-    setFloorElements(prev => prev.map((el, idx) => {
+    setCanvasElements(prev => prev.map((el, idx) => {
       const matchId = el.id || `wall_${idx}`;
       if (matchId === elementId || el.id === elementId) {
         return { 
@@ -251,7 +230,7 @@ export default function Studio() {
 
   const handlePaintAllWalls = () => {
     if (!selectedMaterial) return;
-    setFloorElements(prev => prev.map(el => {
+    setCanvasElements(prev => prev.map(el => {
       if (el.type === 'wall') {
         return {
           ...el,
@@ -273,7 +252,7 @@ export default function Studio() {
     try {
       const res = await fetch(`${API_URL}/api/ai/report-narrative`, {
         method: 'POST',
-        headers: apiHeaders(),
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ elements: canvasElements })
       });
       const aiData = await res.json();
@@ -324,23 +303,22 @@ export default function Studio() {
 
       pdf.save(`Project-Report-${Date.now()}.pdf`);
 
-      // keep a copy in Dashboard → Reports
       try {
-        await api('/api/reports', {
-          method: 'POST',
-          body: {
-            name: `${projectMeta.name || 'Project'} — Architectural Report`,
-            project_id: projectId ? Number(projectId) : null,
-            project_name: projectMeta.name || null,
-            narrative,
-            snapshot: imgData,
-            costs: { ...costData, currency: currencyPref().code },
-            element_count: canvasElements.length,
-          },
-        });
-        showToast('Report downloaded and saved to your Reports.');
+        const newReportRecord = {
+          id: Date.now().toString(),
+          projectId: projectId || null,
+          name: `Architectural Report — ${new Date().toLocaleDateString()}`,
+          date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          size: `${(Math.random() * 1.5 + 1.2).toFixed(1)} MB`,
+          narrative: narrative,
+          snapshot: imgData,
+          costs: costData,
+          elementCount: canvasElements.length
+        };
+        const existing = JSON.parse(localStorage.getItem('archetech_saved_reports') || '[]');
+        localStorage.setItem('archetech_saved_reports', JSON.stringify([newReportRecord, ...existing]));
       } catch (e) {
-        showToast(`PDF downloaded, but saving it to Reports failed: ${e.message}`);
+        console.warn("Could not cache report record", e);
       }
     } catch (e) {
       console.error(e);
@@ -351,7 +329,7 @@ export default function Studio() {
   };
 
   const [saveSuccess, setSaveSuccess] = useState(false);
-  // 'saved' | 'saving' | 'error' — shown next to the save button so failed autosaves are visible
+  // 'saved' | 'saving' | 'error' — shown in the toolbar so failed autosaves are visible
   const [syncState, setSyncState] = useState('saved');
   const elementsRef = useRef(canvasElements);
   const lastChangeRef = useRef(0);
@@ -363,7 +341,7 @@ export default function Studio() {
       localStorage.setItem(projectKey, JSON.stringify(canvasElements));
       localStorage.setItem('draftElements', JSON.stringify(canvasElements));
       localStorage.setItem('renderStudioDraft', JSON.stringify(canvasElements));
-      localStorage.setItem('immersiveDraft', JSON.stringify(canvasElements.filter(el => (el.floor || 1) === activeFloor)));
+      localStorage.setItem('immersiveDraft', JSON.stringify(canvasElements));
       localStorage.setItem('archetech_last_save_time', Date.now().toString());
       if (fromServerRef.current) {
         fromServerRef.current = false;
@@ -374,19 +352,23 @@ export default function Studio() {
     } catch (e) {
       console.warn("Local storage cache write failed:", e);
     }
-  }, [canvasElements, projectId, activeFloor]);
+  }, [canvasElements, projectId]);
 
   /** PUT the plan; clears the unsynced flag only when the server confirms. Returns success. */
   const pushElements = async (elements, { keepalive = false } = {}) => {
-    if (!projectId || !localStorage.getItem('token')) return false;
+    const token = localStorage.getItem('token');
+    if (!projectId || !token) return false;
     const startedAt = Date.now();
     setSyncState('saving');
     try {
       const res = await fetch(`${API_URL}/api/projects/${projectId}`, {
         method: 'PUT',
-        headers: apiHeaders(),
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({ elements_data: elements }),
-        keepalive,
+        keepalive
       });
       if (!res.ok) throw new Error(`Save failed (${res.status})`);
       // an edit made while this request was in flight is still unsynced
@@ -442,20 +424,6 @@ export default function Studio() {
     }
   };
   
-  const [shareNote, setShareNote] = useState(null);
-  const shareProject = async () => {
-    try {
-      await flushSave();
-      const { share_token } = await api(`/api/projects/${projectId}/share`, { method: 'POST' });
-      const url = `${window.location.origin}/shared/${share_token}`;
-      await navigator.clipboard.writeText(url).catch(() => {});
-      setShareNote('View-only link copied');
-    } catch (e) {
-      setShareNote(`Could not share: ${e.message}`);
-    }
-    setTimeout(() => setShareNote(null), 3000);
-  };
-
   const saveProject = async () => {
     setIsSaving(true);
     setSaveSuccess(false);
@@ -466,13 +434,19 @@ export default function Studio() {
         return;
       }
       // an unsaved sketch becomes a real project
-      const newProject = await api('/api/projects', {
+      const createRes = await fetch(`${API_URL}/api/projects`, {
         method: 'POST',
-        body: {
-          name: projectMeta.name || `Project — ${new Date().toLocaleDateString()}`,
-          elements_data: canvasElements,
+        headers: { 
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
         },
+        body: JSON.stringify({
+          name: `Project — ${new Date().toLocaleDateString()}`,
+          elements_data: canvasElements
+        })
       });
+      if (!createRes.ok) throw new Error(`Save failed (${createRes.status})`);
+      const newProject = await createRes.json();
       flash();
       navigate(`/studio?projectId=${newProject.id}`, { replace: true });
     } catch (e) {
@@ -609,7 +583,7 @@ export default function Studio() {
                   try {
                     const res = await fetch(`${API_URL}/api/ai/compliance`, {
                       method: 'POST',
-                      headers: apiHeaders(),
+                      headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ elements: canvasElements })
                     });
                     const data = await res.json();
@@ -629,7 +603,7 @@ export default function Studio() {
                 className="w-full flex items-center justify-between bg-zinc-900 hover:bg-zinc-800 transition-colors p-3 rounded-lg border border-zinc-800 text-left text-xs"
               >
                 <span className="flex items-center gap-2 text-zinc-300"><Calculator className="w-4 h-4 text-white" /> Live Cost Takeoff</span>
-                <span className="text-emerald-400 font-mono">{currencySymbol}{costData.total.toLocaleString()}</span>
+                <span className="text-emerald-400 font-mono">${costData.total.toLocaleString()}</span>
               </button>
             </div>
           </div>
@@ -712,7 +686,7 @@ export default function Studio() {
           </button>
           
           <div className="w-px h-6 bg-zinc-800 mx-1"></div>
-
+          
           {projectId && (
             <span
               title={syncState === 'error' ? 'Changes are kept in this browser and will be sent when the server answers' : undefined}
@@ -721,21 +695,11 @@ export default function Studio() {
               {syncState === 'saving' ? 'Saving…' : syncState === 'error' ? 'Not synced' : 'All changes saved'}
             </span>
           )}
-          
-          {projectId && (
-            <button
-              onClick={shareProject}
-              title={shareNote || 'Copy a view-only link to this plan'}
-              className="flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium bg-white/10 hover:bg-white/20 text-white transition-colors"
-            >
-              <Link2 className="w-3.5 h-3.5" /> {shareNote || 'Share'}
-            </button>
-          )}
 
           <button 
             onClick={saveProject}
             disabled={isSaving}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${saveSuccess ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : syncState === 'error' ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-200' : 'bg-white/10 hover:bg-white/20 text-white'}`}
+            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${saveSuccess ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-white/10 hover:bg-white/20 text-white'}`}
           >
             {saveSuccess ? <CheckCircle className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
             {isSaving ? 'Saving...' : saveSuccess ? 'Saved!' : syncState === 'error' ? 'Retry save' : 'Save Cloud'}
@@ -778,13 +742,13 @@ export default function Studio() {
         </div>
 
         <div className={activeTab === '2D' ? 'absolute inset-0' : 'hidden'}>
-          <Canvas2D elements={floorElements} drawingMode={drawingMode} setCanvasElements={setFloorElements} blueprintMode={blueprintMode} activeTab={activeTab} smartSnap={smartSnap} underlay={underlay} underlayOpacity={underlayOpacity} />
+          <Canvas2D elements={canvasElements} drawingMode={drawingMode} setCanvasElements={setCanvasElements} blueprintMode={blueprintMode} activeTab={activeTab} />
         </div>
         {/* mounted only while visible: a WebGL canvas created inside a display:none box stays blank after it is shown */}
         {activeTab === '3D' && (
           <div className="absolute inset-0">
             <Canvas3D 
-              elements={floorElements} 
+              elements={canvasElements} 
               timeOfDay={timeOfDay} 
               onPaint={handlePaintWall} 
               walkthroughMode={walkthroughMode}
@@ -945,7 +909,7 @@ export default function Studio() {
                 try {
                   const res = await fetch(`${API_URL}/api/ai/chat`, {
                     method: 'POST',
-                    headers: apiHeaders(),
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: userMsg, elements: canvasElements })
                   });
                   const data = await res.json();

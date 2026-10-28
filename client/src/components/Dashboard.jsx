@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { api } from '../utils/api';
 import jsPDF from 'jspdf';
 import { 
   Plus, LayoutDashboard, Settings, LogOut, Clock, MoreVertical, 
@@ -82,13 +81,18 @@ export default function Dashboard() {
 
   // Fetch Projects from backend
   const fetchProjects = async () => {
-    if (!localStorage.getItem('token')) return;
+    const token = localStorage.getItem('token');
+    if (!token) return;
     try {
-      setProjects(await api('/api/projects'));
+      const res = await fetch(`${API_URL}/api/projects`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProjects(data);
+      }
     } catch (e) {
       console.error("Failed to load projects", e);
-      // an empty list here would look like the projects were deleted
-      showToast(`Couldn't load your projects (${e.message}). They're safe on the server, try refreshing.`);
     }
   };
 
