@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   ArrowLeft, ArrowRight, AlertCircle, X, Mail, Lock, User, 
-  Eye, EyeOff, Sparkles, ShieldCheck, Activity, Box, Layers, Zap, CheckCircle2 
+  Eye, EyeOff, Sparkles, Activity, CheckCircle2 
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { API_URL } from '../utils/api';
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -14,9 +15,10 @@ export default function Auth() {
   const [passwordInput, setPasswordInput] = useState('');
   const [nameInput, setNameInput] = useState('');
 
-  const canvasRef = useRef(null);
-  const animFrameRef = useRef(null);
   const navigate = useNavigate();
+  const location = useLocation();
+  // where a login-protected page sent us from
+  const returnTo = location.state?.from || '/dashboard';
 
   // Auto-hide error after 5 seconds
   useEffect(() => {
@@ -27,10 +29,21 @@ export default function Auth() {
   }, [error]);
 
   // Fill Demo Credentials for instant 1-click test
-  const handleQuickDemoLogin = () => {
-    setEmailInput('demo@archetech.io');
-    setPasswordInput('architect2026');
+  const handleQuickDemoLogin = async () => {
     setError(null);
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/auth/demo`, { method: 'POST' });
+      if (!res.ok) throw new Error(`Server error (${res.status})`);
+      const data = await res.json();
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('isNewUser', 'false');
+      navigate(returnTo);
+    } catch (err) {
+      setError(`Can't reach the server for the demo account: ${err.message}`);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -39,8 +52,6 @@ export default function Auth() {
     setIsLoading(true);
     const email = emailInput || e.target.email?.value;
     const password = passwordInput || e.target.password?.value;
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-    
     try {
       if (isLogin) {
         let res;
@@ -52,9 +63,7 @@ export default function Auth() {
           });
         } catch (networkErr) {
           console.warn('Backend not reachable:', networkErr);
-          localStorage.setItem('token', 'mock-token-for-dev');
-          localStorage.setItem('isNewUser', 'false');
-          navigate('/dashboard');
+          setError("Can't reach the server. Check your connection and try again.");
           return;
         }
 
@@ -62,7 +71,7 @@ export default function Auth() {
           const data = await res.json();
           localStorage.setItem('token', data.token);
           localStorage.setItem('isNewUser', 'false');
-          navigate('/dashboard');
+          navigate(returnTo);
         } else {
           try {
             const errorData = await res.json();
@@ -82,9 +91,7 @@ export default function Auth() {
           });
         } catch (networkErr) {
           console.warn('Backend not reachable:', networkErr);
-          localStorage.setItem('token', 'mock-token-for-dev');
-          localStorage.setItem('isNewUser', 'true');
-          navigate('/welcome');
+          setError("Can't reach the server. Check your connection and try again.");
           return;
         }
 
@@ -110,165 +117,9 @@ export default function Auth() {
     }
   };
 
-  // 3D Isometric Hologram Canvas Animation for Left Panel
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    let active = true;
-    let angle = 30;
-    let laserProgress = 0;
-
-    const render = () => {
-      if (!active) return;
-      const width = canvas.width = canvas.parentElement.clientWidth;
-      const height = canvas.height = canvas.parentElement.clientHeight;
-      const cx = width / 2;
-      const cy = height / 2 + 10;
-
-      angle = (angle + 0.3) % 360;
-      laserProgress = (laserProgress + 0.01) % 1;
-      const laserX = -120 + laserProgress * 240;
-
-      const radYaw = (angle * Math.PI) / 180;
-      const radPitch = (26 * Math.PI) / 180;
-
-      ctx.fillStyle = '#09090b';
-      ctx.fillRect(0, 0, width, height);
-
-      // 3D Projection Helper
-      const project = (x, y, z) => {
-        const x1 = x * Math.cos(radYaw) - z * Math.sin(radYaw);
-        const z1 = x * Math.sin(radYaw) + z * Math.cos(radYaw);
-        const y2 = y * Math.cos(radPitch) - z1 * Math.sin(radPitch);
-        return { x: cx + x1 * 0.95, y: cy - y2 * 0.95 };
-      };
-
-      // Architectural Grid
-      ctx.lineWidth = 1;
-      ctx.strokeStyle = 'rgba(6, 182, 212, 0.08)';
-      for (let i = -160; i <= 160; i += 32) {
-        const p1 = project(i, -10, -160);
-        const p2 = project(i, -10, 160);
-        ctx.beginPath();
-        ctx.moveTo(p1.x, p1.y);
-        ctx.lineTo(p2.x, p2.y);
-        ctx.stroke();
-
-        const p3 = project(-160, -10, i);
-        const p4 = project(160, -10, i);
-        ctx.beginPath();
-        ctx.moveTo(p3.x, p3.y);
-        ctx.lineTo(p4.x, p4.y);
-        ctx.stroke();
-      }
-
-      // Foundation Slab
-      const f1 = project(-120, -10, -90);
-      const f2 = project(130, -10, -90);
-      const f3 = project(130, -10, 100);
-      const f4 = project(-120, -10, 100);
-
-      ctx.beginPath();
-      ctx.moveTo(f1.x, f1.y);
-      ctx.lineTo(f2.x, f2.y);
-      ctx.lineTo(f3.x, f3.y);
-      ctx.lineTo(f4.x, f4.y);
-      ctx.closePath();
-      ctx.fillStyle = 'rgba(6, 182, 212, 0.05)';
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(6, 182, 212, 0.4)';
-      ctx.stroke();
-
-      // Modern Villa Rooms
-      const rooms = [
-        { x: -100, z: -70, w: 90, d: 70, h: 45, col: '#06b6d4' },
-        { x: 0, z: -40, w: 110, d: 90, h: 50, col: '#3b82f6' },
-        { x: -100, z: 10, w: 60, d: 50, h: 40, col: '#8b5cf6' }
-      ];
-
-      rooms.forEach(r => {
-        const c1 = project(r.x, 0, r.z);
-        const c2 = project(r.x + r.w, 0, r.z);
-        const c3 = project(r.x + r.w, 0, r.z + r.d);
-        const c4 = project(r.x, 0, r.z + r.d);
-
-        const t1 = project(r.x, r.h, r.z);
-        const t2 = project(r.x + r.w, r.h, r.z);
-        const t3 = project(r.x + r.w, r.h, r.z + r.d);
-        const t4 = project(r.x, r.h, r.z + r.d);
-
-        // Floor
-        ctx.beginPath();
-        ctx.moveTo(c1.x, c1.y);
-        ctx.lineTo(c2.x, c2.y);
-        ctx.lineTo(c3.x, c3.y);
-        ctx.lineTo(c4.x, c4.y);
-        ctx.closePath();
-        ctx.fillStyle = `${r.col}18`;
-        ctx.fill();
-
-        // Wireframe edges
-        ctx.strokeStyle = r.col;
-        ctx.lineWidth = 1.6;
-        const edges = [
-          [c1, c2], [c2, c3], [c3, c4], [c4, c1],
-          [t1, t2], [t2, t3], [t3, t4], [t4, t1],
-          [c1, t1], [c2, t2], [c3, t3], [c4, t4]
-        ];
-        edges.forEach(([a, b]) => {
-          ctx.beginPath();
-          ctx.moveTo(a.x, a.y);
-          ctx.lineTo(b.x, b.y);
-          ctx.stroke();
-        });
-      });
-
-      // Sweeping Laser Scanner
-      const l1 = project(laserX, 70, -100);
-      const l2 = project(laserX, -10, -100);
-      const l3 = project(laserX, -10, 110);
-      const l4 = project(laserX, 70, 110);
-
-      const grad = ctx.createLinearGradient(l1.x, l1.y, l3.x, l3.y);
-      grad.addColorStop(0, 'rgba(6, 182, 212, 0)');
-      grad.addColorStop(0.5, 'rgba(6, 182, 212, 0.2)');
-      grad.addColorStop(1, 'rgba(16, 185, 129, 0.3)');
-
-      ctx.beginPath();
-      ctx.moveTo(l1.x, l1.y);
-      ctx.lineTo(l4.x, l4.y);
-      ctx.lineTo(l3.x, l3.y);
-      ctx.lineTo(l2.x, l2.y);
-      ctx.closePath();
-      ctx.fillStyle = grad;
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.moveTo(l2.x, l2.y);
-      ctx.lineTo(l3.x, l3.y);
-      ctx.strokeStyle = '#22d3ee';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      animFrameRef.current = requestAnimationFrame(render);
-    };
-
-    render();
-
-    return () => {
-      active = false;
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    };
-  }, []);
-
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex font-sans relative overflow-hidden">
       
-      {/* Background Ambient Glow */}
-      <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-[140px] pointer-events-none"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-cyan-500/10 rounded-full blur-[140px] pointer-events-none"></div>
-
       {/* Custom Error Toast */}
       {error && (
         <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-4 fade-in duration-300">
@@ -282,54 +133,37 @@ export default function Auth() {
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* LEFT PANEL: LIVING ARCHITECTURAL MATRIX & TELEMETRY                       */}
-      {/* ========================================================================= */}
-      <div className="hidden lg:flex flex-1 relative bg-zinc-950 border-r border-zinc-900 flex-col justify-between p-12 overflow-hidden select-none">
-        
-        {/* Top Header */}
-        <div className="relative z-10 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3 group">
-            <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center font-extrabold text-black tracking-tighter text-sm shadow-md group-hover:scale-105 transition-transform">
-              AE
-            </div>
-            <span className="font-extrabold text-white text-lg tracking-tight">Arch-E-Tech</span>
+      {/* left: photo panel (large screens only) */}
+      <div className="relative hidden flex-1 overflow-hidden border-r border-zinc-900 lg:block">
+        <img
+          src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1400&q=80"
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-zinc-950/30" />
+
+        <div className="relative flex h-full flex-col justify-between p-12">
+          <Link to="/" className="flex w-fit items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-sm font-bold tracking-tighter text-black">AE</div>
+            <span className="text-lg font-semibold tracking-tight text-white">Arch-E-Tech</span>
           </Link>
-          
-          <span className="px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[11px] font-mono font-bold flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
-            NEURAL CAD MATRIX ACTIVE
-          </span>
-        </div>
 
-        {/* Center: Interactive 3D Architectural Canvas */}
-        <div className="relative flex-1 my-6 flex items-center justify-center min-h-[360px]">
-          <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
-          
-          {/* Floating Telemetry Chips in 3D Space */}
-          <div className="absolute top-4 left-4 bg-zinc-950/80 backdrop-blur-md border border-zinc-800/80 rounded-xl p-3 text-xs font-mono text-zinc-300 space-y-1 shadow-2xl">
-            <div className="text-[10px] text-cyan-400 font-bold flex items-center gap-1.5 uppercase">
-              <Activity className="w-3.5 h-3.5" /> Telemetry Feed
-            </div>
-            <div className="text-[11px]">Inference: <span className="text-white font-bold">8.4 ms</span></div>
-            <div className="text-[11px]">Precision: <span className="text-emerald-400 font-bold">Sub-Millimeter CAD</span></div>
-            <div className="text-[11px]">Audit: <span className="text-white font-bold">100% IBC Compliant</span></div>
+          <div className="max-w-md">
+            <h2 className="text-3xl font-semibold leading-tight tracking-tight text-white">
+              Plan your home, room by room.
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-zinc-300">
+              Describe what you need and get an editable floor plan, a 3D model and a cost estimate in one place.
+            </p>
+            <ul className="mt-6 space-y-2 text-sm text-zinc-300">
+              {['Floor plans generated from a description', 'Edit in 2D, review in 3D', 'Projects saved to your account'].map(item => (
+                <li key={item} className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-zinc-400" /> {item}
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
-
-        {/* Bottom Architectural Credo */}
-        <div className="relative z-10 bg-zinc-900/60 backdrop-blur-md border border-zinc-800/80 rounded-2xl p-6">
-          <p className="text-sm text-zinc-300 leading-relaxed italic">
-            "Arch-E-Tech merges topological adjacency graph theory with vector CAD precision — turning natural language concepts into structural BIM models and 8K renders in seconds."
-          </p>
-          <div className="mt-4 flex items-center justify-between text-xs text-zinc-400 border-t border-zinc-800/80 pt-3">
-            <span className="font-mono text-zinc-400">Next-Gen Autonomous Architecture</span>
-            <span className="text-emerald-400 font-bold flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Studio Tier Verified
-            </span>
-          </div>
-        </div>
-
       </div>
 
       {/* ========================================================================= */}
@@ -348,11 +182,8 @@ export default function Auth() {
         <div className="w-full max-w-md mx-auto">
           
           {/* Card Container with subtle gradient border */}
-          <div className="bg-zinc-900/70 backdrop-blur-2xl border border-zinc-800/90 rounded-3xl p-8 sm:p-10 shadow-[0_0_50px_rgba(0,0,0,0.5)] relative overflow-hidden">
+          <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-8 sm:p-10 relative">
             
-            {/* Top Glowing Accent Line */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-cyan-400 to-indigo-500"></div>
-
             {/* Mode Switch Tabs (Sign In / Create Account) */}
             <div className="flex items-center p-1 bg-zinc-950/80 rounded-2xl border border-zinc-800/80 mb-8">
               <button
@@ -388,12 +219,12 @@ export default function Auth() {
             {/* Header Text */}
             <div className="mb-6">
               <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-                {isLogin ? 'Welcome Back' : 'Create Studio Account'}
+                {isLogin ? 'Welcome back' : 'Create your account'}
               </h1>
               <p className="text-xs sm:text-sm text-zinc-400 mt-1">
                 {isLogin 
-                  ? 'Access your architectural models, 3D simulations, and takeoffs.' 
-                  : 'Start designing multi-room residences with AI precision.'}
+                  ? 'Sign in to continue to your projects.' 
+                  : 'Start planning your first home in a few minutes.'}
               </p>
             </div>
 
@@ -409,7 +240,7 @@ export default function Auth() {
                   onClick={handleQuickDemoLogin}
                   className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold transition-colors whitespace-nowrap shadow-sm"
                 >
-                  Fill Demo Login
+                  Try the Demo
                 </button>
               </div>
             )}
@@ -460,11 +291,7 @@ export default function Auth() {
                   <label className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
                     Password
                   </label>
-                  {isLogin && (
-                    <span className="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer">
-                      Forgot password?
-                    </span>
-                  )}
+                  {!isLogin && <span className="text-[11px] text-zinc-500">At least 8 characters</span>}
                 </div>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -473,6 +300,7 @@ export default function Auth() {
                     name="password" 
                     placeholder="••••••••" 
                     required
+                    minLength={isLogin ? undefined : 8}
                     value={passwordInput}
                     onChange={(e) => setPasswordInput(e.target.value)}
                     className="w-full bg-zinc-950/80 border border-zinc-800 rounded-xl pl-10 pr-11 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all placeholder:text-zinc-600 font-mono"
@@ -496,11 +324,11 @@ export default function Auth() {
               >
                 {isLoading ? (
                   <span className="flex items-center gap-2">
-                    <Activity className="w-4 h-4 animate-spin" /> Authenticating...
+                    <Activity className="w-4 h-4 animate-spin" /> {isLogin ? 'Signing in…' : 'Creating account…'}
                   </span>
                 ) : (
                   <>
-                    <span>{isLogin ? 'Enter Studio' : 'Create Architect Account'}</span>
+                    <span>{isLogin ? 'Sign in' : 'Create account'}</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import { api } from '../utils/api';
 import { useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, LayoutTemplate, ScanLine, PenTool, Magnet, Box, Sun, AlertTriangle, Calculator, MessageSquare, Image as ImageIcon, FileText, Check, Plus, Upload, Type, FileImage } from 'lucide-react';
 
@@ -6,33 +7,40 @@ export default function NewProject() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [genError, setGenError] = useState(null);
+  const [sketch, setSketch] = useState(null);       // data URL of an uploaded floor plan to trace over
+  const fileInputRef = useRef(null);
+
+  // shrink the upload so it fits in browser storage; it is only a tracing guide
+  const loadSketch = (file) => {
+    if (!file || !file.type.startsWith('image/')) {
+      setGenError('Please choose a PNG or JPG image of the plan.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * scale);
+        c.height = Math.round(img.height * scale);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        setSketch(c.toDataURL('image/jpeg', 0.8));
+        setGenError(null);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  };
   const [config, setConfig] = useState({
     name: '',
     locality: '',
     floors: 1,
     initMode: 'generative',
-    prompt: '',
-    features: {
-      textToLayout: false,
-      aiDetection: true,
-      canvasEditor: true,
-      snapping: true,
-      extrusion: true,
-      solar: false,
-      clashDetection: false,
-      costEstimation: false,
-      compliance: false,
-      conceptViz: false,
-      pdfReports: false
-    }
+    prompt: ''
   });
 
-  const toggleFeature = (key) => {
-    setConfig(prev => ({
-      ...prev,
-      features: { ...prev.features, [key]: !prev.features[key] }
-    }));
-  };
 
   return (
     <div className="min-h-screen bg-transparent text-zinc-100 flex items-center justify-center p-6 font-sans">
@@ -151,7 +159,7 @@ export default function NewProject() {
                     </div>
                     <div>
                       <h4 className={`font-semibold mb-1 ${config.initMode === 'upload' ? 'text-white' : 'text-zinc-300'}`}>Digitize Sketch</h4>
-                      <p className="text-xs text-zinc-500">Upload drawing.</p>
+                      <p className="text-xs text-zinc-500">Trace over a plan.</p>
                     </div>
                   </div>
                 </div>
@@ -171,76 +179,74 @@ export default function NewProject() {
 
               {config.initMode === 'upload' && (
                 <div className="animate-in fade-in slide-in-from-top-4 duration-300">
-                  <div className="border-2 border-dashed border-zinc-800 hover:border-zinc-600 bg-zinc-900/50 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-colors text-center">
-                    <FileImage className="w-8 h-8 text-zinc-500 mb-3" />
-                    <p className="text-sm font-medium text-zinc-300">Have a floor plan? Drop it here.</p>
-                    <p className="text-xs text-zinc-500 mt-1">PNG, JPG or PDF up to 10MB</p>
+                  <input ref={fileInputRef} type="file" accept="image/png,image/jpeg" className="hidden"
+                    onChange={(e) => loadSketch(e.target.files?.[0])} />
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => { e.preventDefault(); loadSketch(e.dataTransfer.files?.[0]); }}
+                    className="border-2 border-dashed border-zinc-800 hover:border-zinc-600 bg-zinc-900/50 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-colors text-center"
+                  >
+                    {sketch ? (
+                      <>
+                        <img src={sketch} alt="Uploaded plan" className="max-h-40 rounded-lg mb-3 opacity-90" />
+                        <p className="text-xs text-zinc-400">Click to choose a different image</p>
+                      </>
+                    ) : (
+                      <>
+                        <FileImage className="w-8 h-8 text-zinc-500 mb-3" />
+                        <p className="text-sm font-medium text-zinc-300">Have a floor plan? Drop it here.</p>
+                        <p className="text-xs text-zinc-500 mt-1">PNG or JPG. It appears under the 2D canvas so you can trace walls over it.</p>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
 
               <div className="pt-4 border-t border-zinc-900 mt-4">
+                {genError && (
+                  <p className="mb-3 text-xs text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2">{genError}</p>
+                )}
                 <button 
-                  disabled={isGenerating || !config.name.trim()}
+                  disabled={isGenerating || !config.name.trim() || (config.initMode === 'upload' && !sketch)}
                   onClick={async () => {
                     setIsGenerating(true);
+                    setGenError(null);
                     let initialElements = [];
-                    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-                    const token = localStorage.getItem('token');
-                    
-                    if (config.initMode === 'generative') {
-                      try {
-                        const res = await fetch(`${API_URL}/api/ai/generate-plan`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ prompt: config.prompt || "Default modern house" })
-                        });
-                        const data = await res.json();
-                        if (data.elements) {
-                          initialElements = data.elements;
-                        }
-                      }     catch (error) {
-                                console.error("Failed to generate plan:", error);
-                                alert("Backend Error: Check the console!");
-                                // DELETE OR COMMENT OUT THIS LINE: setElements(fallbackBlueprint) 
-                                // OR localStorage.setItem('draftElements', JSON.stringify(fallbackBlueprint))
-                            }}
-
-
-                    // Create the project in the DB
                     try {
-                      const createRes = await fetch(`${API_URL}/api/projects`, {
-                        method: 'POST',
-                        headers: { 
-                          'Authorization': `Bearer ${token}`,
-                          'Content-Type': 'application/json' 
-                        },
-                        body: JSON.stringify({
-                          name: config.name || "Untitled Project",
-                          elements_data: initialElements
-                        })
-                      });
-                      
-                      if (createRes.ok) {
-                        const newProject = await createRes.json();
-                        navigate(`/studio?projectId=${newProject.id}`);
-                        return;
+                      if (config.initMode === 'generative') {
+                        const data = await api('/api/ai/generate-plan', {
+                          method: 'POST',
+                          body: { prompt: config.prompt.trim() || 'A modern 2 bedroom house' },
+                        });
+                        initialElements = (data.elements || []).map(el => ({ ...el, floor: 1 }));
                       }
+                      const newProject = await api('/api/projects', {
+                        method: 'POST',
+                        body: {
+                          name: config.name.trim(),
+                          locality: config.locality.trim() || null,
+                          floors: config.floors,
+                          elements_data: initialElements,
+                        },
+                      });
+                      if (sketch) {
+                        try {
+                          localStorage.setItem(`archetech_underlay_${newProject.id}`, sketch);
+                        } catch {
+                          setGenError('The sketch is too large to keep in this browser. Try a smaller image.');
+                          setIsGenerating(false);
+                          return;
+                        }
+                      }
+                      navigate(`/studio?projectId=${newProject.id}`);
                     } catch (err) {
-                      console.error("Failed to create project in DB", err);
+                      setGenError(`Could not create the project: ${err.message}`);
+                      setIsGenerating(false);
                     }
-                    
-                    setIsGenerating(false);
-                    // Fallback to local storage if DB fails
-                    if (initialElements.length > 0) {
-                      localStorage.setItem('draftElements', JSON.stringify(initialElements));
-                    } else {
-                      localStorage.removeItem('draftElements');
-                    }
-                    navigate('/studio');
                   }}
                   className={`w-full py-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
-                    isGenerating || !config.name.trim() ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' : 'bg-white text-black hover:bg-zinc-200'
+                    isGenerating || !config.name.trim() || (config.initMode === 'upload' && !sketch) ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' : 'bg-white text-black hover:bg-zinc-200'
                   }`}
                 >
                   {isGenerating ? (

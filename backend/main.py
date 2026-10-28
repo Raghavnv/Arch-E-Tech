@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from datetime import datetime, timezone, timedelta
@@ -12,7 +13,7 @@ from fastapi.security import OAuth2PasswordBearer
 from groq import Groq
 
 import models
-from database import engine, Base, get_db, add_missing_columns
+from database import engine, Base, get_db, add_missing_columns, DB_KIND
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -142,7 +143,12 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 @app.post("/api/auth/register")
 def register_user(user: UserCreate, db: Session = Depends(get_db)):
-    db_user = db.query(models.User).filter(models.User.email == user.email).first()
+    user.email = user.email.strip().lower()
+    if not user.email or not user.password:
+        raise HTTPException(status_code=400, detail="Email and password are required")
+    if len(user.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    db_user = db.query(models.User).filter(func.lower(models.User.email) == user.email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
@@ -158,7 +164,8 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
 
 @app.post("/api/auth/login")
 def login_user(user: UserLogin, db: Session = Depends(get_db)):
-    db_user = db.query(models.User).filter(models.User.email == user.email).first()
+    # accounts made before emails were lower-cased may be stored with capitals
+    db_user = db.query(models.User).filter(func.lower(models.User.email) == user.email.strip().lower()).first()
     if not db_user or not pwd_context.verify(user.password, db_user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
@@ -455,6 +462,12 @@ async def generate_floor_plan(payload: AIPrompt, x_groq_key: str | None = Header
 @app.get("/")
 def read_root():
     return {"status": "ok", "message": "Arch-E-Tech Backend Running"}
+
+@app.get("/api/health")
+def health(db: Session = Depends(get_db)):
+    """Which database this deploy is using, and that it answers."""
+    db.execute(text("SELECT 1"))
+    return {"status": "ok", "database": DB_KIND}
 
 def _plan_summary(elements: list) -> dict:
     """What the AI needs to know about a plan, in metres, without thousands of raw canvas numbers."""

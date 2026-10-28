@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import LandingPage from './components/LandingPage';
 import Dashboard from './components/Dashboard';
 import NewProject from './components/NewProject';
@@ -10,6 +10,16 @@ import RenderStudio from './components/RenderStudio';
 import WarRoom from './components/WarRoom';
 import ImmersiveView from './components/ImmersiveView';
 import BackgroundPattern from './components/BackgroundPattern';
+import SharedView from './components/SharedView';
+
+// pages behind the login: without a token, go to /auth and come back afterwards
+function RequireAuth({ children }) {
+  const location = useLocation();
+  if (!localStorage.getItem('token')) {
+    return <Navigate to="/auth" replace state={{ from: location.pathname + location.search }} />;
+  }
+  return children;
+}
 
 function App() {
   return (
@@ -20,13 +30,14 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/how-it-works" element={<HowItWorks />} />
           <Route path="/auth" element={<Auth />} />
-          <Route path="/welcome" element={<OnboardingCinematic />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/new-project" element={<NewProject />} />
-          <Route path="/studio" element={<Studio />} />
-          <Route path="/render-studio" element={<RenderStudio />} />
-          <Route path="/war-room" element={<WarRoom />} />
-          <Route path="/immersive" element={<ImmersiveView />} />
+          <Route path="/welcome" element={<RequireAuth><OnboardingCinematic /></RequireAuth>} />
+          <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
+          <Route path="/new-project" element={<RequireAuth><NewProject /></RequireAuth>} />
+          <Route path="/studio" element={<RequireAuth><Studio /></RequireAuth>} />
+          <Route path="/render-studio" element={<RequireAuth><RenderStudio /></RequireAuth>} />
+          <Route path="/war-room" element={<RequireAuth><WarRoom /></RequireAuth>} />
+          <Route path="/shared/:token" element={<SharedView />} />
+          <Route path="/immersive" element={<RequireAuth><ImmersiveView /></RequireAuth>} />
         </Routes>
       </div>
     </Router>

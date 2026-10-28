@@ -81,7 +81,21 @@ function get3DSpecs(type, lengthMeters) {
   }
 }
 
-export default function Canvas2D({ elements, drawingMode, setCanvasElements, blueprintMode, activeTab }) {
+const SNAP_GRID = 10;        // 0.5 m
+const SNAP_REACH = 14;      // how close (canvas units) an end must be to lock onto another wall's end
+
+// furniture dropped from the catalogue, sized like the generated plans (20 units = 1 m)
+const FURNITURE_SIZES = {
+  furniture_bed: [36, 42, '#cbd5e1'],
+  furniture_sofa: [40, 18, '#818cf8'],
+  furniture_table: [30, 16, '#fbbf24'],
+  furniture_armchair: [16, 16, '#a5b4fc'],
+  furniture_bathtub: [34, 16, '#99f6e4'],
+  furniture_vanity: [20, 11, '#99f6e4'],
+  furniture_kitchen: [44, 13, '#86efac'],
+};
+
+export default function Canvas2D({ elements, drawingMode, setCanvasElements, blueprintMode, activeTab, smartSnap = false, underlay = null, underlayOpacity = 0.35 }) {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const fabricRef = useRef(null);
@@ -98,6 +112,24 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
   // Sync ref to prevent stale closures and ghost drawing
   const drawingModeRef = useRef(drawingMode);
   drawingModeRef.current = drawingMode;
+  const smartSnapRef = useRef(smartSnap);
+  smartSnapRef.current = smartSnap;
+
+  // Smart Snap: a point locks onto the nearest wall end, otherwise onto the 0.5 m grid
+  const snapPoint = (canvas, p) => {
+    let best = null;
+    canvas.getObjects().forEach(o => {
+      if (o.type !== 'wall' || o === currentLine.current) return;
+      const a = ((o.angle || 0) * Math.PI) / 180;
+      const w = o.width * (o.scaleX || 1);
+      for (const q of [{ x: o.left, y: o.top }, { x: o.left + w * Math.cos(a), y: o.top + w * Math.sin(a) }]) {
+        const d = Math.hypot(q.x - p.x, q.y - p.y);
+        if (d < SNAP_REACH && (!best || d < best.d)) best = { ...q, d };
+      }
+    });
+    if (best) return { x: best.x, y: best.y };
+    return { x: Math.round(p.x / SNAP_GRID) * SNAP_GRID, y: Math.round(p.y / SNAP_GRID) * SNAP_GRID };
+  };
 
   // Real-time HUD states
   const [drawingHUD, setDrawingHUD] = useState(null);
@@ -268,7 +300,13 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
     canvas.on('selection:created', updateSelectedHUD);
     canvas.on('selection:updated', updateSelectedHUD);
     canvas.on('selection:cleared', () => setSelectedHUD(null));
-    canvas.on('object:moving', updateSelectedHUD);
+    canvas.on('object:moving', (opt) => {
+      const o = opt.target;
+      if (smartSnapRef.current && o) {
+        o.set({ left: Math.round(o.left / (SNAP_GRID / 2)) * (SNAP_GRID / 2), top: Math.round(o.top / (SNAP_GRID / 2)) * (SNAP_GRID / 2) });
+      }
+      updateSelectedHUD();
+    });
     canvas.on('object:scaling', updateSelectedHUD);
     canvas.on('object:rotating', updateSelectedHUD);
 
@@ -321,7 +359,8 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
       if (!currentMode) return;
 
       isDrawing.current = true;
-      const pointer = canvas.getPointer(opt.e);
+      let pointer = canvas.getPointer(opt.e);
+      if (smartSnapRef.current) pointer = snapPoint(canvas, pointer);
       startPos.current = { x: pointer.x, y: pointer.y };
 
       let strokeColor = '#e4e4e7';
@@ -371,7 +410,8 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
       // 2. Handle Drawing
       if (!isDrawing.current || !currentLine.current || !drawingModeRef.current) return;
       const currentMode = drawingModeRef.current;
-      const pointer = canvas.getPointer(opt.e);
+      let pointer = canvas.getPointer(opt.e);
+      if (smartSnapRef.current) pointer = snapPoint(canvas, pointer);
 
       const dx = pointer.x - startPos.current.x;
       const dy = pointer.y - startPos.current.y;
@@ -382,13 +422,14 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
       // Smart Snapping (Shift key or proximity to 45 degree angles)
       const snapThreshold = 6; // degrees
       const snappedAngle = Math.round(angle / 45) * 45;
-      const isSnapped = Math.abs(angle - snappedAngle) < snapThreshold || opt.e.shiftKey;
+      const isSnapped = Math.abs(angle - snappedAngle) < snapThreshold || opt.e.shiftKey || smartSnapRef.current;
 
       if (isSnapped) {
         angle = snappedAngle;
         const rad = angle * Math.PI / 180;
         const dot = (dx * Math.cos(rad) + dy * Math.sin(rad));
         length = Math.max(0, dot);
+        if (smartSnapRef.current) length = Math.round(length / SNAP_GRID) * SNAP_GRID;
       }
 
       currentLine.current.set({
@@ -510,17 +551,23 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
 
     const existingObjs = canvas.getObjects().filter(o => !o.isGrid);
 
-    // If canvas already has these elements, check for property updates without full redraw
-    if (existingObjs.length > 0 && elements.length === existingObjs.length) {
+    // Same elements as on the canvas (an edit, an undo, a paint): update them in place
+    const byId = new Map(existingObjs.map(o => [o.id, o]));
+    if (existingObjs.length > 0 && elements.length === existingObjs.length && elements.every(el => byId.has(el.id))) {
       let needsRerender = false;
       elements.forEach(el => {
-        const match = existingObjs.find(o => o.id === el.id);
-        if (match) {
-          if (el.material && match.material !== el.material) {
-            match.material = el.material;
-            if (el.isColor) match.set('fill', el.material);
-            needsRerender = true;
-          }
+        const match = byId.get(el.id);
+        if (el.material && match.material !== el.material) {
+          match.material = el.material;
+          if (el.isColor) match.set('fill', el.material);
+          needsRerender = true;
+        }
+        const w = match.width * (match.scaleX || 1), h = match.height * (match.scaleY || 1);
+        if (Math.abs(match.left - el.left) > 0.01 || Math.abs(match.top - el.top) > 0.01 ||
+            Math.abs(w - el.width) > 0.01 || Math.abs(h - el.height) > 0.01 || (match.angle || 0) !== (el.angle || 0)) {
+          match.set({ left: el.left, top: el.top, width: el.width, height: el.height, scaleX: 1, scaleY: 1, angle: el.angle || 0 });
+          match.setCoords();
+          needsRerender = true;
         }
       });
       if (needsRerender) {
@@ -583,6 +630,23 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
     }
   }, [elements]);
 
+  // Uploaded plan shown under the drawing, for tracing
+  useEffect(() => {
+    const canvas = fabricRef.current;
+    if (!canvas) return;
+    if (!underlay) {
+      canvas.setBackgroundImage(null, canvas.renderAll.bind(canvas));
+      return;
+    }
+    fabric.Image.fromURL(underlay, (img) => {
+      if (!fabricRef.current) return;
+      // fit the long side to about 20 m so a typical house drawing lands near true scale
+      const scale = 400 / Math.max(img.width, img.height);
+      img.set({ left: 0, top: 0, originX: 'left', originY: 'top', scaleX: scale, scaleY: scale, opacity: underlayOpacity });
+      canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas));
+    });
+  }, [underlay, underlayOpacity]);
+
   // Handle Dynamic Addition of Furniture
   useEffect(() => {
     const handleAddFurniture = (e) => {
@@ -590,15 +654,16 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
       const canvas = fabricRef.current;
       if (!canvas) return;
 
-      let width, height, fill;
-      if (type === 'furniture_bed') { width = 120; height = 160; fill = '#cbd5e1'; }
-      else if (type === 'furniture_sofa') { width = 160; height = 70; fill = '#818cf8'; }
-      else if (type === 'furniture_table') { width = 140; height = 90; fill = '#fbbf24'; }
+      const [width, height, fill] = FURNITURE_SIZES[type] || [24, 24, '#a1a1aa'];
+      // drop it in the middle of what is on screen, whatever the pan / zoom
+      const vpt = canvas.viewportTransform;
+      const cx = (canvas.width / 2 - vpt[4]) / vpt[0];
+      const cy = (canvas.height / 2 - vpt[5]) / vpt[3];
 
       const rect = new fabric.Rect({
         id: Math.random().toString(36).substr(2, 9),
-        left: canvas.width / 2 - width / 2,
-        top: canvas.height / 2 - height / 2,
+        left: cx - width / 2,
+        top: cy,
         width, height, fill,
         type: type,
         originX: 'left',
