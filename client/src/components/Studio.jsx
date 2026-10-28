@@ -13,6 +13,11 @@ import { ARCHITECTURAL_TEXTURES } from '../utils/textureLibrary';
 
 const PLAIN_WALL = { id: 'mat_plain', name: 'Plain', color: '#f4f4f5' };
 
+// saved plans can contain empty or broken entries (older versions, interrupted saves); one of them used to
+// crash the whole Studio on open, so only real elements get through
+const cleanElements = (list) => (Array.isArray(list) ? list : [])
+  .filter(el => el && typeof el === 'object' && typeof el.type === 'string');
+
 export default function Studio() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -71,14 +76,14 @@ export default function Studio() {
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
         e.preventDefault();
         if (e.shiftKey) {
-          if (historyPointer < history.length - 1) {
+          if (historyPointer < history.length - 1 && history[historyPointer + 1]) {
             isUndoing.current = true;
             const nextPtr = historyPointer + 1;
             setHistoryPointer(nextPtr);
             setCanvasElements(history[nextPtr]);
           }
         } else {
-          if (historyPointer > 0) {
+          if (historyPointer > 0 && history[historyPointer - 1]) {
             isUndoing.current = true;
             const prevPtr = historyPointer - 1;
             setHistoryPointer(prevPtr);
@@ -175,9 +180,10 @@ export default function Studio() {
       
       if (cached) {
         try {
-          const parsed = JSON.parse(cached);
+          let parsed = JSON.parse(cached);
           if (Array.isArray(parsed)) {
-            cachedElements = parsed;
+            cachedElements = cleanElements(parsed);
+            parsed = cachedElements;
             if (isMounted && parsed.length > 0) setCanvasElements(parsed);
           }
         } catch (e) {}
@@ -209,8 +215,8 @@ export default function Studio() {
           pushElements(cachedElements);
         } else if (Array.isArray(data.elements_data)) {
           fromServerRef.current = true;
-          setCanvasElements(data.elements_data);
-          localStorage.setItem(projectKey, JSON.stringify(data.elements_data));
+          setCanvasElements(cleanElements(data.elements_data));
+          localStorage.setItem(projectKey, JSON.stringify(cleanElements(data.elements_data)));
         }
         loadedRef.current = true;
       } catch (e) {

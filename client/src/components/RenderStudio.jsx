@@ -31,7 +31,8 @@ const PROMPT_HINT = {
 const PX_PER_M = 20;
 
 // rooms of the plan, with the facts the photos need (size, windows)
-function roomsFromPlan(elements) {
+function roomsFromPlan(all) {
+  const elements = (all || []).filter(e => e && typeof e === 'object');
   const windows = elements.filter(e => e.type === 'window');
   return elements
     .filter(e => e.type === 'room' && e.kind && e.kind !== 'hallway')

@@ -10,12 +10,21 @@ import RenderStudio from './components/RenderStudio';
 import WarRoom from './components/WarRoom';
 import ImmersiveView from './components/ImmersiveView';
 import BackgroundPattern from './components/BackgroundPattern';
+import ErrorBoundary from './components/ErrorBoundary';
+import { useLocation } from 'react-router-dom';
+
+// a fresh boundary per page, so leaving a crashed page clears the error
+function RoutedBoundary({ children }) {
+  const location = useLocation();
+  return <ErrorBoundary key={location.pathname}>{children}</ErrorBoundary>;
+}
 
 function App() {
   return (
     <Router>
       <div className="min-h-screen bg-transparent text-zinc-100 font-sans selection:bg-white selection:text-black">
         <BackgroundPattern />
+        <RoutedBoundary>
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/how-it-works" element={<HowItWorks />} />
@@ -28,6 +37,7 @@ function App() {
           <Route path="/war-room" element={<WarRoom />} />
           <Route path="/immersive" element={<ImmersiveView />} />
         </Routes>
+        </RoutedBoundary>
       </div>
     </Router>
   );
