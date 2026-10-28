@@ -32,6 +32,19 @@ if not SQLALCHEMY_DATABASE_URL:
     SQLALCHEMY_DATABASE_URL = SQLITE_URL
     logger.info(f"DATABASE_URL not set, using local SQLite ({SQLITE_DB_PATH})")
 
+# Supabase only accepts encrypted connections
+if "supabase" in SQLALCHEMY_DATABASE_URL and "sslmode=" not in SQLALCHEMY_DATABASE_URL:
+    SQLALCHEMY_DATABASE_URL += ("&" if "?" in SQLALCHEMY_DATABASE_URL else "?") + "sslmode=require"
+
+# Supabase's direct host (db.<ref>.supabase.co) is IPv6-only and Render can't reach IPv6,
+# so on Render the pooler URL (…pooler.supabase.com) has to be used instead
+SUPABASE_DIRECT = "@db." in SQLALCHEMY_DATABASE_URL and ".supabase.co" in SQLALCHEMY_DATABASE_URL
+if SUPABASE_DIRECT and ON_HOST:
+    logger.warning(
+        "DATABASE_URL points at Supabase's direct host, which Render cannot reach. In Supabase open "
+        "Connect → Session pooler and use that connection string instead."
+    )
+
 
 def _make_engine(url: str):
     if url.startswith("sqlite"):
@@ -61,7 +74,8 @@ def _connect_with_retry(url: str, attempts: int = 6):
         except Exception as e:
             # serverless Postgres (Neon, Supabase) can take a few seconds to wake up
             if i == attempts:
-                raise RuntimeError(f"Could not connect to the database after {attempts} attempts: {e}") from e
+                hint = " Use Supabase's Session pooler connection string, not the direct one." if SUPABASE_DIRECT else ""
+                raise RuntimeError(f"Could not connect to the database after {attempts} attempts: {e}.{hint}") from e
             wait = min(2 * i, 10)
             logger.warning(f"Database not reachable (attempt {i}/{attempts}): {e}. Retrying in {wait}s")
             time.sleep(wait)
