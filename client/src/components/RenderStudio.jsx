@@ -1,909 +1,447 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
-import { 
-  ArrowLeft, Sparkles, Download, RefreshCw, Layers, 
-  Sun, Moon, CloudSun, CloudRain, Camera, Check, 
-  Sliders, Wand2, Zap, Upload, Sofa, Home, CheckCircle2, 
-  Columns, Maximize2, Split, Eye, Info
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  ArrowLeft, Sparkles, Download, Upload, RefreshCw, ImageOff, Columns, Split, AlertTriangle, Check, Loader2,
 } from 'lucide-react';
 
-const STYLES = [
-  { 
-    id: 'modern', 
-    name: 'Ultra Modern Luxury', 
-    tagline: 'Expansive glass curtain walls, cantilevered slabs & warm ambient LEDs',
-    promptSnippet: 'ultra-modern luxury architectural residence with expansive floor-to-ceiling glass curtain walls, cantilevered cast concrete slabs, warm linear recessed LED accents, minimalist high-end designer furnishings'
-  },
-  { 
-    id: 'japandi', 
-    name: 'Japandi Minimalist', 
-    tagline: 'Warm blonde oak slats, shoji textures, washi pendants & serene daylight',
-    promptSnippet: 'serene Japandi minimalist architectural interior, natural light-oak slatted wood panels, washi paper screens, smooth micro-cement flooring, understated low-profile furniture, indoor bonsai and zen courtyard garden'
-  },
-  { 
-    id: 'scandinavian', 
-    name: 'Nordic Scandinavian', 
-    tagline: 'Pale ash wood, cozy bouclé, soft Nordic daylight & fireplace',
-    promptSnippet: 'bright Scandinavian architectural haven, pale ash wood floorboards, crisp matte white walls, rich bouclé and linen textiles, soft diffused Nordic daylight, integrated fireplace'
-  },
-  { 
-    id: 'industrial', 
-    name: 'Industrial Loft', 
-    tagline: 'Exposed structural steel, vintage brickwork, Crittall glass & cognac leather',
-    promptSnippet: 'high-ceiling industrial architectural loft, exposed black structural steel beams, reclaimed vintage red brickwork, polished concrete floors, Crittall steel-framed windows, bespoke cognac leather seating'
-  },
-  { 
-    id: 'contemporary', 
-    name: 'Warm Contemporary', 
-    tagline: 'Travertine stone, linen drapery, fluted wood & architectural cove lighting',
-    promptSnippet: 'warm contemporary architectural masterwork, Italian silver travertine stone, acoustic fluted timber cladding, sheer organic linen drapery, sculptural bronze hardware, layered ambient lighting'
-  },
-  { 
-    id: 'mediterranean', 
-    name: 'Mediterranean Villa', 
-    tagline: 'Limewash stucco, terracotta, arched porticos & sun-drenched courtyards',
-    promptSnippet: 'luxurious Mediterranean contemporary villa, warm textured lime-wash stucco walls, natural terracotta and limestone tiles, arched porticos, sun-drenched private courtyard with ancient olive tree'
-  }
-];
+/*
+ * Photo Render: every room of the plan photographed twice by the AI. First the empty room, in one
+ * shared look so all rooms belong to the same house; then that same room furnished the way the owner
+ * describes. Images are made and stored by the backend (Cloudflare Workers AI).
+ */
 
-// Architectural Camera Framing Options
-const CAMERA_FRAMINGS = [
-  { id: 'ultrawide', label: 'Ultra-Wide Full Room (14mm)', desc: 'Complete panoramic view from corner to corner' },
-  { id: 'diagonal', label: 'Corner Diagonal (Wide)', desc: 'Dramatic depth showcasing adjacent walls and ceiling' },
-  { id: 'panoramic', label: 'Panoramic Vista (Wall-to-Wall)', desc: 'Expansive horizontal perspective covering entire room' }
-];
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-// Room Stager Presets (Wide-Angle Empty Rooms)
-const EMPTY_ROOM_SAMPLES = [
-  {
-    id: 'living',
-    title: 'Empty Living Lounge',
-    desc: 'Spacious vacant room with natural daylight and open flow',
-    url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1280&q=80',
-    type: 'living',
-    defaultPrompt: 'Central grand conversational seating area with large modular sectional sofa in textured ivory bouclé, two Scandinavian lounge armchairs, organic dual-tier travertine coffee table, large textured wool area rug, full-height architectural media feature wall with integrated ribbon fireplace, formal dining area visible in background, floor-to-ceiling glass windows with sheer linen drapery, sculptural statement chandelier'
-  },
-  {
-    id: 'bedroom',
-    title: 'Empty Master Bedroom',
-    desc: 'Wide vacant bedroom with hardwood floors & large window',
-    url: 'https://images.unsplash.com/photo-1598928506311-c55ded91a20c?auto=format&fit=crop&w=1280&q=80',
-    type: 'bedroom',
-    defaultPrompt: 'Grand king-size upholstered platform bed with fluted walnut acoustic headboard, two floating bedside nightstands with warm amber pendant lighting, cozy sitting reading lounge corner with velvet armchair and ottoman, large plush area rug covering wide-plank hardwood floors, floor-to-ceiling panoramic glass windows with sheer drapery, recessed tray ceiling with warm ambient LED cove illumination'
-  },
-  {
-    id: 'loft',
-    title: 'Industrial Loft Space',
-    desc: 'High ceiling loft with bare brick walls & wide floor',
-    url: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1280&q=80',
-    type: 'loft',
-    defaultPrompt: 'Expansive open-plan living and dining loft: caramel distressed leather Chesterfield sofa, raw steel and glass coffee table, oversized Persian rug over polished concrete, solid oak 8-person dining table, black industrial Crittall window wall, vintage brass Edison bulb chandeliers throughout'
-  },
-  {
-    id: 'penthouse',
-    title: 'Modern Penthouse Suite',
-    desc: 'Expansive open floor plan with panoramic skyline views',
-    url: 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1280&q=80',
-    type: 'penthouse',
-    defaultPrompt: 'Full penthouse living salon with low-profile Italian designer sectional, sculptural marble plinth tables, acoustic blonde oak slatted wall panels, custom bar counter with leather stools, recessed ceiling light coves, floor-to-ceiling glass overlooking skyline'
-  }
-];
+const STYLE_IDS = ['modern', 'japandi', 'scandinavian', 'industrial', 'contemporary', 'indian'];
+const KIND_LABEL = {
+  living: 'Living room', lounge: 'Lounge', dining: 'Dining room', kitchen: 'Kitchen', master_bedroom: 'Master bedroom',
+  bedroom: 'Bedroom', bathroom: 'Bathroom', study: 'Study', utility: 'Utility',
+};
+const KIND_ORDER = ['living', 'lounge', 'dining', 'kitchen', 'master_bedroom', 'bedroom', 'study', 'bathroom', 'utility'];
+const PROMPT_HINT = {
+  living: 'e.g. a big L-shaped grey sofa facing a TV wall, wooden coffee table, plants by the window',
+  dining: 'e.g. a round six-seater walnut table with cane chairs and a brass pendant',
+  kitchen: 'e.g. white handleless cabinets, quartz counters, an island with three bar stools',
+  master_bedroom: 'e.g. a king bed with an upholstered headboard, a reading chair in the corner, warm lighting',
+  bedroom: 'e.g. a single bed and a study desk for a teenager, blue and white colours, lots of shelves',
+  bathroom: 'e.g. a walk-in shower with black fittings, a floating wooden vanity, green tiles',
+  study: 'e.g. a large desk facing the window, bookshelves on one wall, a comfy armchair',
+};
 
-const ROOM_TYPES = [
-  { 
-    id: 'living', 
-    label: 'Entire Living Room & Lounge',
-    promptTemplate: 'entire massive luxury open-concept living room and lounge from wall to wall: central large modular sectional sofa arrangement with complementary bouclé lounge armchairs, sculpted marble coffee table, plush textured wool area rug, bespoke architectural media wall with integrated ribbon fireplace and illuminated niches, formal dining area visible in the open background, floor-to-ceiling panoramic glass windows with sheer drapery overlooking garden, statement sculptural ceiling chandelier and warm cove lighting, fiddle leaf fig tree in ceramic planter, complete comprehensive interior design across all 4 walls, ceiling and flooring, zero empty corners'
-  },
-  { 
-    id: 'bedroom', 
-    label: 'Entire Master Bedroom Suite',
-    promptTemplate: 'entire grand master bedroom suite fully furnished from edge to edge: king-size upholstered platform bed with fluted walnut accent headboard, two floating bedside nightstands with warm designer pendant lamps, sitting reading lounge nook with velvet accent armchair, large custom textured area rug over wide-plank oak flooring, walk-in dressing room entryway, floor-to-ceiling panoramic picture windows with linen sheer curtains, recessed tray ceiling with warm ambient LED cove lighting, contemporary canvas artwork, completely styled from corner to corner'
-  },
-  { 
-    id: 'dining', 
-    label: 'Entire Kitchen & Dining Hall',
-    promptTemplate: 'entire grand open-concept chef kitchen and formal dining pavilion: massive kitchen island with waterfall Calacatta marble countertop and leather counter stools, adjacent large 8-person solid walnut dining table with sculptural chairs, statement brass pendant lighting, floor-to-ceiling custom flat-panel millwork cabinetry with integrated panel-ready appliances, herringbone timber floors, wide panoramic glass doors to outdoor patio'
-  },
-  { 
-    id: 'office', 
-    label: 'Entire Executive Study & Library',
-    promptTemplate: 'entire luxury executive home office and private library: expansive solid walnut executive desk with ergonomic leather armchair, guest conversational seating with two armchairs and side table, floor-to-ceiling custom built-in bookshelves with illuminated display shelves, large geometric area rug, floor-to-ceiling corner windows with sheer drapery, sculptural desk lamp, complete comprehensive library study room interior'
-  }
-];
+const PX_PER_M = 20;
+
+// rooms of the plan, with the facts the photos need (size, windows)
+function roomsFromPlan(elements) {
+  const windows = elements.filter(e => e.type === 'window');
+  return elements
+    .filter(e => e.type === 'room' && e.kind && e.kind !== 'hallway')
+    .map((r, i) => {
+      const x0 = r.left, x1 = r.left + r.width, y0 = r.top - r.height / 2, y1 = r.top + r.height / 2;
+      const near = w => w.left >= x0 - 8 && w.left <= x1 + 8 && w.top >= y0 - 8 && w.top <= y1 + 8;
+      return {
+        key: r.id || `room_${i}`,
+        name: r.name || KIND_LABEL[r.kind] || r.kind,
+        kind: r.kind,
+        floor: r.floor || 1,
+        width_m: Math.round((r.width / PX_PER_M) * 10) / 10,
+        depth_m: Math.round((r.height / PX_PER_M) * 10) / 10,
+        area: r.area || Math.round((r.width * r.height) / (PX_PER_M * PX_PER_M)),
+        windows: windows.filter(near).length,
+      };
+    })
+    .sort((a, b) => a.floor - b.floor || KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || a.name.localeCompare(b.name));
+}
+
+function download(dataUrl, name) {
+  const a = document.createElement('a');
+  a.href = dataUrl;
+  a.download = name;
+  a.click();
+}
+
+function Spinner({ label, started }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 500); return () => clearInterval(t); }, []);
+  return (
+    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-zinc-950/75 backdrop-blur-sm">
+      <Loader2 className="h-7 w-7 animate-spin text-indigo-300" />
+      <p className="text-sm text-zinc-200">{label}</p>
+      <p className="font-mono text-xs text-zinc-500">{Math.floor((now - started) / 1000)}s · usually 5 to 20 seconds</p>
+    </div>
+  );
+}
+
+function Panel({ title, image, busy, children }) {
+  return (
+    <div className="flex min-w-0 flex-col">
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">{title}</h3>
+      </div>
+      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
+        {image ? <img src={image} alt={title} className="h-full w-full object-cover" /> : children}
+        {busy && <Spinner {...busy} />}
+      </div>
+    </div>
+  );
+}
+
+function Compare({ before, after }) {
+  const [pos, setPos] = useState(50);
+  const ref = useRef(null);
+  const move = (clientX) => {
+    const r = ref.current.getBoundingClientRect();
+    setPos(Math.max(0, Math.min(100, ((clientX - r.left) / r.width) * 100)));
+  };
+  return (
+    <div
+      ref={ref}
+      // capped so the whole picture and the controls below it fit on screen
+      style={{ maxWidth: 'calc(70vh * 4 / 3)' }}
+      className="relative mx-auto aspect-[4/3] w-full cursor-ew-resize touch-none select-none overflow-hidden rounded-xl border border-zinc-800"
+      onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); move(e.clientX); }}
+      onPointerMove={(e) => { if (e.buttons) move(e.clientX); }}
+    >
+      <img src={after} alt="Furnished" className="absolute inset-0 h-full w-full object-cover" draggable={false} />
+      <div className="absolute inset-0 overflow-hidden" style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }}>
+        <img src={before} alt="Empty" className="absolute inset-0 h-full w-full object-cover" draggable={false} />
+      </div>
+      <div className="absolute inset-y-0 w-0.5 bg-white shadow" style={{ left: `${pos}%` }}>
+        <div className="absolute top-1/2 left-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[10px] font-bold text-black shadow-lg">⇆</div>
+      </div>
+      <span className="absolute left-3 top-3 rounded bg-black/60 px-2 py-0.5 text-[11px] text-white">Empty</span>
+      <span className="absolute right-3 top-3 rounded bg-black/60 px-2 py-0.5 text-[11px] text-white">Furnished</span>
+    </div>
+  );
+}
 
 export default function RenderStudio() {
-  const [searchParams] = useSearchParams();
-  const projectId = searchParams.get('projectId');
+  const [params] = useSearchParams();
+  const projectId = params.get('projectId');
+  const navigate = useNavigate();
 
-  // Studio Mode: 'stager' (Virtual Room Stager) or 'blueprint' (CAD 3D Render)
-  const [studioMode, setStudioMode] = useState('stager');
+  const [project, setProject] = useState(null);
+  const [renders, setRenders] = useState({});          // room_key -> stored photos
+  const [enabled, setEnabled] = useState(true);
+  const [styleNames, setStyleNames] = useState({});
+  const [style, setStyle] = useState('modern');
+  const [selected, setSelected] = useState(null);
+  const [prompts, setPrompts] = useState({});
+  const [busy, setBusy] = useState({});                // room_key -> { which, label, started }
+  const [error, setError] = useState(null);
+  const [loadError, setLoadError] = useState(null);
+  const [view, setView] = useState('side');            // 'side' | 'compare'
+  const fileRef = useRef(null);
 
-  // Viewer Mode: 'side-by-side' (Clear Left/Right), 'full' (Full 8K Render), or 'split' (Interactive slider)
-  const [viewerMode, setViewerMode] = useState('side-by-side');
-
-  // Speed & Quality Engine: 'turbo' (3-5s) vs 'flux' (High-Fidelity)
-  const [engineModel, setEngineModel] = useState('turbo');
-
-  // Camera & Framing State
-  const [cameraFraming, setCameraFraming] = useState(CAMERA_FRAMINGS[0]);
-
-  // CAD Blueprint Render State
-  const [activeStyle, setActiveStyle] = useState(STYLES[0]);
-  const [customPrompt, setCustomPrompt] = useState('');
-  const [activeSeed, setActiveSeed] = useState(42);
-
-  // Virtual Room Stager State
-  const [stagerSelectedPreset, setStagerSelectedPreset] = useState(EMPTY_ROOM_SAMPLES[0]);
-  const [stagerRoomType, setStagerRoomType] = useState(ROOM_TYPES[0]);
-  const [stagerStyle, setStagerStyle] = useState(STYLES[0]);
-  const [stagerUserImage, setStagerUserImage] = useState(null);
-  const [stagerPrompt, setStagerPrompt] = useState(EMPTY_ROOM_SAMPLES[0].defaultPrompt);
-  const fileInputRef = useRef(null);
-
-  // Rendering & Progress State
-  const [isRendering, setIsRendering] = useState(false);
-  const [renderElapsed, setRenderElapsed] = useState(0);
-  const [renderPhase, setRenderPhase] = useState('');
-  const [sliderPos, setSliderPos] = useState(50);
-  const sliderRef = useRef(null);
-  const timerRef = useRef(null);
-
-  // Wireframe snapshot from Studio
-  const [wireframeSnapshot] = useState(() => localStorage.getItem('renderStudioSnapshot'));
-
-  // Gallery of generated renders in current session
-  const [gallery, setGallery] = useState([]);
-  const [currentRender, setCurrentRender] = useState(null);
-
-  // Peek original in Full View mode
-  const [peekOriginal, setPeekOriginal] = useState(false);
-
-  // Auto-generate preview on mount
-  useEffect(() => {
-    generateRender();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Timer for generation feedback
-  useEffect(() => {
-    if (isRendering) {
-      setRenderElapsed(0);
-      setRenderPhase('Setting Camera Perspective...');
-      const start = Date.now();
-      timerRef.current = setInterval(() => {
-        const secs = ((Date.now() - start) / 1000).toFixed(1);
-        setRenderElapsed(secs);
-        if (secs > 1.2 && secs <= 3.0) {
-          setRenderPhase('Composing Wall-to-Wall Architecture...');
-        } else if (secs > 3.0 && secs <= 5.5) {
-          setRenderPhase('Furnishing Complete Room & Ambient Lighting...');
-        } else if (secs > 5.5) {
-          setRenderPhase('Refining 8K Textures & Photorealistic Finish...');
-        }
-      }, 200);
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current);
+  const call = async (path, body) => {
+    const res = await fetch(`${API_URL}${path}`, {
+      method: body ? 'POST' : 'GET',
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (res.status === 401) {
+      localStorage.removeItem('token');
+      navigate('/auth', { replace: true });
+      throw new Error('Please sign in again.');
     }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [isRendering]);
-
-  // Construct Whole-Room Master Prompt
-  const activePromptText = useMemo(() => {
-    if (studioMode === 'stager') {
-      const parts = [
-        `Award-winning architectural interior photography, ${cameraFraming.desc}`,
-        `Complete panoramic view of an ${stagerRoomType.promptTemplate}`,
-        `Designed in authentic ${stagerStyle.name} aesthetic with ${stagerStyle.promptSnippet}`,
-        stagerPrompt.trim() ? `Custom detailing: ${stagerPrompt.trim()}` : null,
-        'Architectural Digest showcase, Elle Decor cover feature, full room perspective, corner to corner, expansive interior, high ceiling with architectural lighting, 8k resolution, photorealistic masterwork, raytracing, zero empty walls, zero cropped vignettes, wide angle master shot'
-      ].filter(Boolean);
-      return parts.join(', ');
-    } else {
-      const parts = [
-        `Award-winning architectural photography, ${cameraFraming.desc}`,
-        `Complete panoramic view of a ${activeStyle.promptSnippet}`,
-        customPrompt.trim() ? customPrompt.trim() : null,
-        'Architectural Digest, full room perspective from corner to corner, 8k resolution, octane render, Unreal Engine 5 realism, cinematic composition, depth of field, photorealistic textures, masterwork'
-      ].filter(Boolean);
-      return parts.join(', ');
-    }
-  }, [studioMode, cameraFraming, stagerRoomType, stagerStyle, stagerPrompt, activeStyle, customPrompt]);
-
-  const handleMouseMove = (e) => {
-    if (!sliderRef.current || viewerMode !== 'split') return;
-    const rect = sliderRef.current.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
-    const percent = (x / rect.width) * 100;
-    setSliderPos(percent);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || `Request failed (${res.status})`);
+    return data;
   };
 
-  const handleFileUpload = (e) => {
+  useEffect(() => {
+    if (!projectId) return;
+    (async () => {
+      try {
+        const [proj, list, status] = await Promise.all([
+          call(`/api/projects/${projectId}`),
+          call(`/api/projects/${projectId}/renders`),
+          call('/api/render/status'),
+        ]);
+        setProject(proj);
+        setEnabled(status.enabled);
+        setStyleNames(status.styles || {});
+        setRenders(Object.fromEntries(list.map(r => [r.room_key, r])));
+        setPrompts(Object.fromEntries(list.filter(r => r.prompt).map(r => [r.room_key, r.prompt])));
+        const houseStyle = list.find(r => r.empty_image)?.style;
+        if (houseStyle) setStyle(houseStyle);
+      } catch (e) {
+        setLoadError(e.message);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  const rooms = useMemo(() => roomsFromPlan(project?.elements_data || []), [project]);
+  useEffect(() => { if (!selected && rooms.length) setSelected(rooms[0].key); }, [rooms, selected]);
+  const room = rooms.find(r => r.key === selected);
+  const shot = room ? renders[room.key] : null;
+  const roomBusy = room ? busy[room.key] : null;
+
+  const run = async (target, which, label, request) => {
+    setError(null);
+    setBusy(b => ({ ...b, [target.key]: { which, label, started: Date.now() } }));
+    try {
+      const row = await request();
+      setRenders(r => ({ ...r, [row.room_key]: row }));
+      return true;
+    } catch (e) {
+      setError(e.message);
+      return false;
+    } finally {
+      setBusy(b => { const n = { ...b }; delete n[target.key]; return n; });
+    }
+  };
+
+  const roomBody = (r) => ({ room_key: r.key, room_name: r.name, kind: r.kind, style, width_m: r.width_m, depth_m: r.depth_m, windows: r.windows });
+
+  const makeEmpty = (r) => run(r, 'empty', `Photographing the empty ${r.name.toLowerCase()}…`,
+    () => call(`/api/projects/${projectId}/renders/empty`, roomBody(r)));
+
+  const furnish = (r) => run(r, 'furnished', `Furnishing the ${r.name.toLowerCase()}…`,
+    () => call(`/api/projects/${projectId}/renders/furnish`, { room_key: r.key, style, prompt: prompts[r.key] || '' }));
+
+  const makeAllEmpty = async () => {
+    // one at a time: each new room uses the ones already made as references, so the house stays consistent
+    for (const r of rooms.filter(x => !renders[x.key]?.empty_image)) {
+      setSelected(r.key);
+      if (!(await makeEmpty(r))) break;
+    }
+  };
+
+  const onUpload = (e) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    e.target.value = '';
+    if (!file || !room) return;
     const reader = new FileReader();
-    reader.onload = (event) => {
-      setStagerUserImage(event.target.result);
-    };
+    reader.onload = () => run(room, 'empty', 'Uploading your photo…',
+      () => call(`/api/projects/${projectId}/renders/upload`, { ...roomBody(room), image: reader.result }));
     reader.readAsDataURL(file);
   };
 
-  const generateRender = async (forceModel = null) => {
-    const chosenModel = forceModel || engineModel;
-    setIsRendering(true);
-    const newSeed = Math.floor(Math.random() * 999999);
-    setActiveSeed(newSeed);
+  const missingEmpty = rooms.filter(r => !renders[r.key]?.empty_image).length;
+  const styleChanged = Object.values(renders).some(r => r.empty_image && r.style !== style);
 
-    const encodedPrompt = encodeURIComponent(activePromptText);
-    
-    // Fast Turbo (3-5s) vs Ultra FLUX
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1280&height=720&model=${chosenModel}&seed=${newSeed}&nologo=true`;
-
-    try {
-      // Preload image with safe timeout
-      const img = new Image();
-      img.src = imageUrl;
-      
-      const maxWaitMs = chosenModel === 'turbo' ? 8000 : 35000;
-      await new Promise((resolve) => {
-        img.onload = () => resolve(true);
-        img.onerror = () => resolve(false);
-        setTimeout(() => resolve(true), maxWaitMs);
-      });
-
-      const newRenderItem = {
-        id: Date.now().toString(),
-        url: imageUrl,
-        mode: studioMode,
-        model: chosenModel,
-        style: studioMode === 'stager' ? stagerStyle.name : activeStyle.name,
-        roomType: studioMode === 'stager' ? stagerRoomType.label : 'CAD Visualization',
-        seed: newSeed,
-        createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-
-      setCurrentRender(newRenderItem);
-      setGallery(prev => [newRenderItem, ...prev]);
-    } catch (err) {
-      console.error("Render generation failed", err);
-    } finally {
-      setIsRendering(false);
-    }
-  };
-
-  const handleDownloadHD = async () => {
-    if (!currentRender?.url) return;
-    try {
-      const res = await fetch(currentRender.url);
-      const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      const prefix = studioMode === 'stager' ? 'Arch-E-Tech-Whole-Room-Staged' : 'Arch-E-Tech-Render';
-      a.download = `${prefix}-${Date.now()}.jpg`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(blobUrl);
-    } catch (e) {
-      window.open(currentRender.url, '_blank');
-    }
-  };
-
-  // Base comparison image for the original space
-  const leftComparisonImage = studioMode === 'stager'
-    ? (stagerUserImage || stagerSelectedPreset.url)
-    : wireframeSnapshot;
+  if (!projectId) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-3 bg-zinc-950 text-zinc-300">
+        <p>Open Photo Render from a project in the Studio.</p>
+        <Link to="/dashboard" className="text-sm text-white underline underline-offset-4">Go to your projects</Link>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex h-screen bg-zinc-950 text-zinc-100 font-sans overflow-hidden">
-      
-      {/* ========================================================= */}
-      {/* LEFT CONTROL PANEL                                        */}
-      {/* ========================================================= */}
-      <aside className="w-[420px] border-r border-zinc-800 bg-zinc-950/95 backdrop-blur-xl flex flex-col z-20 shadow-2xl shrink-0">
-        
-        {/* Header */}
-        <div className="p-5 border-b border-zinc-800">
-          <Link 
-            to={projectId ? `/studio?projectId=${projectId}` : '/studio'} 
-            className="text-zinc-500 hover:text-white transition-colors flex items-center gap-2 text-xs font-semibold mb-3 tracking-wide uppercase"
-          >
-            <ArrowLeft className="w-4 h-4" /> Back to Studio
+    <div className="flex min-h-screen flex-col bg-zinc-950 text-zinc-100 lg:h-screen lg:flex-row lg:overflow-hidden">
+
+      {/* left: house style and the rooms of the plan */}
+      <aside className="flex shrink-0 flex-col border-b border-zinc-800 lg:w-80 lg:border-b-0 lg:border-r">
+        <div className="flex items-center gap-3 border-b border-zinc-800 px-5 py-4">
+          <Link to={`/studio?projectId=${projectId}`} className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white" title="Back to Studio">
+            <ArrowLeft className="h-4 w-4" />
           </Link>
-          
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
-                <Sparkles className="w-4 h-4" />
-              </div>
-              <div>
-                <h1 className="text-base font-bold text-white tracking-tight">AI Virtual Room Stager</h1>
-                <p className="text-[11px] text-zinc-400">Full-Room Architectural Furnishing & Staging</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Studio Mode Switcher */}
-          <div className="grid grid-cols-2 p-1 bg-zinc-900 border border-zinc-800 rounded-xl gap-1">
-            <button
-              onClick={() => setStudioMode('stager')}
-              className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
-                studioMode === 'stager' 
-                  ? 'bg-emerald-600 text-white shadow-sm' 
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              <Sofa className="w-3.5 h-3.5" />
-              <span>Virtual Room Stager</span>
-            </button>
-            <button
-              onClick={() => setStudioMode('blueprint')}
-              className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
-                studioMode === 'blueprint' 
-                  ? 'bg-zinc-800 text-white shadow-sm border border-zinc-700/60' 
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5 text-indigo-400" />
-              <span>CAD Blueprint 3D</span>
-            </button>
-          </div>
-
-          {/* Engine Speed Indicator */}
-          <div className="mt-3 flex items-center justify-between p-2 rounded-xl bg-black/40 border border-zinc-800/80">
-            <span className="text-[11px] text-zinc-400 font-medium flex items-center gap-1.5">
-              <Zap className="w-3.5 h-3.5 text-amber-400" /> Generation Speed:
-            </span>
-            <div className="flex gap-1">
-              <button
-                onClick={() => setEngineModel('turbo')}
-                className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all flex items-center gap-1 ${
-                  engineModel === 'turbo'
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 shadow-[0_0_8px_rgba(245,158,11,0.2)]'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-                title="Generates in 3-5 seconds using SDXL Turbo"
-              >
-                ⚡ Fast Turbo (3-5s)
-              </button>
-              <button
-                onClick={() => setEngineModel('flux')}
-                className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
-                  engineModel === 'flux'
-                    ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/50'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-                title="Ultra photorealism (FLUX.1) - takes 15-30s"
-              >
-                🌟 HD Ultra
-              </button>
-            </div>
+          <div className="min-w-0">
+            <h1 className="text-sm font-semibold">Photo Render</h1>
+            <p className="truncate text-xs text-zinc-500">{project?.name || 'Loading…'}</p>
           </div>
         </div>
 
-        {/* Scrollable Controls */}
-        <div className="flex-1 p-5 overflow-y-auto space-y-5 custom-scrollbar">
-          
-          {/* ========================================================= */}
-          {/* VIRTUAL ROOM STAGER CONTROLS                              */}
-          {/* ========================================================= */}
-          {studioMode === 'stager' && (
-            <>
-              {/* 1. Target Room Type */}
-              <div>
-                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                  <Home className="w-3.5 h-3.5 text-emerald-400" /> Space to Stage
-                </h3>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {ROOM_TYPES.map(rt => (
-                    <button
-                      key={rt.id}
-                      onClick={() => {
-                        setStagerRoomType(rt);
-                      }}
-                      className={`p-2.5 rounded-xl border text-left transition-all ${
-                        stagerRoomType.id === rt.id
-                          ? 'border-emerald-500 bg-emerald-500/15 text-white shadow-[0_0_12px_rgba(16,185,129,0.2)]'
-                          : 'border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
-                      }`}
-                    >
-                      <div className="text-xs font-semibold">{rt.label}</div>
-                      <div className="text-[10px] text-zinc-500 mt-0.5">Whole-room layout</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
+        <div className="border-b border-zinc-800 px-5 py-4">
+          <p className="mb-2 text-xs font-medium text-zinc-400">House style</p>
+          <div className="flex flex-wrap gap-1.5">
+            {STYLE_IDS.map(id => (
+              <button
+                key={id}
+                onClick={() => setStyle(id)}
+                className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                  style === id ? 'border-indigo-400 bg-indigo-500/15 text-white' : 'border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200'
+                }`}
+              >
+                {styleNames[id] || id}
+              </button>
+            ))}
+          </div>
+          {styleChanged && (
+            <p className="mt-2 text-[11px] leading-snug text-amber-300/90">
+              Rooms already photographed keep their old style until you regenerate their empty photo.
+            </p>
+          )}
+        </div>
 
-              {/* 2. Upload or Pick Room Photo */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
-                    <Upload className="w-3.5 h-3.5 text-emerald-400" /> Base Room Photo
-                  </h3>
-                  {stagerUserImage && (
-                    <button 
-                      onClick={() => setStagerUserImage(null)}
-                      className="text-[10px] text-zinc-500 hover:text-zinc-300 underline"
-                    >
-                      Reset to Presets
-                    </button>
-                  )}
-                </div>
-
-                {/* Upload Trigger */}
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  onChange={handleFileUpload} 
-                  accept="image/*" 
-                  className="hidden" 
-                />
-                
-                <div 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-zinc-700 hover:border-emerald-500 rounded-xl p-3 text-center cursor-pointer bg-zinc-900/30 hover:bg-zinc-900/60 transition-all mb-2.5 group"
+        <div className="flex items-center justify-between px-5 pt-4 pb-2">
+          <p className="text-xs font-medium text-zinc-400">Rooms ({rooms.length})</p>
+          {missingEmpty > 0 && enabled && (
+            <button
+              onClick={makeAllEmpty}
+              disabled={Object.keys(busy).length > 0}
+              className="text-xs font-medium text-indigo-300 hover:text-indigo-200 disabled:opacity-40"
+            >
+              Photograph all empty rooms
+            </button>
+          )}
+        </div>
+        <ul className="flex gap-2 overflow-x-auto px-3 pb-3 lg:flex-1 lg:flex-col lg:gap-1 lg:overflow-y-auto">
+          {rooms.map(r => {
+            const s = renders[r.key];
+            const thumb = s?.furnished_image || s?.empty_image;
+            const on = r.key === selected;
+            return (
+              <li key={r.key} className="shrink-0 lg:shrink">
+                <button
+                  onClick={() => setSelected(r.key)}
+                  className={`flex w-56 items-center gap-3 rounded-lg p-2 text-left transition-colors lg:w-full ${on ? 'bg-zinc-800' : 'hover:bg-zinc-900'}`}
                 >
-                  <Upload className="w-5 h-5 mx-auto text-zinc-500 group-hover:text-emerald-400 mb-1" />
-                  <span className="text-xs font-semibold text-zinc-300 group-hover:text-white block">
-                    {stagerUserImage ? 'Change Uploaded Photo' : 'Upload Your Empty Room Picture'}
-                  </span>
-                  <span className="text-[10px] text-zinc-500">JPG, PNG up to 10MB</span>
-                </div>
-
-                {/* Wide Angle Presets */}
-                <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold mb-1.5">Or choose an empty room template:</p>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {EMPTY_ROOM_SAMPLES.map(sample => (
-                    <div 
-                      key={sample.id}
-                      onClick={() => {
-                        setStagerUserImage(null);
-                        setStagerSelectedPreset(sample);
-                        setStagerPrompt(sample.defaultPrompt);
-                      }}
-                      className={`relative rounded-xl overflow-hidden cursor-pointer border p-1 transition-all ${
-                        !stagerUserImage && stagerSelectedPreset.id === sample.id
-                          ? 'border-emerald-500 bg-emerald-500/10'
-                          : 'border-zinc-800 bg-zinc-900/40 opacity-70 hover:opacity-100'
-                      }`}
-                    >
-                      <img src={sample.url} alt={sample.title} className="w-full h-16 object-cover rounded-lg" />
-                      <div className="mt-1">
-                        <div className="text-[10px] font-bold text-white truncate">{sample.title}</div>
-                        <div className="text-[8px] text-zinc-500 truncate">{sample.desc}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 3. Camera Framing / Angle */}
-              <div>
-                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
-                  <Camera className="w-3.5 h-3.5 text-emerald-400" /> Camera Framing
-                </h3>
-                <div className="grid grid-cols-1 gap-1.5">
-                  {CAMERA_FRAMINGS.map(cf => (
-                    <button
-                      key={cf.id}
-                      onClick={() => setCameraFraming(cf)}
-                      className={`p-2 rounded-xl border text-left transition-all ${
-                        cameraFraming.id === cf.id
-                          ? 'border-emerald-500 bg-emerald-500/10 text-white'
-                          : 'border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:text-zinc-200'
-                      }`}
-                    >
-                      <div className="text-xs font-semibold">{cf.label}</div>
-                      <div className="text-[10px] text-zinc-500">{cf.desc}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 4. Interior Design Aesthetic */}
-              <div>
-                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
-                  <Sliders className="w-3.5 h-3.5 text-emerald-400" /> Architectural Aesthetic
-                </h3>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {STYLES.map(style => (
-                    <button
-                      key={style.id}
-                      onClick={() => setStagerStyle(style)}
-                      className={`p-2 rounded-xl border text-left transition-all ${
-                        stagerStyle.id === style.id
-                          ? 'border-emerald-500 bg-emerald-500/10 text-white'
-                          : 'border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:text-zinc-200'
-                      }`}
-                    >
-                      <div className="text-xs font-semibold truncate">{style.name}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 5. Custom Whole-Room Directives */}
-              <div>
-                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
-                  <Wand2 className="w-3.5 h-3.5 text-emerald-400" /> Custom Furniture & Details
-                </h3>
-                <textarea
-                  value={stagerPrompt}
-                  onChange={(e) => setStagerPrompt(e.target.value)}
-                  placeholder="e.g. Massive sectional sofa, central marble coffee table, two armchairs, large wool rug, dining area in background, statement lighting..."
-                  rows={3}
-                  className="w-full px-3 py-2 bg-zinc-900/70 border border-zinc-800 rounded-xl text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500 transition-colors resize-none"
-                />
-              </div>
-            </>
+                  <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-md border border-zinc-800 bg-zinc-900">
+                    {thumb && <img src={thumb} alt="" className="h-full w-full object-cover" />}
+                    {busy[r.key] && <Loader2 className="absolute inset-0 m-auto h-4 w-4 animate-spin text-indigo-300" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm text-zinc-100">{r.name}</p>
+                    <p className="text-[11px] text-zinc-500">
+                      {r.area ? `${Math.round(r.area)} m² · ` : ''}
+                      {s?.furnished_image ? <span className="text-emerald-400">Furnished</span> : s?.empty_image ? 'Empty photo ready' : 'Not photographed'}
+                    </p>
+                  </div>
+                </button>
+              </li>
+            );
+          })}
+          {project && !rooms.length && (
+            <li className="px-2 py-4 text-xs text-zinc-500">This plan has no rooms yet. Generate a layout or use Auto Detect in the Studio first.</li>
           )}
-
-          {/* ========================================================= */}
-          {/* CAD BLUEPRINT 3D CONTROLS                                 */}
-          {/* ========================================================= */}
-          {studioMode === 'blueprint' && (
-            <>
-              <div>
-                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                  <Sliders className="w-3.5 h-3.5 text-indigo-400" /> Architectural Style
-                </h3>
-                <div className="grid grid-cols-1 gap-1.5">
-                  {STYLES.map(style => (
-                    <div 
-                      key={style.id}
-                      onClick={() => setActiveStyle(style)}
-                      className={`p-2.5 rounded-xl border cursor-pointer transition-all ${
-                        activeStyle.id === style.id 
-                          ? 'border-indigo-500 bg-indigo-500/10 shadow-[0_0_12px_rgba(99,102,241,0.2)]' 
-                          : 'border-zinc-800/80 bg-zinc-900/40 hover:border-zinc-700'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <h4 className={`font-semibold text-xs ${activeStyle.id === style.id ? 'text-white' : 'text-zinc-300'}`}>
-                          {style.name}
-                        </h4>
-                        {activeStyle.id === style.id && <Check className="w-3.5 h-3.5 text-indigo-400" />}
-                      </div>
-                      <p className="text-[10px] text-zinc-500 mt-0.5 line-clamp-1">{style.tagline}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
-                  <Wand2 className="w-3.5 h-3.5 text-emerald-400" /> Custom Details
-                </h3>
-                <textarea
-                  value={customPrompt}
-                  onChange={(e) => setCustomPrompt(e.target.value)}
-                  placeholder="e.g. Italian marble island, floating fireplace, lush indoor garden..."
-                  rows={2}
-                  className="w-full px-3 py-2 bg-zinc-900/70 border border-zinc-800 rounded-xl text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-indigo-500 transition-colors resize-none"
-                />
-              </div>
-            </>
-          )}
-
-        </div>
-
-        {/* Generate Button Footer */}
-        <div className="p-5 border-t border-zinc-800 bg-zinc-950/80">
-          <button 
-            onClick={() => generateRender()}
-            disabled={isRendering}
-            className={`w-full py-3.5 rounded-xl font-semibold text-xs tracking-wide transition-all flex items-center justify-center gap-2 shadow-xl ${
-              isRendering 
-                ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' 
-                : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white shadow-[0_0_20px_rgba(16,185,129,0.3)]'
-            }`}
-          >
-            {isRendering ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>Designing Full Room ({renderElapsed}s)...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4" />
-                <span>Generate Complete Furnished Room</span>
-              </>
-            )}
-          </button>
-        </div>
+        </ul>
       </aside>
 
-      {/* ========================================================= */}
-      {/* MAIN VIEWPORT: INTUITIVE SIDE-BY-SIDE / FULL VIEWER       */}
-      {/* ========================================================= */}
-      <main className="flex-1 relative flex flex-col bg-zinc-900 overflow-hidden">
-        
-        {/* Subtle grid background */}
-        <div 
-          className="absolute inset-0 opacity-15 pointer-events-none" 
-          style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '32px 32px' }}
-        />
+      {/* main: the selected room, empty and furnished */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-6xl px-4 py-6 sm:px-8">
 
-        {/* Top Viewport Status & Intuitive View Mode Selector */}
-        <div className="h-14 border-b border-zinc-800/80 bg-zinc-950/70 backdrop-blur-md px-6 flex items-center justify-between z-10">
-          
-          {/* Left Title */}
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-semibold text-white tracking-wide">
-              {studioMode === 'stager' ? 'Room Transformation' : 'CAD to Photorealism'}
-            </span>
-            <span className="text-zinc-600">•</span>
-            <span className="text-xs text-zinc-400 font-mono">
-              {currentRender ? `${currentRender.style} • Full Room View` : 'Ready to Stage'}
-            </span>
-          </div>
-
-          {/* Center: Crystal-Clear View Mode Selector (Fixes the confusing split slider!) */}
-          <div className="flex items-center gap-1 bg-zinc-900/90 border border-zinc-800 p-1 rounded-xl">
-            <button
-              onClick={() => setViewerMode('side-by-side')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                viewerMode === 'side-by-side'
-                  ? 'bg-zinc-800 text-white shadow-sm border border-zinc-700/60'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-              title="Side-by-Side: View Original Space on Left, Furnished Room on Right"
-            >
-              <Columns className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Side-by-Side</span>
-            </button>
-            <button
-              onClick={() => setViewerMode('full')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                viewerMode === 'full'
-                  ? 'bg-zinc-800 text-white shadow-sm border border-zinc-700/60'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-              title="Full View: Expansive view of the completed furnished room"
-            >
-              <Maximize2 className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Full Staged View</span>
-            </button>
-            <button
-              onClick={() => setViewerMode('split')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                viewerMode === 'split'
-                  ? 'bg-zinc-800 text-white shadow-sm border border-zinc-700/60'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-              title="Split Slider: Drag divider between original and furnished"
-            >
-              <Split className="w-3.5 h-3.5 text-amber-400" />
-              <span>Split Slider</span>
-            </button>
-          </div>
-
-          {/* Right Action Buttons */}
-          <div className="flex items-center gap-2">
-            {currentRender && (
-              <button 
-                onClick={() => generateRender()}
-                disabled={isRendering}
-                className="px-3 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800/60 hover:bg-zinc-800 text-xs text-zinc-300 hover:text-white transition-colors flex items-center gap-1.5"
-              >
-                <RefreshCw className="w-3.5 h-3.5" /> Re-roll Seed
-              </button>
-            )}
-            {currentRender && (
-              <button 
-                onClick={handleDownloadHD}
-                className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs transition-colors shadow-[0_0_15px_rgba(16,185,129,0.4)] flex items-center gap-1.5"
-              >
-                <Download className="w-3.5 h-3.5" /> Download 8K Image
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Center Viewer Area */}
-        <div className="flex-1 flex items-center justify-center p-6 overflow-hidden">
-          
-          {/* Loading Overlay */}
-          {isRendering ? (
-            <div className="w-full max-w-6xl aspect-video rounded-3xl overflow-hidden border border-zinc-800 bg-zinc-950 flex flex-col items-center justify-center shadow-2xl relative">
-              <div className="relative w-16 h-16 mb-5 flex items-center justify-center">
-                <div className="absolute inset-0 rounded-full border-4 border-emerald-500/20 border-t-emerald-500 animate-spin"></div>
-                <Sparkles className="w-7 h-7 text-emerald-400 animate-pulse" />
-              </div>
-              <h3 className="text-lg font-bold text-white tracking-tight mb-1">
-                Designing Complete Furnished Room
-              </h3>
-              <p className="text-xs text-emerald-400 font-mono animate-pulse">{renderPhase}</p>
-              <div className="mt-4 flex items-center gap-3">
-                <span className="px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[11px] text-zinc-400 font-mono">
-                  Elapsed: {renderElapsed}s
-                </span>
-                <span className="px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[11px] text-zinc-400 font-mono">
-                  Engine: {engineModel === 'turbo' ? '⚡ SDXL Turbo (3-5s)' : '🌟 FLUX Ultra'}
-                </span>
-              </div>
+          {!enabled && (
+            <div className="mb-5 flex gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+              <p>AI photos aren't switched on yet. Add <code className="font-mono text-xs">CLOUDFLARE_ACCOUNT_ID</code> and{' '}
+                <code className="font-mono text-xs">CLOUDFLARE_API_TOKEN</code> to the backend's environment on Render, then reload this page.
+                You can still upload your own photo of an empty room.</p>
             </div>
-          ) : !currentRender ? (
-            <div className="w-full max-w-6xl aspect-video rounded-3xl border border-zinc-800 bg-zinc-950 flex flex-col items-center justify-center p-8 text-center shadow-2xl">
-              <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 mb-4 shadow-inner">
-                <Sofa className="w-8 h-8 opacity-40 text-emerald-400" />
-              </div>
-              <h3 className="text-lg font-semibold text-zinc-200 mb-1">Ready for Whole-Room Staging</h3>
-              <p className="text-xs text-zinc-500 max-w-md mb-6">
-                Select your space type and aesthetic from the left panel, then click Generate to create a wall-to-wall furnished room.
-              </p>
-              <button
-                onClick={() => generateRender()}
-                className="px-6 py-2.5 rounded-xl bg-white text-black font-semibold text-xs hover:bg-zinc-200 transition-colors shadow-lg flex items-center gap-2"
-              >
-                <Sparkles className="w-4 h-4" /> Start Initial Render
-              </button>
-            </div>
-          ) : (
+          )}
+          {loadError && <p className="mb-5 rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">{loadError}</p>}
+
+          {room && (
             <>
-              {/* ========================================================= */}
-              {/* VIEW MODE 1: SIDE-BY-SIDE (Clean & Crystal Clear!)         */}
-              {/* ========================================================= */}
-              {viewerMode === 'side-by-side' && (
-                <div className="w-full max-w-6xl aspect-video grid grid-cols-2 gap-4 h-full max-h-[75vh]">
-                  
-                  {/* Left: Original Empty Room or CAD */}
-                  <div className="relative rounded-2xl overflow-hidden border border-zinc-800 bg-black shadow-xl group">
-                    <img 
-                      src={leftComparisonImage} 
-                      className="w-full h-full object-cover filter contrast-105" 
-                      alt="Original Space" 
-                    />
-                    <div className="absolute top-3 left-3 bg-zinc-950/85 backdrop-blur-md px-3 py-1 rounded-lg text-[10px] font-bold text-zinc-400 border border-zinc-800 shadow-md">
-                      ORIGINAL EMPTY ROOM / CAD
-                    </div>
-                  </div>
-
-                  {/* Right: AI Furnished Whole Room */}
-                  <div className="relative rounded-2xl overflow-hidden border-2 border-emerald-500/50 bg-black shadow-[0_0_30px_rgba(16,185,129,0.15)] group">
-                    <img 
-                      src={currentRender.url} 
-                      className="w-full h-full object-cover" 
-                      alt="Furnished Full Room" 
-                    />
-                    <div className="absolute top-3 left-3 bg-emerald-950/90 backdrop-blur-md px-3 py-1 rounded-lg text-[10px] font-bold text-emerald-300 border border-emerald-500/40 shadow-md flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                      AI FURNISHED FULL ROOM
-                    </div>
-                    <div className="absolute bottom-3 right-3 bg-black/75 backdrop-blur-md px-3 py-1 rounded-lg text-[10px] text-zinc-300 border border-zinc-800 font-mono">
-                      {currentRender.style} • 8K Wide View
-                    </div>
-                  </div>
-
+              <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-semibold">{room.name}</h2>
+                  <p className="text-sm text-zinc-500">
+                    {KIND_LABEL[room.kind] || room.kind} · {room.width_m} × {room.depth_m} m
+                    {room.windows ? ` · ${room.windows} window${room.windows > 1 ? 's' : ''}` : ''}
+                  </p>
                 </div>
-              )}
-
-              {/* ========================================================= */}
-              {/* VIEW MODE 2: FULL STAGED VIEW (Expansive 8K Viewport)      */}
-              {/* ========================================================= */}
-              {viewerMode === 'full' && (
-                <div className="relative w-full max-w-6xl aspect-video rounded-3xl overflow-hidden border border-zinc-800 bg-black shadow-2xl h-full max-h-[75vh]">
-                  <img 
-                    src={peekOriginal ? leftComparisonImage : currentRender.url} 
-                    className="w-full h-full object-cover transition-all duration-200" 
-                    alt="Furnished Full Room" 
-                  />
-                  <div className="absolute top-4 left-4 bg-zinc-950/85 backdrop-blur-md px-3 py-1.5 rounded-xl text-[11px] font-bold text-emerald-400 border border-emerald-500/40 shadow-lg flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    {peekOriginal ? 'ORIGINAL ROOM REFERENCE' : 'FULL ROOM PHOTOREALISTIC STAGING'}
-                  </div>
-                  
-                  {/* Hold to Peek Original Button */}
-                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
-                    <button
-                      onMouseDown={() => setPeekOriginal(true)}
-                      onMouseUp={() => setPeekOriginal(false)}
-                      onTouchStart={() => setPeekOriginal(true)}
-                      onTouchEnd={() => setPeekOriginal(false)}
-                      className="px-4 py-2 rounded-full bg-zinc-950/85 hover:bg-black text-zinc-200 text-xs font-semibold border border-zinc-700/80 shadow-2xl flex items-center gap-2 backdrop-blur-md active:scale-95 transition-transform select-none"
-                    >
-                      <Eye className="w-3.5 h-3.5 text-indigo-400" />
-                      <span>Press & Hold to Peek Original</span>
+                {shot?.empty_image && shot?.furnished_image && (
+                  <div className="flex rounded-lg border border-zinc-800 p-0.5 text-xs">
+                    <button onClick={() => setView('side')} className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 ${view === 'side' ? 'bg-zinc-800 text-white' : 'text-zinc-400'}`}>
+                      <Columns className="h-3.5 w-3.5" /> Side by side
+                    </button>
+                    <button onClick={() => setView('compare')} className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 ${view === 'compare' ? 'bg-zinc-800 text-white' : 'text-zinc-400'}`}>
+                      <Split className="h-3.5 w-3.5" /> Compare
                     </button>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
-              {/* ========================================================= */}
-              {/* VIEW MODE 3: SPLIT SLIDER                                 */}
-              {/* ========================================================= */}
-              {viewerMode === 'split' && (
-                <div 
-                  className="relative w-full max-w-5xl aspect-video rounded-3xl overflow-hidden border border-zinc-800 bg-black shadow-2xl select-none h-full max-h-[75vh]"
-                  ref={sliderRef}
-                  onMouseMove={handleMouseMove}
-                  onTouchMove={handleMouseMove}
-                >
-                  {/* Left: Original */}
-                  <div className="absolute inset-0 bg-zinc-950 flex items-center justify-center">
-                    <img 
-                      src={leftComparisonImage} 
-                      className="w-full h-full object-cover filter contrast-105" 
-                      alt="Base Reference" 
-                    />
-                  </div>
-
-                  {/* Right: Furnished with clipPath */}
-                  <div 
-                    className="absolute inset-0 overflow-hidden" 
-                    style={{ clipPath: `inset(0 ${100 - sliderPos}% 0 0)` }}
-                  >
-                    <img 
-                      src={currentRender.url} 
-                      className="absolute inset-0 w-full h-full object-cover" 
-                      alt="AI Furnished Full Room" 
-                    />
-                  </div>
-
-                  {/* Drag Handle */}
-                  <div 
-                    className="absolute top-0 bottom-0 w-0.5 bg-white cursor-ew-resize z-30 flex items-center justify-center shadow-[0_0_15px_rgba(0,0,0,0.8)]"
-                    style={{ left: `${sliderPos}%` }}
-                  >
-                    <div className="w-9 h-9 bg-zinc-950/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-2xl border-2 border-white hover:scale-110 transition-transform">
-                      <div className="flex gap-1 items-center">
-                        <div className="w-0.5 h-3 bg-zinc-400 rounded-full"></div>
-                        <div className="w-0.5 h-3 bg-zinc-400 rounded-full"></div>
-                      </div>
+              {view === 'compare' && shot?.empty_image && shot?.furnished_image && !roomBusy ? (
+                <Compare before={shot.empty_image} after={shot.furnished_image} />
+              ) : (
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                  <Panel title="1 · Empty room" image={shot?.empty_image} busy={roomBusy?.which === 'empty' ? roomBusy : null}>
+                    <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+                      <ImageOff className="h-6 w-6 text-zinc-600" />
+                      <p className="max-w-xs text-sm text-zinc-400">See this room as a bare shell, in the same style as the rest of the house.</p>
+                      <button
+                        onClick={() => makeEmpty(room)}
+                        disabled={!enabled || !!roomBusy}
+                        className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-zinc-200 disabled:opacity-40"
+                      >
+                        Photograph empty room
+                      </button>
                     </div>
-                  </div>
-
-                  {/* Badges */}
-                  <div className="absolute top-4 left-4 bg-zinc-950/80 backdrop-blur-md px-3 py-1.5 rounded-lg text-[10px] font-bold text-emerald-400 border border-emerald-500/30 z-20">
-                    AI FURNISHED FULL ROOM
-                  </div>
-                  <div className="absolute top-4 right-4 bg-zinc-950/80 backdrop-blur-md px-3 py-1.5 rounded-lg text-[10px] font-bold text-zinc-300 border border-zinc-700/50 z-20">
-                    ORIGINAL EMPTY ROOM
-                  </div>
-
-                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-zinc-950/85 backdrop-blur-md px-4 py-1.5 rounded-full text-[11px] text-zinc-300 border border-zinc-800 z-20 pointer-events-none">
-                    Drag slider left / right to compare ({sliderPos.toFixed(0)}%)
-                  </div>
+                  </Panel>
+                  <Panel title="2 · Furnished" image={shot?.furnished_image} busy={roomBusy?.which === 'furnished' ? roomBusy : null}>
+                    <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
+                      <Sparkles className="h-6 w-6 text-zinc-600" />
+                      <p className="max-w-xs text-sm text-zinc-400">
+                        {shot?.empty_image ? 'Describe how you want it below, then furnish the room.' : 'Photograph the empty room first; it is furnished from that photo.'}
+                      </p>
+                    </div>
+                  </Panel>
                 </div>
               )}
+
+              {/* how to furnish it */}
+              <div className="mt-6 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 sm:p-5">
+                <label htmlFor="furnish-prompt" className="mb-2 block text-sm font-medium">How should this room be furnished?</label>
+                <textarea
+                  id="furnish-prompt"
+                  rows={3}
+                  value={prompts[room.key] || ''}
+                  onChange={(e) => setPrompts(p => ({ ...p, [room.key]: e.target.value }))}
+                  placeholder={PROMPT_HINT[room.kind] || 'Describe the furniture, colours and mood you want'}
+                  className="w-full resize-none rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:border-indigo-500 focus:outline-none"
+                />
+                <p className="mt-1.5 text-[11px] text-zinc-500">
+                  Leave it blank for a {styleNames[style] || style} {(KIND_LABEL[room.kind] || '').toLowerCase()} with the usual furniture. Your words are added on top of the house style.
+                </p>
+
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => furnish(room)}
+                    disabled={!enabled || !shot?.empty_image || !!roomBusy}
+                    className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-40"
+                  >
+                    <Sparkles className="h-4 w-4" /> {shot?.furnished_image ? 'Furnish again' : 'Furnish this room'}
+                  </button>
+                  {shot?.empty_image && (
+                    <button
+                      onClick={() => makeEmpty(room)}
+                      disabled={!enabled || !!roomBusy}
+                      className="flex items-center gap-2 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800 disabled:opacity-40"
+                      title="Makes a new empty photo; the furnished one is cleared because it would no longer match"
+                    >
+                      <RefreshCw className="h-4 w-4" /> New empty photo
+                    </button>
+                  )}
+                  <button
+                    onClick={() => fileRef.current?.click()}
+                    disabled={!!roomBusy}
+                    className="flex items-center gap-2 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800 disabled:opacity-40"
+                  >
+                    <Upload className="h-4 w-4" /> Use my own photo
+                  </button>
+                  <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onUpload} />
+                  <div className="ml-auto flex gap-2">
+                    {shot?.empty_image && (
+                      <button onClick={() => download(shot.empty_image, `${room.name}-empty.jpg`)} className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-white">
+                        <Download className="h-3.5 w-3.5" /> Empty
+                      </button>
+                    )}
+                    {shot?.furnished_image && (
+                      <button onClick={() => download(shot.furnished_image, `${room.name}-furnished.jpg`)} className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-white">
+                        <Download className="h-3.5 w-3.5" /> Furnished
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {error && (
+                  <p className="mt-3 flex items-start gap-2 rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> {error}
+                  </p>
+                )}
+                {shot?.furnished_image && !error && !roomBusy && (
+                  <p className="mt-3 flex items-center gap-1.5 text-xs text-emerald-400"><Check className="h-3.5 w-3.5" /> Saved with this project.</p>
+                )}
+              </div>
             </>
           )}
-
         </div>
-
-        {/* ========================================================= */}
-        {/* BOTTOM GALLERY STRIP                                      */}
-        {/* ========================================================= */}
-        {gallery.length > 0 && (
-          <div className="h-28 border-t border-zinc-800 bg-zinc-950/70 backdrop-blur-md px-8 py-3 flex items-center gap-4 z-10 overflow-x-auto custom-scrollbar">
-            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-widest shrink-0">
-              Session Renders ({gallery.length})
-            </span>
-            <div className="flex items-center gap-3">
-              {gallery.map((item) => (
-                <div
-                  key={item.id}
-                  onClick={() => { setCurrentRender(item); setSliderPos(50); }}
-                  className={`relative w-36 h-20 rounded-xl overflow-hidden cursor-pointer border shrink-0 transition-all group ${
-                    currentRender?.id === item.id 
-                      ? 'border-emerald-500 ring-2 ring-emerald-500/30' 
-                      : 'border-zinc-800 hover:border-zinc-600 opacity-60 hover:opacity-100'
-                  }`}
-                >
-                  <img src={item.url} className="w-full h-full object-cover" alt="Render thumbnail" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-1.5">
-                    <span className="text-[10px] font-medium text-white truncate">{item.style}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
       </main>
     </div>
   );

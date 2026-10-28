@@ -10,3 +10,5 @@ pyjwt
 groq
 python-multipart
 google-generativeai
+requests
+Pillow

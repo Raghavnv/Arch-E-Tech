@@ -201,6 +201,7 @@ def delete_project(project_id: int, db: Session = Depends(get_db), current_user:
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
+    db.query(models.RoomRender).filter(models.RoomRender.project_id == project.id).delete()
     db.delete(project)
     db.commit()
     return {"status": "success"}
@@ -220,6 +221,125 @@ def duplicate_project(project_id: int, db: Session = Depends(get_db), current_us
     db.commit()
     db.refresh(new_project)
     return new_project
+
+# -----------------------------------------------------------------
+# AI room photos (empty room -> same room furnished)
+# -----------------------------------------------------------------
+class RoomShot(BaseModel):
+    room_key: str
+    room_name: str = ""
+    kind: str = "living"
+    style: str = "modern"
+    width_m: float | None = None
+    depth_m: float | None = None
+    windows: int = 0
+
+class RoomUpload(RoomShot):
+    image: str          # data URL of the user's own photo of the empty room
+
+class RoomFurnish(BaseModel):
+    room_key: str
+    style: str = "modern"
+    prompt: str = ""
+
+
+def _owned_project(project_id: int, db: Session, user: models.User) -> models.Project:
+    project = db.query(models.Project).filter(models.Project.id == project_id,
+                                              models.Project.owner_id == user.id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return project
+
+
+def _render_out(r: models.RoomRender) -> dict:
+    return {"room_key": r.room_key, "room_name": r.room_name, "kind": r.kind, "style": r.style,
+            "empty_image": r.empty_image, "furnished_image": r.furnished_image, "prompt": r.prompt}
+
+
+def _render_row(db: Session, project_id: int, shot: RoomShot) -> models.RoomRender:
+    row = db.query(models.RoomRender).filter(models.RoomRender.project_id == project_id,
+                                             models.RoomRender.room_key == shot.room_key).first()
+    if not row:
+        row = models.RoomRender(project_id=project_id, room_key=shot.room_key)
+        db.add(row)
+    row.room_name, row.kind, row.style = shot.room_name, shot.kind, shot.style
+    return row
+
+
+def _render_call(fn, *args):
+    import render_ai
+    try:
+        return fn(*args)
+    except render_ai.RenderError as e:
+        raise HTTPException(status_code=e.status, detail=str(e))
+
+
+@app.get("/api/render/status")
+def render_status():
+    import render_ai
+    return {"enabled": render_ai.configured(), "styles": {k: v["name"] for k, v in render_ai.STYLES.items()}}
+
+
+@app.get("/api/projects/{project_id}/renders")
+def list_renders(project_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    _owned_project(project_id, db, current_user)
+    rows = db.query(models.RoomRender).filter(models.RoomRender.project_id == project_id).all()
+    return [_render_out(r) for r in rows]
+
+
+@app.post("/api/projects/{project_id}/renders/empty")
+def render_empty_room(project_id: int, shot: RoomShot, db: Session = Depends(get_db),
+                      current_user: models.User = Depends(get_current_user)):
+    """Photograph the bare room. Rooms of this house already photographed are references, so it matches them."""
+    import render_ai
+    _owned_project(project_id, db, current_user)
+    others = db.query(models.RoomRender).filter(
+        models.RoomRender.project_id == project_id, models.RoomRender.room_key != shot.room_key,
+        models.RoomRender.style == shot.style, models.RoomRender.empty_image.isnot(None)).all()
+    # the living room sets the look of the house, so it goes first
+    others.sort(key=lambda r: (r.kind not in ("living", "lounge", "dining"), r.updated_at or datetime.min))
+    refs = [r.empty_image for r in others[:2]]
+    prompt = render_ai.empty_prompt(project_id, shot.style, shot.kind, shot.width_m, shot.depth_m,
+                                    shot.windows, has_refs=bool(refs))
+    image = _render_call(render_ai.generate, prompt, refs)
+    row = _render_row(db, project_id, shot)
+    row.empty_image, row.furnished_image = image, None    # a new empty room makes the old furnished one stale
+    db.commit()
+    return _render_out(row)
+
+
+@app.post("/api/projects/{project_id}/renders/upload")
+def upload_empty_room(project_id: int, shot: RoomUpload, db: Session = Depends(get_db),
+                      current_user: models.User = Depends(get_current_user)):
+    """Use the owner's own photo of the empty room instead of a generated one."""
+    import render_ai
+    _owned_project(project_id, db, current_user)
+    try:
+        image = render_ai.normalise_upload(shot.image)
+    except Exception:
+        raise HTTPException(status_code=400, detail="That file isn't an image we can read. Use a JPG or PNG.")
+    row = _render_row(db, project_id, shot)
+    row.empty_image, row.furnished_image = image, None
+    db.commit()
+    return _render_out(row)
+
+
+@app.post("/api/projects/{project_id}/renders/furnish")
+def render_furnished_room(project_id: int, req: RoomFurnish, db: Session = Depends(get_db),
+                          current_user: models.User = Depends(get_current_user)):
+    """Furnish the room in its own empty photo, the way the user described."""
+    import render_ai
+    _owned_project(project_id, db, current_user)
+    row = db.query(models.RoomRender).filter(models.RoomRender.project_id == project_id,
+                                             models.RoomRender.room_key == req.room_key).first()
+    if not row or not row.empty_image:
+        raise HTTPException(status_code=400, detail="Make the empty room photo first.")
+    prompt = render_ai.furnish_prompt(req.style, row.kind, req.prompt)
+    row.furnished_image = _render_call(render_ai.generate, prompt, [row.empty_image])
+    row.prompt = req.prompt      # row.style stays the house style the empty rooms were made in
+    db.commit()
+    return _render_out(row)
+
 
 # -----------------------------------------------------------------
 # Generative Blueprint Synthesis (Groq GPT-OSS-20B)

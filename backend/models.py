@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, JSON, Text
 from sqlalchemy.orm import relationship
 import datetime
 from database import Base
@@ -31,3 +31,19 @@ class Project(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     owner = relationship("User", back_populates="projects")
+
+
+class RoomRender(Base):
+    """AI photos of one room of a project: the empty room, and the same room furnished."""
+    __tablename__ = "room_renders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    room_key = Column(String, index=True)          # the room element's id in the plan
+    room_name = Column(String)
+    kind = Column(String)
+    style = Column(String)
+    empty_image = Column(Text, nullable=True)      # data URL (JPEG)
+    furnished_image = Column(Text, nullable=True)  # data URL (JPEG)
+    prompt = Column(Text, nullable=True)           # what the user asked for when furnishing
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
