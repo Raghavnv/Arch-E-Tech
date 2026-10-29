@@ -12,6 +12,7 @@ import Canvas3D from './Canvas3D';
 import { AutoDetectPanel, AiLayoutPanel, ConceptVizPanel, EditPanel, RoomsPanel } from './StudioTools';
 import InfoTip from './InfoTip';
 import { ARCHITECTURAL_TEXTURES } from '../utils/textureLibrary';
+import { measurement, currencySymbol, currencyRate, currencyCode, CURRENCY, formatSize } from '../utils/units';
 
 const PLAIN_WALL = { id: 'mat_plain', name: 'Plain', color: '#f4f4f5' };
 
@@ -63,9 +64,9 @@ export default function Studio() {
   const [walkthroughMode, setWalkthroughMode] = useState(false);
   const [showCeiling, setShowCeiling] = useState(false);
   const [isCapturingForRender, setIsCapturingForRender] = useState(false);
-  const prefCurrency = localStorage.getItem("pref_currency") || "USD";
-  const prefMeasurement = localStorage.getItem("pref_measurement") || "metric";
-  const currencySymbol = prefCurrency === "USD" ? "$" : prefCurrency === "EUR" ? "€" : "₹";
+  // Settings decide the units; square feet and rupees unless changed there
+  const prefMeasurement = measurement();
+  const money = (v) => `${currencySymbol()}${Math.round(v).toLocaleString(CURRENCY[currencyCode()].locale)}`;
   
   const [chatOpen, setChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
@@ -124,7 +125,7 @@ export default function Studio() {
   const calculateCosts = () => {
     let total = 0;
     const breakdown = [];
-    const multiplier = prefCurrency === 'INR' ? 83 : prefCurrency === 'EUR' ? 0.9 : 1;
+    const multiplier = currencyRate();
 
     const rates = {
       wall: 120 * multiplier,
@@ -341,6 +342,9 @@ export default function Studio() {
           narrative: narrative,
           snapshot: imgData,
           costs: costData,
+          totalCost: costData.total,
+          breakdown: costData.breakdown,
+          currency: currencyCode(),       // amounts are in this currency
           elementCount: canvasElements.length
         };
         const existing = JSON.parse(localStorage.getItem('archetech_saved_reports') || '[]');
@@ -635,7 +639,7 @@ export default function Studio() {
                 className="w-full flex items-center justify-between bg-zinc-900 hover:bg-zinc-800 transition-colors p-3 rounded-lg border border-zinc-800 text-left text-xs"
               >
                 <span className="flex items-center gap-2 text-zinc-300"><Calculator className="w-4 h-4 text-white" /> Live Cost Takeoff</span>
-                <span className="text-emerald-400 font-mono">${costData.total.toLocaleString()}</span>
+                <span className="text-emerald-400 font-mono">{money(costData.total)}</span>
               </button>
             </div>
           </div>
@@ -660,9 +664,7 @@ export default function Studio() {
       {/* Main Canvas Area */}
       <main id="studio-canvas-container" className="flex-1 relative bg-zinc-950 flex flex-col">
         <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 bg-zinc-900 border border-zinc-800 p-1.5 rounded-full shadow-2xl">
-          <div className="px-3 py-1.5 text-xs font-semibold text-zinc-500 border-r border-zinc-800 mr-1">
-            Build Mode
-          </div>
+
           <button 
             onClick={() => setDrawingMode(drawingMode === 'wall' ? null : 'wall')}
             className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${drawingMode === 'wall' ? 'bg-zinc-200 text-black' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}
@@ -708,14 +710,6 @@ export default function Studio() {
           
           <div className="w-px h-6 bg-zinc-800 mx-1"></div>
           
-          {projectId && (
-            <span
-              title={syncState === 'error' ? 'Changes are kept in this browser and will be sent when the server answers' : undefined}
-              className={`whitespace-nowrap px-1 text-[11px] ${syncState === 'error' ? 'text-amber-400' : 'text-zinc-500'}`}
-            >
-              {syncState === 'saving' ? 'Saving…' : syncState === 'error' ? 'Not synced' : 'Saved'}
-            </span>
-          )}
 
           <button 
             onClick={saveProject}
@@ -723,16 +717,35 @@ export default function Studio() {
             className={`flex items-center gap-2 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${saveSuccess ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-white/10 hover:bg-white/20 text-white'}`}
           >
             {saveSuccess ? <CheckCircle className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
-            {isSaving ? 'Saving...' : saveSuccess ? 'Saved!' : syncState === 'error' ? 'Retry save' : 'Save Cloud'}
+            {isSaving ? 'Saving…' : saveSuccess ? 'Saved' : syncState === 'error' ? 'Retry save' : 'Save'}
+            {/* sync status as a dot: green saved, pulsing while saving, amber when not synced */}
+            {projectId && (
+              <span
+                title={syncState === 'error' ? 'Not synced: changes are kept in this browser and sent when the server answers' : syncState === 'saving' ? 'Saving…' : 'All changes saved'}
+                className={`h-1.5 w-1.5 rounded-full ${syncState === 'error' ? 'bg-amber-400' : syncState === 'saving' ? 'animate-pulse bg-zinc-400' : 'bg-emerald-400'}`}
+              />
+            )}
           </button>
           
+          {/* first person: walk the rooms in the 3D view */}
           <button 
-            onClick={() => flushSave('/immersive')}
-            className="flex items-center gap-2 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-medium transition-colors bg-white/10 hover:bg-white/20 text-white"
+            onClick={() => { setActiveTab('3D'); setWalkthroughMode(true); }}
+            className={`flex items-center gap-2 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${walkthroughMode && activeTab === '3D' ? 'bg-white text-black' : 'bg-white/10 hover:bg-white/20 text-white'}`}
           >
             <Eye className="w-3.5 h-3.5" />
             Walkthrough
           </button>
+          <InfoTip id="walkthrough" align="center" />
+
+          {/* the finished house in a landscape and weather setting */}
+          <button 
+            onClick={() => flushSave('/immersive')}
+            className="flex items-center gap-2 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-medium transition-colors bg-white/10 hover:bg-white/20 text-white"
+          >
+            <ImageIcon className="w-3.5 h-3.5" />
+            Immersive
+          </button>
+          <InfoTip id="immersive" align="center" />
 
           <div className="ml-1 flex items-center gap-1.5 border-l border-zinc-800 pl-2">
             <button
@@ -817,13 +830,13 @@ export default function Studio() {
             <p className="text-[10px] text-zinc-400 mb-3">Click an item to place it in the middle of the view, then drag it into position.</p>
             <div className="flex flex-col gap-2">
               {[
-                { type: 'furniture_bed', name: 'King Platform Bed', sub: '1.8 × 2.1 m', badge: 'BED' },
-                { type: 'furniture_sofa', name: 'L-Sectional Lounge', sub: '2.2 × 0.9 m', badge: 'SOFA' },
-                { type: 'furniture_table', name: 'Executive Dining Table', sub: '1.6 × 0.9 m', badge: 'DINING' },
-                { type: 'furniture_armchair', name: 'Designer Armchair', sub: '0.8 × 0.8 m', badge: 'CHAIR' },
-                { type: 'furniture_bathtub', name: 'Freestanding Bathtub', sub: '1.7 × 0.8 m', badge: 'BATH' },
-                { type: 'furniture_vanity', name: 'Double Vanity Sink', sub: '1.2 × 0.55 m', badge: 'SINK' },
-                { type: 'furniture_kitchen', name: 'Kitchen Island w/ Stove', sub: '2.8 × 0.65 m', badge: 'KITCHEN' },
+                { type: 'furniture_bed', name: 'King Platform Bed', sub: formatSize(1.8, 2.1), badge: 'BED' },
+                { type: 'furniture_sofa', name: 'L-Sectional Lounge', sub: formatSize(2.2, 0.9), badge: 'SOFA' },
+                { type: 'furniture_table', name: 'Executive Dining Table', sub: formatSize(1.6, 0.9), badge: 'DINING' },
+                { type: 'furniture_armchair', name: 'Designer Armchair', sub: formatSize(0.8, 0.8), badge: 'CHAIR' },
+                { type: 'furniture_bathtub', name: 'Freestanding Bathtub', sub: formatSize(1.7, 0.8), badge: 'BATH' },
+                { type: 'furniture_vanity', name: 'Double Vanity Sink', sub: formatSize(1.2, 0.55), badge: 'SINK' },
+                { type: 'furniture_kitchen', name: 'Kitchen Island w/ Stove', sub: formatSize(2.8, 0.65), badge: 'KITCHEN' },
               ].map((item) => (
                 <button 
                   key={item.type}
@@ -1032,7 +1045,7 @@ export default function Studio() {
                       <tr key={idx}>
                         <td className="py-3 font-medium text-zinc-200">{item.type}</td>
                         <td className="py-3 text-right text-zinc-400">{item.qty}</td>
-                        <td className="py-3 text-right text-emerald-400 font-mono">{currencySymbol}{item.cost.toLocaleString()}</td>
+                        <td className="py-3 text-right text-emerald-400 font-mono">{money(item.cost)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1042,7 +1055,7 @@ export default function Studio() {
             
             <div className="mt-4 pt-4 border-t border-zinc-800 flex justify-between items-center">
               <span className="text-zinc-400 text-sm font-medium">Total Estimated Cost</span>
-              <span className="text-2xl font-bold text-white tracking-tight">{currencySymbol}{costData.total.toLocaleString()}</span>
+              <span className="text-2xl font-bold text-white tracking-tight">{money(costData.total)}</span>
             </div>
             
             <button 

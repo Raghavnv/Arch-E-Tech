@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { X, Loader2, AlertTriangle, Download, ScanLine, LayoutTemplate, Image as ImageIcon, Wand2 as Wand, Home, Bookmark, Check } from 'lucide-react';
 import { detectRooms } from '../utils/detectRooms';
 import InfoTip from './InfoTip';
+import { formatArea } from '../utils/units';
 
 /*
  * The Studio's tool panels: Auto Detect (label the rooms your walls enclose), AI Layout (a new plan
@@ -28,9 +29,13 @@ async function post(url, body) {
   return data;
 }
 
-function Panel({ icon: Icon, title, info, onClose, wide, children }) {
+function Panel({ icon: Icon, title, info, onClose, wide, bottom, children }) {
+  // most tools open on the right; AI Edit sits along the bottom of the grid, under the plan
+  const place = bottom
+    ? 'bottom-6 left-[21rem] right-24 max-w-2xl max-h-[45%]'
+    : `top-24 right-6 max-h-[calc(100%-8rem)] ${wide ? 'w-[min(720px,calc(100%-3rem))]' : 'w-[min(380px,calc(100%-3rem))]'}`;
   return (
-    <div className={`absolute top-24 right-6 z-30 flex max-h-[calc(100%-8rem)] flex-col rounded-2xl border border-zinc-800 bg-zinc-950/95 shadow-2xl backdrop-blur-xl ${wide ? 'w-[min(720px,calc(100%-3rem))]' : 'w-[min(380px,calc(100%-3rem))]'}`}>
+    <div className={`absolute z-30 flex flex-col rounded-2xl border border-zinc-800 bg-zinc-950/95 shadow-2xl backdrop-blur-xl ${place}`}>
       <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
           <Icon className="h-4 w-4 text-zinc-400" /> {title} {info && <InfoTip id={info} />}
@@ -89,7 +94,7 @@ export function AutoDetectPanel({ elements, setElements, onClose }) {
                 >
                   {KINDS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
                 </select>
-                <span className="w-12 text-right font-mono text-[11px] text-zinc-500">{r.area} m²</span>
+                <span className="w-20 text-right font-mono text-[11px] text-zinc-500">{formatArea(r.area)}</span>
               </li>
             ))}
           </ul>
@@ -284,10 +289,10 @@ const TYPE_LABEL = {
   furniture_kitchen: 'Kitchen counter',
 };
 const EXAMPLES = {
-  door: ['Make this door narrower', 'Make it 1 m wide', 'Move it 50 cm to the left'],
-  window: ['Make this window wider', 'Make it 1.8 m long', 'Delete this window'],
-  wall: ['Extend this wall by 1 m', 'Shorten it by 50 cm', 'Add a window in the middle of it'],
-  none: ['Make the kitchen door 1 m wide', 'Add a window to the living room', 'Make the master bedroom bigger'],
+  door: ['Make this door narrower', 'Make it 3 ft wide', 'Move it 2 ft to the left'],
+  window: ['Make this window wider', 'Make it 6 ft long', 'Delete this window'],
+  wall: ['Extend this wall by 3 ft', 'Shorten it by 2 ft', 'Add a window in the middle of it'],
+  none: ['Make the kitchen door 3 ft wide', 'Add a window to the living room', 'Make the master bedroom bigger'],
 };
 
 export function EditPanel({ elements, setElements, selected, apiUrl, onClose }) {
@@ -319,7 +324,7 @@ export function EditPanel({ elements, setElements, selected, apiUrl, onClose }) 
   };
 
   return (
-    <Panel icon={Wand} title="AI Edit" info="edit" onClose={onClose}>
+    <Panel icon={Wand} title="AI Edit" info="edit" onClose={onClose} bottom>
       <div className="mb-2 flex items-center gap-2 text-[11px]">
         {sel ? (
           <span className="rounded-md bg-indigo-500/15 px-2 py-1 text-indigo-200">
@@ -329,28 +334,30 @@ export function EditPanel({ elements, setElements, selected, apiUrl, onClose }) 
           <span className="text-zinc-500">Nothing selected. Click an item on the plan to edit "this", or name what to change.</span>
         )}
       </div>
+      <div className="flex items-start gap-2">
       <textarea
-        rows={3}
+        rows={2}
         value={text}
         onChange={e => setText(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); run(); } e.stopPropagation(); }}
-        placeholder={sel ? `Describe a change to the selected ${(TYPE_LABEL[sel.type] || 'item').toLowerCase()}…` : 'e.g. make the kitchen door 1 m wide'}
+        placeholder={sel ? `Describe a change to the selected ${(TYPE_LABEL[sel.type] || 'item').toLowerCase()}…` : 'e.g. make the kitchen door 3 ft wide'}
         className="w-full resize-none rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:border-indigo-500 focus:outline-none"
         disabled={busy}
         autoFocus
       />
+      <button
+        onClick={() => run()}
+        disabled={busy || !text.trim()}
+        className="flex h-[60px] shrink-0 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-40"
+      >
+        {busy ? <><Loader2 className="h-4 w-4 animate-spin" /> Editing…</> : 'Apply'}
+      </button>
+      </div>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {examples.map(x => (
           <button key={x} onClick={() => setText(x)} className="rounded-full border border-zinc-800 px-2 py-0.5 text-[11px] text-zinc-400 hover:border-zinc-600 hover:text-zinc-200">{x}</button>
         ))}
       </div>
-      <button
-        onClick={() => run()}
-        disabled={busy || !text.trim()}
-        className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-40"
-      >
-        {busy ? <><Loader2 className="h-4 w-4 animate-spin" /> Editing…</> : 'Apply change'}
-      </button>
       {note && (
         <p className={`mt-3 rounded-lg px-3 py-2 text-xs ${note.ok ? 'bg-emerald-500/10 text-emerald-200' : 'bg-amber-500/10 text-amber-100'}`}>{note.text}</p>
       )}
@@ -408,7 +415,7 @@ export function RoomsPanel({ elements, setElements, onClose }) {
                     >
                       {KINDS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
                     </select>
-                    <span className="w-12 text-right font-mono text-[11px] text-zinc-500">{Math.round(r.area || 0)} m²</span>
+                    <span className="w-20 text-right font-mono text-[11px] text-zinc-500">{formatArea(r.area)}</span>
                   </div>
                   {dup && <p className="mt-1 text-[10px] text-amber-300/90">Another room has this name; a unique name is easier to tell apart.</p>}
                 </li>

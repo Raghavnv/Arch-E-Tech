@@ -38,6 +38,16 @@ export const FEATURE_INFO = {
     what: 'Shows each room of your plan as a realistic photo: first empty, then furnished the way you describe.',
     how: 'All rooms share one house style so they look like the same home. Save the photos you like to your gallery.',
   },
+  walkthrough: {
+    title: 'Walkthrough',
+    what: 'Walk through the house in first person, at eye level, in the 3D view.',
+    how: 'Click the view to look around, use W A S D or the arrow keys to move, and press Esc to stop.',
+  },
+  immersive: {
+    title: 'Immersive View',
+    what: 'Shows the finished house standing in a setting: a forest, a city at sunset, a park, at night or in rain and snow.',
+    how: 'Opens full screen; pick an environment and weather at the bottom, and drag to look around.',
+  },
   furniture: {
     title: 'Furniture',
     what: 'Adds beds, sofas, tables, bathroom fittings and kitchen counters at real sizes.',

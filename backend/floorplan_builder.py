@@ -21,6 +21,7 @@ from __future__ import annotations
 import copy
 import math
 import random
+import dataclasses
 import re
 import uuid
 from dataclasses import dataclass, field
@@ -101,7 +102,9 @@ def parse_prompt(prompt: str) -> dict:
     """Cheap regex reading of the prompt. Used as safety net and to enforce counts."""
     t = (prompt or "").lower()
     out = {"bedrooms": None, "bathrooms": None, "area_sqm": None,
-           "study": False, "dining": False, "utility": False, "studio": False}
+           "study": False, "dining": False, "utility": False, "studio": False,
+           "open_kitchen": None, "kids": None, "guest_bedroom": False, "powder": 0,
+           "extra_bath": False, "common_bath": False}
 
     # "3 bed", "3-bed", "3 bedrooms", "3BHK", "3 BR", "3bd": all mean three bedrooms, master included
     m = re.search(r"\b" + _NUM + r"\s*[- ]?\s*(?:bhk|bed\s*rooms?\b|beds?\b|brs?\b|bds?\b)", t)
@@ -112,7 +115,7 @@ def parse_prompt(prompt: str) -> dict:
         out["bathrooms"] = _to_int(m.group(1))
 
     m = re.search(
-        r"([\d][\d,]*(?:\.\d+)?)\s*(sq\.?\s*ft|sqft|square\s*f(?:ee|oo)t|sft|sq\.?\s*m\b|sqm|m2|m²|square\s*met(?:er|re)s?)",
+        r"([\d][\d,]*(?:\.\d+)?)\s*(sq\.?\s*ft\.?|sqft|square\s*f(?:ee|oo)t|sft|ft2|ft²|sq\.?\s*f(?:ee|oo)t|sq\.?\s*m\b|sqm|m2|m²|square\s*met(?:er|re)s?)",
         t,
     )
     if m:
@@ -120,6 +123,29 @@ def parse_prompt(prompt: str) -> dict:
         unit = m.group(2)
         is_sqft = ("ft" in unit) or ("feet" in unit) or ("foot" in unit)
         out["area_sqm"] = val * 0.092903 if is_sqft else val
+
+    # kitchen: open to the living / dining space, or closed off with a door
+    if re.search(r"\b(?:closed|separate|enclosed|walled[- ]off|private|traditional|isolated)\s+kitchen"
+                 r"|kitchen\s+(?:with\s+a\s+door|(?:should\s+be\s+|is\s+)?(?:closed|separate|enclosed))"
+                 r"|\b(?:no|not\s+an?|without\s+an?)\s+open\s+kitchen", t):
+        out["open_kitchen"] = False
+    elif re.search(r"\bopen(?:[- ]?plan|[- ]concept)?\s+kitchen|kitchen\s+(?:that\s+is\s+|is\s+|should\s+be\s+)?open"
+                   r"|open[- ](?:plan|concept)\s+(?:living|layout|design)", t):
+        out["open_kitchen"] = True
+
+    # "2 kids bedrooms", "bedrooms for two children", "a guest room": the master is added to these
+    m = re.search(_NUM + r"\s+(?:kids?'?s?|children'?s?|child'?s?|sons?'?|daughters?'?)\s*(?:bed\s*rooms?|rooms?)", t) \
+        or re.search(r"(?:bed\s*)?rooms?\s+for\s+(?:my\s+|our\s+|the\s+)?" + _NUM + r"\s+(?:kids|children|sons|daughters)", t)
+    if m:
+        out["kids"] = _to_int(m.group(1))
+    elif re.search(r"\b(?:a|one)\s+(?:kids?'?s?|child'?s?|children'?s?)\s*(?:bed\s*)?room", t):
+        out["kids"] = 1
+    out["guest_bedroom"] = bool(re.search(r"\bguest\s*(?:bed\s*)?room\b", t))
+
+    # bathrooms beyond the default: a powder room, an extra / common bathroom
+    out["powder"] = len(re.findall(r"powder\s*rooms?|guest\s*(?:toilet|wc|washroom|bath(?:room)?)|half[- ]bath(?:room)?s?|\bwc\b", t))
+    out["extra_bath"] = bool(re.search(r"\b(?:extra|additional|another|second|separate|spare)\s+(?:common\s+)?(?:bath(?:room)?|toilet|washroom)", t))
+    out["common_bath"] = bool(re.search(r"\bcommon\s+(?:bath(?:room)?|toilet|washroom)|shared\s+bath(?:room)?", t))
 
     out["study"] = bool(re.search(r"\b(study|office|library)\b", t))
     out["dining"] = bool(re.search(r"\bdining\b", t))
@@ -149,7 +175,11 @@ def build_program(llm_rooms, llm_total_sqm, prompt: str) -> list[Room]:
         return sum(vals) / len(vals) if vals else None
 
     llm_beds = count("master_bedroom") + count("bedroom")
-    beds = p["bedrooms"] if p["bedrooms"] else (llm_beds or 2)
+    asked = (1 + p["kids"] + int(p["guest_bedroom"])) if p["kids"] else None   # master + kids (+ guest)
+    if p["bedrooms"]:
+        beds = max(p["bedrooms"], asked or 0)
+    else:
+        beds = asked or llm_beds or 2
     if p["studio"] and not p["bedrooms"]:
         beds = 1
     beds = int(_clamp(beds, 1, 6))
@@ -160,7 +190,13 @@ def build_program(llm_rooms, llm_total_sqm, prompt: str) -> list[Room]:
         baths = count("bathroom")
     else:
         baths = {1: 1, 2: 2, 3: 2, 4: 3, 5: 3, 6: 4}[beds]
+    if not p["bathrooms"]:
+        if p["extra_bath"]:
+            baths += 1                      # "an extra common bathroom" on top of the usual count
+        elif p["common_bath"] and baths < 2 and beds > 1:
+            baths = 2                       # the master's ensuite plus a common one
     baths = int(_clamp(baths, 1, 6))
+    powders = int(_clamp(p["powder"], 0, 2))
 
     want_dining = bool(count("dining")) or p["dining"] or beds >= 2
     want_study = bool(count("study")) or p["study"]
@@ -184,12 +220,15 @@ def build_program(llm_rooms, llm_total_sqm, prompt: str) -> list[Room]:
         wanted.append(("study", area_for("study")))
     for _ in range(baths):
         wanted.append(("bathroom", area_for("bathroom")))
+    for _ in range(powders):
+        wanted.append(("bathroom", 3.6))    # a powder room: a small WC and basin near the living area
 
     target = p["area_sqm"] or (llm_total_sqm if llm_total_sqm and llm_total_sqm > 0 else None)
     if target:
         target = _clamp(target, 25, 600)
         base = sum(a for _, a in wanted)
-        s = _clamp((target * 0.88) / base, 0.55, 2.6)
+        # the area people quote is what they will see added up: the rooms, not the walls
+        s = _clamp((target * 0.97) / base, 0.55, 2.6)
         scaled = []
         for kind, a in wanted:
             lo, _, hi = KIND_SPEC[kind][1:4]
@@ -212,7 +251,9 @@ def build_program(llm_rooms, llm_total_sqm, prompt: str) -> list[Room]:
             name = "Master Bedroom" if beds > 1 else "Bedroom"
         elif kind == "bathroom":
             bath_i += 1
-            if bath_i == 1 and ensuite_for_master:
+            if bath_i > baths:
+                name = "Powder Room"
+            elif bath_i == 1 and ensuite_for_master:
                 ensuite = True
                 name = "Ensuite Bath"
             else:
@@ -1311,16 +1352,45 @@ def _post_ok(lay: Layout):
     return _post_fail(lay) is None
 
 
-def generate_layout(rooms: list[Room], tries: int = 2500, rng=None, style: str = "auto") -> Layout:
-    """Architect-style plan: pick a house type, build day zone + bedroom wings, validate, retry."""
+def _rooms_m2(rooms) -> float:
+    return sum((r.x1 - r.x0) * (r.y1 - r.y0) for r in rooms if r.kind != "hallway") / (U * U)
+
+
+def generate_layout(rooms: list[Room], tries: int = 2500, rng=None, style: str = "auto",
+                    open_kitchen: bool | None = None) -> Layout:
+    """Architect-style plan: pick a house type, build day zone + bedroom wings, validate, retry.
+
+    Plans should come out near the asked-for total area. The zoned layout tends to run large, so
+    when candidates keep overshooting, the rooms are scaled down (never below their minimum size)
+    and it tries again; only if that fails does any good plan do.
+    """
     rng = rng or random.Random()
+    target = sum(r.area for r in rooms)
+    work, scale, seen = rooms, 1.0, []
+
+    def scaled(k):
+        out = []
+        for r in rooms:
+            lo = KIND_SPEC.get(r.kind, (None, 3))[1]
+            out.append(dataclasses.replace(r, area=max(lo, r.area * k)))
+        return out
+
     for attempt in range(tries):
+        sized = attempt < tries * 0.7            # the last tries take any good plan, whatever its size
         try:
-            cand = _zoned_candidate(rooms, rng, style if attempt < tries // 2 else "auto")
+            cand = _zoned_candidate(work if sized else rooms, rng, style if attempt < tries // 2 else "auto")
             if not cand or not _zone_ok(cand):
                 continue
+            if sized and target:
+                ratio = _rooms_m2(cand) / target
+                if abs(ratio - 1) > 0.12:
+                    seen.append(ratio)
+                    if len(seen) >= 25:          # consistently off: rescale the program and go again
+                        scale = max(0.45, min(1.6, scale / (sum(seen) / len(seen))))
+                        work, seen = scaled(scale), []
+                    continue
             lay = Layout(cand, False, preplaced=True)
-            lay.open_kitchen = rng.random() < 0.3
+            lay.open_kitchen = (rng.random() < 0.3) if open_kitchen is None else open_kitchen
             lay.build()
             if _post_ok(lay):
                 return lay

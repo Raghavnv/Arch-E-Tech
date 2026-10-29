@@ -97,7 +97,7 @@ def _program_counts(program) -> Counter:
     return Counter(r.kind for r in program)
 
 
-def matches_program(rects: list[dict], program) -> str | None:
+def matches_program(rects: list[dict], program, strict_baths: bool = False) -> str | None:
     """None if the plan has the rooms the brief asked for, else a human-readable reason."""
     want, got = _program_counts(program), Counter(r["kind"] for r in rects)
     for kind in ("living", "kitchen"):
@@ -109,8 +109,10 @@ def matches_program(rects: list[dict], program) -> str | None:
         return f"need {want_beds} bedrooms in total, got {got_beds}"
     if got["master_bedroom"] != min(1, want_beds):
         return "need exactly one master_bedroom"
-    if got["bathroom"] < max(1, want["bathroom"] - 1):
-        return f"need at least {max(1, want['bathroom'] - 1)} bathrooms"
+    # when the owner asked for a number of bathrooms (or a powder room) they must all be there
+    need_baths = want["bathroom"] if strict_baths else max(1, want["bathroom"] - 1)
+    if got["bathroom"] < need_baths:
+        return f"need at least {need_baths} bathrooms"
     if got["lounge"] > 2:
         return "use at most 2 lounges"
     if got["study"] != want["study"]:
@@ -151,16 +153,17 @@ def bedroom_spread_fail(rects: list[dict]) -> str | None:
     return None
 
 
-def design_from_llm_rects(rects: list[dict], program) -> fb.Layout:
+def design_from_llm_rects(rects: list[dict], program, open_kitchen: bool | None = None,
+                          strict_baths: bool = False) -> fb.Layout:
     """Raise fb.LayoutError (with a reason the LLM can act on) unless the rectangles make a good house."""
     rects = [r for r in rects if r.get("kind") in KINDS]
     if not rects:
         raise fb.LayoutError("no rooms")
     rects = snap_rects(rects)
-    why = matches_program(rects, program) or bedroom_spread_fail(rects)
+    why = matches_program(rects, program, strict_baths) or bedroom_spread_fail(rects)
     if why:
         raise fb.LayoutError(why)
-    return fb.layout_from_rects(rects)
+    return fb.layout_from_rects(rects, open_kitchen)
 
 
 # --------------------------------------------------------------------------
@@ -182,7 +185,7 @@ def transform(rects: list[dict], rng: random.Random, target_area: float | None =
     area = sum(r["w"] * r["h"] for r in rects if r["kind"] != "hallway") * 0.25
     s = 1.0
     if target_area:
-        s = max(0.85, min(1.2, math.sqrt(target_area / area)))   # rooms keep believable sizes
+        s = max(0.75, min(1.45, math.sqrt(target_area / area)))   # rooms keep believable sizes
     _stretch_axis(rects, "x", "w", s * rng.uniform(0.95, 1.12), 0.18, rng)
     _stretch_axis(rects, "y", "h", s * rng.uniform(0.95, 1.12), 0.18, rng)
     W = max(r["x"] + r["w"] for r in rects)
@@ -200,7 +203,8 @@ def transform(rects: list[dict], rng: random.Random, target_area: float | None =
 
 
 def adapt_reference(program, rng: random.Random, target_area: float | None = None,
-                    tries: int = 400) -> fb.Layout | None:
+                    tries: int = 400, open_kitchen: bool | None = None,
+                    strict_baths: bool = False) -> fb.Layout | None:
     want = _program_counts(program)
     beds = want["master_bedroom"] + want["bedroom"]
     refs = pick_references(beds, want["bathroom"], bool(want["study"]), rng, k=len(rp.PLANS))
@@ -209,20 +213,34 @@ def adapt_reference(program, rng: random.Random, target_area: float | None = Non
     good = [m for m in refs if not bedroom_spread_fail(m["rects"])
             and (m["study"] > 0) == bool(want["study"])
             and (want["utility"] > 0 or not any(r["kind"] == "utility" for r in m["rects"]))]
+    if strict_baths:
+        good = [m for m in good if m["baths"] >= want["bathroom"]]
+        if not good:
+            return None     # no house with that many bathrooms: let the zoned generator build them
     if want["study"] and not any(m["study"] for m in good):
         return None         # no house with a study: let the zoned generator build exactly what was asked
     refs = good or refs
     if not refs:
         return None
-    for target in (target_area, None):      # if scaling to the stated area keeps failing, use the reference's own size
-        for _ in range(tries):
-            ref = rng.choice(refs[:3])
-            try:
-                return fb.layout_from_rects(transform(ref["rects"], rng, target))
-            except fb.LayoutError:
-                continue
+    # first look for a version within 12% of the asked-for area, then accept the closest one found
+    best, best_err = None, None
+    for _ in range(tries):
+        ref = rng.choice(refs[:3])
+        rects = transform(ref["rects"], rng, target_area)
+        err = abs(sum(r["w"] * r["h"] for r in rects) * 0.25 / target_area - 1) if target_area else 0
+        if best is not None and err >= best_err:
+            continue
+        try:
+            lay = fb.layout_from_rects(rects, open_kitchen)
+        except fb.LayoutError:
+            continue
+        best, best_err = lay, err
+        if err <= 0.12:
+            break
+    if best is not None and (not target_area or best_err <= 0.35):
+        return best
     return None
 
 
 def program_target_area(program) -> float:
-    return sum(r.area for r in program if r.kind != "hallway") * 1.15
+    return sum(r.area for r in program if r.kind != "hallway")   # rooms are already sized to the asked-for total

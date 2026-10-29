@@ -544,7 +544,7 @@ Rules:
 Use exactly the rooms listed in the brief."""
 
 
-def _ask_layout(prompt: str, program, style: str, rng):
+def _ask_layout(prompt: str, program, style: str, rng, wishes: dict | None = None):
     """LLM designs the plan from reference houses; returns a validated Layout or None."""
     from collections import Counter
     import plan_designer as pd
@@ -557,7 +557,15 @@ def _ask_layout(prompt: str, program, style: str, rng):
     beds = want["master_bedroom"] + want["bedroom"]
     refs = pd.pick_references(beds, want["bathroom"], bool(want["study"]), rng, k=3)
     rooms_txt = ", ".join(f"{n} x {k}" for k, n in want.items())
-    brief = (f"BRIEF: {prompt}\nRooms to include (exactly): {rooms_txt}. A lounge is the only optional extra.\n"
+    wishes = wishes or {}
+    extra = ""
+    if wishes.get("open_kitchen") is True:
+        extra += "The kitchen is OPEN: it must share a long wall with the dining room or living room.\n"
+    elif wishes.get("open_kitchen") is False:
+        extra += "The kitchen is CLOSED: it is its own room with a door, still next to the dining room.\n"
+    if wishes.get("powder"):
+        extra += "One bathroom is a small powder room (3-4 m2) that opens off the living or dining area, not off a bedroom.\n"
+    brief = (f"BRIEF: {prompt}\nRooms to include (exactly): {rooms_txt}. A lounge is the only optional extra.\n{extra}"
              f"Target total area about {round(pd.program_target_area(program))} m2.\n"
              f"Suggested concept: {style}.\n\nREFERENCE PLANS:\n"
              + "\n".join(json.dumps(pd.describe(m), separators=(",", ":")) for m in refs))
@@ -578,7 +586,8 @@ def _ask_layout(prompt: str, program, style: str, rng):
             raw = resp.choices[0].message.content
             if not raw:
                 raise ValueError("empty response")
-            return pd.design_from_llm_rects(json.loads(raw).get("rooms", []), program)
+            return pd.design_from_llm_rects(json.loads(raw).get("rooms", []), program,
+                                            wishes.get("open_kitchen"), wishes.get("strict_baths", False))
         except LayoutError as e:
             print(f"LLM layout rejected (attempt {attempt}/3): {e}")
             messages += [{"role": "assistant", "content": raw},
@@ -613,7 +622,15 @@ def edit_plan(req: PlanEditRequest):
 async def generate_floor_plan(payload: AIPrompt):
     import random
     import plan_designer as pd
-    from floorplan_builder import build_program, generate_layout
+    from floorplan_builder import build_program, generate_layout, parse_prompt
+
+    # what the owner spelled out, which every way of drawing the plan has to respect
+    asked = parse_prompt(payload.prompt)
+    wishes = {
+        "open_kitchen": asked["open_kitchen"],
+        "powder": asked["powder"],
+        "strict_baths": bool(asked["bathrooms"] or asked["powder"] or asked["extra_bath"] or asked["common_bath"]),
+    }
 
     source = "ai"
     ai = _ask_room_program(payload.prompt)
@@ -629,18 +646,29 @@ async def generate_floor_plan(payload: AIPrompt):
         source = "fallback"
         program = build_program([], 0, payload.prompt)
 
-    layout = _ask_layout(payload.prompt, program, style, rng)       # 1. LLM designs it from reference houses
+    layout = _ask_layout(payload.prompt, program, style, rng, wishes)   # 1. LLM designs it from reference houses
     if layout:
         source += "+designed"
     if not layout:                                                   # 2. a reference house, reshaped
-        layout = pd.adapt_reference(program, rng, pd.program_target_area(program))
+        layout = pd.adapt_reference(program, rng, pd.program_target_area(program),
+                                    open_kitchen=wishes["open_kitchen"], strict_baths=wishes["strict_baths"])
         if layout:
             source += "+reference"
     if not layout:                                                   # 3. zoned generator
         try:
-            layout = generate_layout(program, style=style)
+            layout = generate_layout(program, style=style, open_kitchen=wishes["open_kitchen"])
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Layout generation failed: {e}")
+
+    # the smallest common bathrooms become the powder room(s) the owner asked for
+    if wishes["powder"]:
+        common = sorted((r for r in layout.rooms if r.kind == "bathroom" and not r.ensuite),
+                        key=lambda r: (r.x1 - r.x0) * (r.y1 - r.y0))
+        for r in common[:wishes["powder"]]:
+            r.name = "Powder Room"
+        left = [r for r in common[wishes["powder"]:]]
+        for i, r in enumerate(left, 1):
+            r.name = "Bathroom" if len(left) == 1 else f"Bathroom {i}"
 
     return {"status": "success", "elements": layout.elements(), "source": source}
 

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import InfoTip from './InfoTip';
 import PhotoGallery from './PhotoGallery';
+import { formatArea, formatSize } from '../utils/units';
 
 /*
  * Photo Render: every room of the plan photographed twice by the AI. First the empty room, in one
@@ -368,7 +369,7 @@ export default function RenderStudio() {
                   <div className="min-w-0">
                     <p className="truncate text-sm text-zinc-100">{r.name}</p>
                     <p className="text-[11px] text-zinc-500">
-                      {r.area ? `${Math.round(r.area)} m² · ` : ''}
+                      {r.area ? `${formatArea(r.area)} · ` : ''}
                       {s?.furnished_image ? <span className="text-emerald-400">Furnished</span> : s?.empty_image ? 'Empty photo ready' : 'Not photographed'}
                     </p>
                   </div>
@@ -432,7 +433,7 @@ export default function RenderStudio() {
                     </button>
                   )}
                   <p className="text-sm text-zinc-500">
-                    {KIND_LABEL[room.kind] || room.kind} · {room.width_m} × {room.depth_m} m
+                    {KIND_LABEL[room.kind] || room.kind} · {formatSize(room.width_m, room.depth_m)} · {formatArea(room.area)}
                     {room.windows ? ` · ${room.windows} window${room.windows > 1 ? 's' : ''}` : ''}
                   </p>
                 </div>

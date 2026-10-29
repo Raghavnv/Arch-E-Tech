@@ -77,6 +77,7 @@ Rules:
 - Keep the plan connected: when you lengthen, shorten or move a wall, move the ends of walls joined to it so corners stay closed, and keep doors/windows that were in that wall inside it. When a room's walls move, update the room box too.
 - Doors: typical widths 0.8-1.0 m (main entrance 1.0-1.2 m). Windows: 0.9-2.4 m. Walls: 0.15-0.25 m thick.
 - "bigger/smaller/wider/narrower/longer/shorter" without a number means a sensible step (about 20-30% or 0.5 m).
+- People often give sizes in feet and inches: convert them (1 ft = 0.3048 m, 1 in = 0.0254 m). Mention sizes in feet in the summary.
 - Keep a door or window centred where it was when you resize it (move its start so the middle stays put).
 - A new door or window must lie on an existing wall line, between that wall's ends.
 - If the request is impossible or unclear, return {"ops": [], "summary": "<why, and what to try instead>"}."""

@@ -1,3 +1,4 @@
+import { formatArea } from './units';
 /**
  * Architectural plan symbols for the 2D canvas.
  *
@@ -122,7 +123,7 @@ export function drawRoomLabel(ctx, room, blueprint = false) {
   ctx.fillText(title, x, y);
   if (area && !compact) {
     ctx.font = '500 7px Inter, system-ui, -apple-system, sans-serif';
-    const txt = `${Math.round(area)} m\u00B2`;
+    const txt = formatArea(area, { short: true });
     ctx.strokeText(txt, x, y + 9);
     ctx.fillStyle = blueprint ? 'rgba(191,219,254,0.85)' : '#a1a1aa';
     ctx.fillText(txt, x, y + 9);

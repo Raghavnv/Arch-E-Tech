@@ -9,6 +9,17 @@ import {
   Activity, Layers, ArrowUpRight, Images
 } from 'lucide-react';
 import PhotoGallery from './PhotoGallery';
+import { formatArea, formatMoney, CURRENCY } from '../utils/units';
+
+// a plan's floor area in m², from its rooms
+const projectArea = (p) => (p?.elements_data || []).filter(e => e && e.type === 'room')
+  .reduce((s, r) => s + (Number(r.area) || 0), 0);
+
+// reports saved from the Studio record their currency; the built-in samples are in US dollars
+const reportMoney = (report, amount) => {
+  const c = report?.currency && CURRENCY[report.currency];
+  return c ? `${c.symbol}${Math.round(amount || 0).toLocaleString(c.locale)}` : formatMoney(amount);
+};
 
 const DEFAULT_REPORTS = [
   { 
@@ -111,7 +122,7 @@ export default function Dashboard() {
 
   // Settings State
   const [settings, setSettings] = useState({
-    measurement: localStorage.getItem('pref_measurement') || 'metric',
+    measurement: localStorage.getItem('pref_measurement') || 'imperial',
     currency: localStorage.getItem('pref_currency') || 'INR'
   });
   const [saveSettingsSuccess, setSaveSettingsSuccess] = useState(false);
@@ -352,7 +363,7 @@ export default function Dashboard() {
         report.breakdown.forEach(item => {
           pdf.text(item.type, 20, curY);
           pdf.text(item.qty, 120, curY);
-          pdf.text(`$${item.cost.toLocaleString()}`, 160, curY);
+          pdf.text(reportMoney(report, item.cost).replace('₹', 'Rs ').replace('€', 'EUR '), 160, curY);
           curY += 7;
         });
 
@@ -362,7 +373,7 @@ export default function Dashboard() {
           curY += 7;
           pdf.setFont("helvetica", "bold");
           pdf.text("TOTAL PROJECT TAKEOFF:", 20, curY);
-          pdf.text(`$${report.totalCost.toLocaleString()}`, 160, curY);
+          pdf.text(reportMoney(report, report.totalCost).replace('₹', 'Rs ').replace('€', 'EUR '), 160, curY);
         }
       }
 
@@ -504,9 +515,9 @@ export default function Dashboard() {
                 </div>
                 <div className="mt-4">
                   <div className="text-3xl font-extrabold text-white">
-                    {((projects.length || 1) * 1850).toLocaleString()} <span className="text-sm font-normal text-zinc-400">sq ft</span>
+                    {formatArea(projects.reduce((s, p) => s + projectArea(p), 0))}
                   </div>
-                  <div className="text-[11px] text-zinc-500 mt-1">~{Math.round(((projects.length || 1) * 1850) * 0.0929)} m² structural footprint</div>
+                  <div className="text-[11px] text-zinc-500 mt-1">Floor area across all your plans</div>
                 </div>
               </div>
 
@@ -683,7 +694,7 @@ export default function Dashboard() {
                               <Clock className="w-3 h-3 text-zinc-500" /> {project.created_at || 'Recently Saved'}
                             </span>
                             <span>•</span>
-                            <span className="text-zinc-500">~185 m² (1,990 sq ft)</span>
+                            <span className="text-zinc-500">{projectArea(project) ? formatArea(projectArea(project)) : 'No rooms yet'}</span>
                           </div>
                         </div>
 
@@ -992,7 +1003,7 @@ export default function Dashboard() {
                     <Calculator className="w-3.5 h-3.5 text-indigo-400" /> Est. Construction
                   </span>
                   <span className="text-xl font-bold text-white">
-                    ${(viewingReport.totalCost || 48500).toLocaleString()}
+                    {reportMoney(viewingReport, viewingReport.totalCost ?? viewingReport.costs?.total ?? 0)}
                   </span>
                   <p className="text-[10px] text-zinc-500 mt-1">Includes 10% contingency</p>
                 </div>
@@ -1027,7 +1038,7 @@ export default function Dashboard() {
                         <tr>
                           <th className="px-4 py-2.5 font-semibold">Item Specification</th>
                           <th className="px-4 py-2.5 font-semibold">Qty</th>
-                          <th className="px-4 py-2.5 font-semibold text-right">Cost (USD)</th>
+                          <th className="px-4 py-2.5 font-semibold text-right">Cost</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-zinc-800/60">
@@ -1035,7 +1046,7 @@ export default function Dashboard() {
                           <tr key={idx} className="hover:bg-zinc-800/30">
                             <td className="px-4 py-2.5 text-zinc-200">{item.type}</td>
                             <td className="px-4 py-2.5 text-zinc-400">{item.qty}</td>
-                            <td className="px-4 py-2.5 text-right text-emerald-400 font-bold">${item.cost.toLocaleString()}</td>
+                            <td className="px-4 py-2.5 text-right text-emerald-400 font-bold">{reportMoney(viewingReport, item.cost)}</td>
                           </tr>
                         ))}
                       </tbody>
