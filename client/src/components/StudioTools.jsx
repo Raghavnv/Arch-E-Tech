@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { X, Loader2, AlertTriangle, Download, ScanLine, LayoutTemplate, Image as ImageIcon, Wand2 as Wand } from 'lucide-react';
+import { X, Loader2, AlertTriangle, Download, ScanLine, LayoutTemplate, Image as ImageIcon, Wand2 as Wand, Home, Bookmark, Check } from 'lucide-react';
 import { detectRooms } from '../utils/detectRooms';
+import InfoTip from './InfoTip';
 
 /*
  * The Studio's tool panels: Auto Detect (label the rooms your walls enclose), AI Layout (a new plan
@@ -27,11 +28,13 @@ async function post(url, body) {
   return data;
 }
 
-function Panel({ icon: Icon, title, onClose, wide, children }) {
+function Panel({ icon: Icon, title, info, onClose, wide, children }) {
   return (
     <div className={`absolute top-24 right-6 z-30 flex max-h-[calc(100%-8rem)] flex-col rounded-2xl border border-zinc-800 bg-zinc-950/95 shadow-2xl backdrop-blur-xl ${wide ? 'w-[min(720px,calc(100%-3rem))]' : 'w-[min(380px,calc(100%-3rem))]'}`}>
       <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-white"><Icon className="h-4 w-4 text-zinc-400" /> {title}</h3>
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
+          <Icon className="h-4 w-4 text-zinc-400" /> {title} {info && <InfoTip id={info} />}
+        </h3>
         <button onClick={onClose} className="rounded p-1 text-zinc-500 hover:bg-zinc-800 hover:text-white"><X className="h-4 w-4" /></button>
       </div>
       <div className="overflow-y-auto p-4 custom-scrollbar">{children}</div>
@@ -59,7 +62,7 @@ export function AutoDetectPanel({ elements, setElements, onClose }) {
   };
 
   return (
-    <Panel icon={ScanLine} title="Auto Detect rooms" onClose={onClose}>
+    <Panel icon={ScanLine} title="Auto Detect rooms" info="detect" onClose={onClose}>
       {found.length === 0 ? (
         <p className="text-sm leading-relaxed text-zinc-400">
           {walls < 3
@@ -125,7 +128,7 @@ export function AiLayoutPanel({ elements, setElements, onClose, apiUrl }) {
   };
 
   return (
-    <Panel icon={LayoutTemplate} title="AI Layout" onClose={onClose}>
+    <Panel icon={LayoutTemplate} title="AI Layout" info="layout" onClose={onClose}>
       <label className="mb-1.5 block text-xs text-zinc-400" htmlFor="ai-layout-prompt">Describe the home</label>
       <textarea
         id="ai-layout-prompt"
@@ -164,6 +167,19 @@ export function ConceptVizPanel({ elements, projectId, onClose, apiUrl }) {
   const [images, setImages] = useState({});       // mode -> data URL
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [savedFor, setSavedFor] = useState(null);   // the image last saved, so the button shows it
+
+  const save = async () => {
+    try {
+      await post(`${apiUrl}/api/photos`, {
+        project_id: Number(projectId), kind: mode, style, prompt,
+        title: `${mode === 'cutaway' ? '3D cutaway' : 'Exterior'} · ${STYLE_NAME[style]}`, image: images[mode],
+      });
+      setSavedFor(images[mode]);
+    } catch (e) {
+      setError(e.message);
+    }
+  };
 
   // earlier concepts of this project
   useEffect(() => {
@@ -196,7 +212,7 @@ export function ConceptVizPanel({ elements, projectId, onClose, apiUrl }) {
 
   const image = images[mode];
   return (
-    <Panel icon={ImageIcon} title="Concept Viz" onClose={onClose} wide>
+    <Panel icon={ImageIcon} title="Concept Viz" info="concept" onClose={onClose} wide>
       {!projectId ? (
         <p className="text-sm text-zinc-400">Save this plan as a project first (Save Cloud), then come back to visualise it.</p>
       ) : (
@@ -242,6 +258,11 @@ export function ConceptVizPanel({ elements, projectId, onClose, apiUrl }) {
               {image ? 'Render again' : 'Render concept'}
             </button>
             {image && (
+              <button onClick={save} disabled={savedFor === image} className="flex items-center justify-center gap-1.5 rounded-lg border border-zinc-800 py-1.5 text-xs text-zinc-200 hover:bg-zinc-900 disabled:text-emerald-400">
+                {savedFor === image ? <><Check className="h-3.5 w-3.5" /> Saved to photos</> : <><Bookmark className="h-3.5 w-3.5" /> Save to photos</>}
+              </button>
+            )}
+            {image && (
               <a href={image} download={`concept-${mode}.jpg`} className="flex items-center justify-center gap-1.5 rounded-lg border border-zinc-800 py-1.5 text-xs text-zinc-300 hover:bg-zinc-900">
                 <Download className="h-3.5 w-3.5" /> Download
               </a>
@@ -269,7 +290,7 @@ const EXAMPLES = {
   none: ['Make the kitchen door 1 m wide', 'Add a window to the living room', 'Make the master bedroom bigger'],
 };
 
-export function EditBar({ elements, setElements, selected, apiUrl }) {
+export function EditPanel({ elements, setElements, selected, apiUrl, onClose }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState(null);     // { ok, text }
@@ -298,45 +319,107 @@ export function EditBar({ elements, setElements, selected, apiUrl }) {
   };
 
   return (
-    // starts right of the scale box (bottom-left) and stops short of the chat button (bottom-right)
-    <div className="absolute bottom-6 left-[21rem] right-24 z-20 max-w-2xl">
-      {note && (
-        <p className={`mb-2 rounded-lg px-3 py-2 text-xs shadow-lg ${note.ok ? 'bg-emerald-500/15 text-emerald-200' : 'bg-amber-500/15 text-amber-100'}`}>
-          {note.text}
-        </p>
-      )}
-      <div className="rounded-2xl border border-zinc-700/80 bg-zinc-950/95 p-2 shadow-2xl backdrop-blur-xl">
-        <div className="flex items-center gap-2">
-          <Wand className="ml-1.5 h-4 w-4 shrink-0 text-indigo-300" />
-          {sel && (
-            <span className="shrink-0 rounded-md bg-indigo-500/15 px-2 py-1 text-[11px] text-indigo-200">
-              {selected.length > 1 ? `${selected.length} selected` : `${TYPE_LABEL[sel.type] || sel.type}${sel.length ? ` · ${sel.length.toFixed(1)} m` : ''}`}
-            </span>
-          )}
-          <input
-            value={text}
-            onChange={e => setText(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') run(); e.stopPropagation(); }}
-            placeholder={sel ? `Describe a change to the selected ${(TYPE_LABEL[sel.type] || 'item').toLowerCase()}…` : 'Edit the plan with AI, e.g. "make the kitchen door 1 m wide"'}
-            className="min-w-0 flex-1 bg-transparent px-1 py-1.5 text-sm text-white placeholder:text-zinc-500 focus:outline-none"
-            disabled={busy}
-          />
-          <button
-            onClick={() => run()}
-            disabled={busy || !text.trim()}
-            className="flex shrink-0 items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-40"
-          >
-            {busy ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Editing…</> : 'Apply'}
-          </button>
-        </div>
-        {!busy && !text && (
-          <div className="mt-1.5 flex flex-wrap gap-1.5 px-1">
-            {examples.map(x => (
-              <button key={x} onClick={() => setText(x)} className="rounded-full border border-zinc-800 px-2 py-0.5 text-[11px] text-zinc-400 hover:border-zinc-600 hover:text-zinc-200">{x}</button>
-            ))}
-          </div>
+    <Panel icon={Wand} title="AI Edit" info="edit" onClose={onClose}>
+      <div className="mb-2 flex items-center gap-2 text-[11px]">
+        {sel ? (
+          <span className="rounded-md bg-indigo-500/15 px-2 py-1 text-indigo-200">
+            Selected: {selected.length > 1 ? `${selected.length} items` : `${TYPE_LABEL[sel.type] || sel.type}${sel.length ? ` · ${sel.length.toFixed(1)} m` : ''}`}
+          </span>
+        ) : (
+          <span className="text-zinc-500">Nothing selected. Click an item on the plan to edit "this", or name what to change.</span>
         )}
       </div>
-    </div>
+      <textarea
+        rows={3}
+        value={text}
+        onChange={e => setText(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); run(); } e.stopPropagation(); }}
+        placeholder={sel ? `Describe a change to the selected ${(TYPE_LABEL[sel.type] || 'item').toLowerCase()}…` : 'e.g. make the kitchen door 1 m wide'}
+        className="w-full resize-none rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:border-indigo-500 focus:outline-none"
+        disabled={busy}
+        autoFocus
+      />
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {examples.map(x => (
+          <button key={x} onClick={() => setText(x)} className="rounded-full border border-zinc-800 px-2 py-0.5 text-[11px] text-zinc-400 hover:border-zinc-600 hover:text-zinc-200">{x}</button>
+        ))}
+      </div>
+      <button
+        onClick={() => run()}
+        disabled={busy || !text.trim()}
+        className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-40"
+      >
+        {busy ? <><Loader2 className="h-4 w-4 animate-spin" /> Editing…</> : 'Apply change'}
+      </button>
+      {note && (
+        <p className={`mt-3 rounded-lg px-3 py-2 text-xs ${note.ok ? 'bg-emerald-500/10 text-emerald-200' : 'bg-amber-500/10 text-amber-100'}`}>{note.text}</p>
+      )}
+    </Panel>
+  );
+}
+
+// ------------------------------------------------------------------------------------------------
+// Rooms: rename rooms and set their type
+// ------------------------------------------------------------------------------------------------
+export function RoomsPanel({ elements, setElements, onClose }) {
+  const rooms = elements.filter(e => e.type === 'room');
+  const [draft, setDraft] = useState(() => Object.fromEntries(rooms.map(r => [r.id, { name: r.name || '', kind: r.kind || 'living' }])));
+  const changed = rooms.some(r => draft[r.id] && (draft[r.id].name.trim() !== (r.name || '') || draft[r.id].kind !== (r.kind || 'living')));
+  const dupes = (() => {
+    const seen = {};
+    rooms.forEach(r => { const n = (draft[r.id]?.name || '').trim().toLowerCase(); if (n) seen[n] = (seen[n] || 0) + 1; });
+    return new Set(Object.keys(seen).filter(n => seen[n] > 1));
+  })();
+
+  const apply = () => {
+    setElements(prev => prev.map(el => {
+      const d = el.type === 'room' && draft[el.id];
+      if (!d) return el;
+      return { ...el, name: d.name.trim() || KIND_NAME[d.kind] || 'Room', kind: d.kind };
+    }));
+    onClose();
+  };
+
+  return (
+    <Panel icon={Home} title="Rooms" info="rooms" onClose={onClose}>
+      {rooms.length === 0 ? (
+        <p className="text-sm text-zinc-400">No rooms yet. Generate a layout with AI Layout, or draw walls and use Auto Detect.</p>
+      ) : (
+        <>
+          <ul className="space-y-2">
+            {rooms.map(r => {
+              const d = draft[r.id] || { name: '', kind: 'living' };
+              const dup = dupes.has(d.name.trim().toLowerCase());
+              return (
+                <li key={r.id} className="rounded-lg border border-zinc-800 bg-zinc-900 p-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={d.name}
+                      onChange={e => setDraft(x => ({ ...x, [r.id]: { ...d, name: e.target.value } }))}
+                      onKeyDown={e => e.stopPropagation()}
+                      maxLength={40}
+                      placeholder={KIND_NAME[d.kind]}
+                      className={`min-w-0 flex-1 rounded bg-zinc-950 px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 ${dup ? 'ring-1 ring-amber-500/60 focus:ring-amber-500' : 'focus:ring-indigo-500'}`}
+                    />
+                    <select
+                      value={d.kind}
+                      onChange={e => setDraft(x => ({ ...x, [r.id]: { ...d, kind: e.target.value } }))}
+                      className="rounded bg-zinc-950 px-1.5 py-1 text-xs text-zinc-200 focus:outline-none"
+                    >
+                      {KINDS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+                    </select>
+                    <span className="w-12 text-right font-mono text-[11px] text-zinc-500">{Math.round(r.area || 0)} m²</span>
+                  </div>
+                  {dup && <p className="mt-1 text-[10px] text-amber-300/90">Another room has this name; a unique name is easier to tell apart.</p>}
+                </li>
+              );
+            })}
+          </ul>
+          <button onClick={apply} disabled={!changed} className="mt-4 w-full rounded-lg bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-40">
+            Save room names
+          </button>
+        </>
+      )}
+    </Panel>
   );
 }

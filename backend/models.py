@@ -47,3 +47,21 @@ class RoomRender(Base):
     furnished_image = Column(Text, nullable=True)  # data URL (JPEG)
     prompt = Column(Text, nullable=True)           # what the user asked for when furnishing
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+
+class SavedPhoto(Base):
+    """A render the owner chose to keep, in their photo gallery."""
+    __tablename__ = "saved_photos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True)
+    room_key = Column(String, nullable=True)       # which room of the plan it shows (None for concepts)
+    room_name = Column(String, nullable=True)
+    title = Column(String)
+    kind = Column(String, default="furnished")     # furnished | empty | cutaway | exterior
+    style = Column(String, nullable=True)
+    prompt = Column(Text, nullable=True)
+    image = Column(Text)                           # full-size JPEG data URL
+    thumb = Column(Text)                           # ~480 px JPEG data URL for the gallery grid
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)

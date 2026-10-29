@@ -202,6 +202,7 @@ def delete_project(project_id: int, db: Session = Depends(get_db), current_user:
         raise HTTPException(status_code=404, detail="Project not found")
     
     db.query(models.RoomRender).filter(models.RoomRender.project_id == project.id).delete()
+    db.query(models.SavedPhoto).filter(models.SavedPhoto.project_id == project.id).update({models.SavedPhoto.project_id: None})
     db.delete(project)
     db.commit()
     return {"status": "success"}
@@ -322,6 +323,93 @@ def upload_empty_room(project_id: int, shot: RoomUpload, db: Session = Depends(g
     row.empty_image, row.furnished_image = image, None
     db.commit()
     return _render_out(row)
+
+
+# -----------------------------------------------------------------
+# Saved photos (the owner's gallery of renders they liked)
+# -----------------------------------------------------------------
+class PhotoSave(BaseModel):
+    project_id: int | None = None
+    room_key: str | None = None
+    room_name: str | None = None
+    title: str = ""
+    kind: Literal["furnished", "empty", "cutaway", "exterior"] = "furnished"
+    style: str | None = None
+    prompt: str | None = None
+    image: str
+
+class PhotoRename(BaseModel):
+    title: str
+
+
+def _photo_out(p: models.SavedPhoto, full: bool = False) -> dict:
+    out = {"id": p.id, "project_id": p.project_id, "room_key": p.room_key, "room_name": p.room_name,
+           "title": p.title, "kind": p.kind, "style": p.style, "prompt": p.prompt, "thumb": p.thumb,
+           "created_at": p.created_at.isoformat() if p.created_at else None}
+    if full:
+        out["image"] = p.image
+    return out
+
+
+def _own_photo(photo_id: int, db: Session, user: models.User) -> models.SavedPhoto:
+    p = db.query(models.SavedPhoto).filter(models.SavedPhoto.id == photo_id, models.SavedPhoto.owner_id == user.id).first()
+    if not p:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    return p
+
+
+@app.get("/api/photos")
+def list_photos(project_id: int | None = None, db: Session = Depends(get_db),
+                current_user: models.User = Depends(get_current_user)):
+    """The gallery: thumbnails only, newest first (GET /api/photos/{id} has the full image)."""
+    q = db.query(models.SavedPhoto).filter(models.SavedPhoto.owner_id == current_user.id)
+    if project_id is not None:
+        q = q.filter(models.SavedPhoto.project_id == project_id)
+    projects = {p.id: p.name for p in db.query(models.Project).filter(models.Project.owner_id == current_user.id)}
+    rows = q.order_by(models.SavedPhoto.created_at.desc()).all()
+    return [{**_photo_out(p), "project_name": projects.get(p.project_id)} for p in rows]
+
+
+@app.get("/api/photos/{photo_id}")
+def get_photo(photo_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    return _photo_out(_own_photo(photo_id, db, current_user), full=True)
+
+
+@app.post("/api/photos")
+def save_photo(req: PhotoSave, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    import render_ai
+    if req.project_id is not None:
+        _owned_project(req.project_id, db, current_user)
+    try:
+        thumb = render_ai.thumbnail(req.image)
+    except Exception:
+        raise HTTPException(status_code=400, detail="That image couldn't be read.")
+    title = req.title.strip()[:80] or req.room_name or "Untitled photo"
+    p = models.SavedPhoto(owner_id=current_user.id, project_id=req.project_id, room_key=req.room_key,
+                          room_name=req.room_name, title=title, kind=req.kind, style=req.style,
+                          prompt=req.prompt, image=req.image, thumb=thumb)
+    db.add(p)
+    db.commit()
+    db.refresh(p)
+    return _photo_out(p)
+
+
+@app.put("/api/photos/{photo_id}")
+def rename_photo(photo_id: int, req: PhotoRename, db: Session = Depends(get_db),
+                 current_user: models.User = Depends(get_current_user)):
+    p = _own_photo(photo_id, db, current_user)
+    if not req.title.strip():
+        raise HTTPException(status_code=400, detail="The name can't be empty.")
+    p.title = req.title.strip()[:80]
+    db.commit()
+    return _photo_out(p)
+
+
+@app.delete("/api/photos/{photo_id}")
+def delete_photo(photo_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    db.delete(_own_photo(photo_id, db, current_user))
+    db.commit()
+    return {"status": "success"}
 
 
 class ConceptRequest(BaseModel):

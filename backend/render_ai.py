@@ -203,6 +203,14 @@ def _to_data_url(raw: bytes) -> str:
     return "data:image/jpeg;base64," + base64.b64encode(out.getvalue()).decode()
 
 
+def thumbnail(data_url: str, size: int = 480) -> str:
+    img = Image.open(io.BytesIO(_decode_data_url(data_url))).convert("RGB")
+    img.thumbnail((size, size))
+    out = io.BytesIO()
+    img.save(out, "JPEG", quality=80, optimize=True)
+    return "data:image/jpeg;base64," + base64.b64encode(out.getvalue()).decode()
+
+
 def normalise_upload(data_url: str) -> str:
     """A user's own photo of the room: fit it to the render size and store it like a generated one."""
     img = Image.open(io.BytesIO(_decode_data_url(data_url))).convert("RGB")

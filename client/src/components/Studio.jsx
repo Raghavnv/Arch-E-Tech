@@ -5,11 +5,12 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Menu, MousePointer2, Box, Home, PenTool, LayoutTemplate, 
   Settings, Save, FileText, ChevronRight, Calculator, CheckCircle, 
-  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet 
+  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2 
 } from 'lucide-react';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
-import { AutoDetectPanel, AiLayoutPanel, ConceptVizPanel, EditBar } from './StudioTools';
+import { AutoDetectPanel, AiLayoutPanel, ConceptVizPanel, EditPanel, RoomsPanel } from './StudioTools';
+import InfoTip from './InfoTip';
 import { ARCHITECTURAL_TEXTURES } from '../utils/textureLibrary';
 
 const PLAIN_WALL = { id: 'mat_plain', name: 'Plain', color: '#f4f4f5' };
@@ -36,11 +37,9 @@ export default function Studio() {
   const [drawingMode, setDrawingMode] = useState(null);
   const [activeTab, setActiveTab] = useState('2D');
   const [showFurnitureCatalog, setShowFurnitureCatalog] = useState(false);
-  const [toolPanel, setToolPanel] = useState(null);     // 'detect' | 'layout' | 'concept'
-  const [selectedEls, setSelectedEls] = useState([]);
-  // a one-time pointer at Photo Render for people who haven't opened it yet
-  const [showRenderTip, setShowRenderTip] = useState(() => { try { return !localStorage.getItem('seen_photo_render'); } catch { return false; } });
-  const dismissRenderTip = () => { setShowRenderTip(false); try { localStorage.setItem('seen_photo_render', '1'); } catch { /* private mode */ } };   // what is selected on the 2D plan, for "edit this" 
+  // ?tool=concept (from a saved photo's "New version") opens that tool straight away
+  const [toolPanel, setToolPanel] = useState(() => searchParams.get('tool'));   // 'detect' | 'layout' | 'edit' | 'rooms' | 'concept'
+  const [selectedEls, setSelectedEls] = useState([]);   // what is selected on the 2D plan, for "edit this"
   const [smartSnap, setSmartSnap] = useState(() => localStorage.getItem('pref_smart_snap') === '1');
   const toggleSmartSnap = () => setSmartSnap(on => {
     try { localStorage.setItem('pref_smart_snap', on ? '0' : '1'); } catch { /* private mode */ }
@@ -533,23 +532,26 @@ export default function Studio() {
           </button>
         </div>
 
-        <div className="p-3 border-b border-zinc-800 grid grid-cols-4 gap-2">
+        <div className="p-3 border-b border-zinc-800 grid grid-cols-3 gap-1.5">
           {[
-            { id: 'detect', icon: ScanLine, label: 'Auto Detect', tip: 'Turn the spaces your walls enclose into labelled rooms', onClick: () => openTool('detect'), on: toolPanel === 'detect' },
-            { id: 'snap', icon: Magnet, label: smartSnap ? 'Snap: On' : 'Smart Snap', tip: 'Walls lock onto wall ends, doors and windows onto walls, moves onto a 25 cm grid', onClick: toggleSmartSnap, on: smartSnap },
-            { id: 'layout', icon: LayoutTemplate, label: 'AI Layout', tip: 'Generate a new floor plan from a description', onClick: () => openTool('layout'), on: toolPanel === 'layout' },
-            { id: 'concept', icon: ImageIcon, label: 'Concept Viz', tip: 'Turn the plan into a 3D cutaway or exterior image', onClick: () => openTool('concept'), on: toolPanel === 'concept' },
-          ].map(({ id, icon: Icon, label, tip, onClick, on }) => (
-            <button
-              key={id}
-              onClick={onClick}
-              title={tip}
-              aria-pressed={on}
-              className={`flex flex-col items-center justify-center p-2 rounded transition-colors ${on ? 'bg-indigo-500/15 text-indigo-200' : 'text-zinc-400 hover:bg-zinc-900 hover:text-white'}`}
-            >
-              <Icon className="w-4 h-4 mb-1.5" />
-              <span className="text-[9px] font-medium text-center leading-tight">{label}</span>
-            </button>
+            { id: 'detect', icon: ScanLine, label: 'Auto Detect', onClick: () => openTool('detect'), on: toolPanel === 'detect' },
+            { id: 'snap', icon: Magnet, label: smartSnap ? 'Snap: On' : 'Smart Snap', onClick: toggleSmartSnap, on: smartSnap },
+            { id: 'layout', icon: LayoutTemplate, label: 'AI Layout', onClick: () => openTool('layout'), on: toolPanel === 'layout' },
+            { id: 'edit', icon: Wand2, label: 'AI Edit', onClick: () => openTool('edit'), on: toolPanel === 'edit' },
+            { id: 'rooms', icon: Home, label: 'Rooms', onClick: () => openTool('rooms'), on: toolPanel === 'rooms' },
+            { id: 'concept', icon: ImageIcon, label: 'Concept Viz', onClick: () => openTool('concept'), on: toolPanel === 'concept' },
+          ].map(({ id, icon: Icon, label, onClick, on }, i) => (
+            <div key={id} className="relative">
+              <button
+                onClick={onClick}
+                aria-pressed={on}
+                className={`flex w-full flex-col items-center justify-center rounded px-2 py-2.5 transition-colors ${on ? 'bg-indigo-500/15 text-indigo-200' : 'text-zinc-400 hover:bg-zinc-900 hover:text-white'}`}
+              >
+                <Icon className="mb-1.5 h-4 w-4" />
+                <span className="text-center text-[10px] font-medium leading-tight">{label}</span>
+              </button>
+              <InfoTip id={id} align={i % 3 === 2 ? 'right' : i % 3 === 1 ? 'center' : 'left'} className="absolute right-1 top-1" />
+            </div>
           ))}
         </div>
 
@@ -640,7 +642,7 @@ export default function Studio() {
 
         </div>
 
-        <div className="p-4 border-t border-zinc-800 grid grid-cols-2 gap-2 bg-black">
+        <div className="p-4 border-t border-zinc-800 grid grid-cols-1 gap-2 bg-black">
           <button 
             onClick={generatePDFReport}
             disabled={isGeneratingPDF}
@@ -650,17 +652,6 @@ export default function Studio() {
               <span className="flex items-center gap-2 animate-pulse"><FileText className="w-3.5 h-3.5" /> Building PDF...</span>
             ) : (
               <><FileText className="w-3.5 h-3.5" /> PDF Report</>
-            )}
-          </button>
-          <button 
-            onClick={handleOpenRenderStudio}
-            disabled={isCapturingForRender}
-            className="flex items-center justify-center gap-2 py-2.5 rounded-lg bg-gradient-to-r from-fuchsia-500 via-violet-500 to-indigo-500 hover:brightness-110 text-xs font-semibold text-white transition-all disabled:opacity-50"
-          >
-            {isCapturingForRender ? (
-              <span className="flex items-center gap-1.5 animate-pulse"><Sparkles className="w-3.5 h-3.5" /> Opening...</span>
-            ) : (
-              <><Sparkles className="w-3.5 h-3.5" /> Photo Render</>
             )}
           </button>
         </div>
@@ -743,28 +734,16 @@ export default function Studio() {
             Walkthrough
           </button>
 
-          {/* the headline feature: its own colour and a NEW badge so it gets noticed */}
-          <div className="relative">
+          <div className="ml-1 flex items-center gap-1.5 border-l border-zinc-800 pl-2">
             <button
-              onClick={() => { dismissRenderTip(); handleOpenRenderStudio(); }}
+              onClick={handleOpenRenderStudio}
               disabled={isCapturingForRender}
-              className="group flex items-center gap-2 whitespace-nowrap rounded-full bg-gradient-to-r from-fuchsia-500 via-violet-500 to-indigo-500 px-4 py-1.5 text-xs font-semibold text-white shadow-[0_0_18px_rgba(192,38,211,0.45)] transition-all hover:brightness-110 disabled:opacity-60"
+              className="flex items-center gap-2 whitespace-nowrap rounded-full bg-indigo-500 px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-indigo-400 disabled:opacity-60"
             >
               <Sparkles className="h-3.5 w-3.5" />
               {isCapturingForRender ? 'Opening…' : 'Photo Render'}
-              <span className="rounded-full bg-white/25 px-1.5 py-px text-[9px] font-bold tracking-wide">NEW</span>
             </button>
-            {showRenderTip && projectId && (
-              <div className="absolute right-0 top-full mt-3 w-64 rounded-xl border border-fuchsia-400/30 bg-zinc-900 p-3 text-left shadow-2xl">
-                <div className="absolute -top-1.5 right-8 h-3 w-3 rotate-45 border-l border-t border-fuchsia-400/30 bg-zinc-900" />
-                <p className="text-xs font-semibold text-white">See your rooms come to life</p>
-                <p className="mt-1 text-[11px] leading-snug text-zinc-400">Every room of this plan as a photo: empty first, then furnished the way you describe.</p>
-                <div className="mt-2 flex gap-2">
-                  <button onClick={() => { dismissRenderTip(); handleOpenRenderStudio(); }} className="rounded-md bg-white px-2.5 py-1 text-[11px] font-semibold text-black">Try it</button>
-                  <button onClick={dismissRenderTip} className="rounded-md px-2 py-1 text-[11px] text-zinc-400 hover:text-white">Later</button>
-                </div>
-              </div>
-            )}
+            <InfoTip id="render" align="right" className="mr-1" />
           </div>
         </div>
 
@@ -811,8 +790,11 @@ export default function Studio() {
           </div>
         )}
 
-        {activeTab === '2D' && !drawingMode && (
-          <EditBar elements={canvasElements} setElements={(els) => setCanvasElements(cleanElements(els))} selected={selectedEls} apiUrl={API_URL} />
+        {activeTab === '2D' && toolPanel === 'edit' && (
+          <EditPanel elements={canvasElements} setElements={(els) => setCanvasElements(cleanElements(els))} selected={selectedEls} apiUrl={API_URL} onClose={() => setToolPanel(null)} />
+        )}
+        {activeTab === '2D' && toolPanel === 'rooms' && (
+          <RoomsPanel elements={canvasElements} setElements={setCanvasElements} onClose={() => setToolPanel(null)} />
         )}
         {activeTab === '2D' && toolPanel === 'detect' && (
           <AutoDetectPanel elements={canvasElements} setElements={setCanvasElements} onClose={() => setToolPanel(null)} />
@@ -827,7 +809,7 @@ export default function Studio() {
         {activeTab === '2D' && showFurnitureCatalog && (
           <div className="absolute top-24 left-6 w-72 bg-zinc-950/90 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl p-4 z-20 max-h-[450px] overflow-y-auto custom-scrollbar">
             <div className="flex justify-between items-center mb-4 sticky top-0 bg-zinc-950/90 py-1">
-              <h3 className="text-sm font-bold text-white">Full House Furniture Suite</h3>
+              <h3 className="flex items-center gap-2 text-sm font-bold text-white">Furniture <InfoTip id="furniture" /></h3>
               <button onClick={() => setShowFurnitureCatalog(false)} className="text-zinc-500 hover:text-white">
                 <X className="w-4 h-4" />
               </button>
@@ -864,7 +846,7 @@ export default function Studio() {
         {activeTab === '3D' && (
           <div className="absolute top-24 right-6 w-72 max-h-[calc(100%-8rem)] bg-zinc-950/90 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl flex flex-col z-20">
             <div className="p-4 border-b border-zinc-800">
-              <h3 className="text-sm font-bold text-white">Material Painter</h3>
+              <h3 className="flex items-center gap-2 text-sm font-bold text-white">Material Painter <InfoTip id="painter" align="right" /></h3>
               <p className="text-[11px] text-zinc-400 mt-1">
                 {selectedMaterial
                   ? <>Painting with <span className="text-white">{selectedMaterial.name}</span>. Click walls to apply, or pick another material.</>

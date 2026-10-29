@@ -2,7 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, Sparkles, Download, Upload, RefreshCw, ImageOff, Columns, Split, AlertTriangle, Check, Loader2,
+  Bookmark, Pencil,
 } from 'lucide-react';
+import InfoTip from './InfoTip';
+import PhotoGallery from './PhotoGallery';
 
 /*
  * Photo Render: every room of the plan photographed twice by the AI. First the empty room, in one
@@ -72,17 +75,32 @@ function Spinner({ label, started }) {
   );
 }
 
-function Panel({ title, image, busy, children }) {
+function Panel({ title, image, busy, action, children }) {
   return (
     <div className="flex min-w-0 flex-col">
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-2 flex h-7 items-center justify-between">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">{title}</h3>
+        {image && !busy && action}
       </div>
       <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
         {image ? <img src={image} alt={title} className="h-full w-full object-cover" /> : children}
         {busy && <Spinner {...busy} />}
       </div>
     </div>
+  );
+}
+
+function SaveButton({ saved, onSave }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      onClick={async () => { setBusy(true); try { await onSave(); } finally { setBusy(false); } }}
+      disabled={saved || busy}
+      className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors ${saved ? 'border-emerald-500/30 text-emerald-300' : 'border-zinc-700 text-zinc-200 hover:bg-zinc-800'}`}
+    >
+      {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : saved ? <Check className="h-3 w-3" /> : <Bookmark className="h-3 w-3" />}
+      {saved ? 'Saved' : 'Save'}
+    </button>
   );
 }
 
@@ -125,12 +143,16 @@ export default function RenderStudio() {
   const [enabled, setEnabled] = useState(true);
   const [styleNames, setStyleNames] = useState({});
   const [style, setStyle] = useState('modern');
-  const [selected, setSelected] = useState(null);
-  const [prompts, setPrompts] = useState({});
+  const [selected, setSelected] = useState(() => params.get('room'));
+  const [prompts, setPrompts] = useState(() => (params.get('room') && params.get('prompt') ? { [params.get('room')]: params.get('prompt') } : {}));
   const [busy, setBusy] = useState({});                // room_key -> { which, label, started }
   const [error, setError] = useState(null);
   const [loadError, setLoadError] = useState(null);
   const [view, setView] = useState('side');            // 'side' | 'compare'
+  const [tab, setTab] = useState('rooms');             // 'rooms' | 'saved'
+  const [savedImages, setSavedImages] = useState(() => new Set());   // images already in the gallery this visit
+  const [galleryKey, setGalleryKey] = useState(0);
+  const [renaming, setRenaming] = useState(null);      // the room name being edited
   const fileRef = useRef(null);
 
   const call = async (path, body) => {
@@ -162,9 +184,11 @@ export default function RenderStudio() {
         setEnabled(status.enabled);
         setStyleNames(status.styles || {});
         setRenders(Object.fromEntries(list.map(r => [r.room_key, r])));
-        setPrompts(Object.fromEntries(list.filter(r => r.prompt).map(r => [r.room_key, r.prompt])));
+        setPrompts(p => ({ ...Object.fromEntries(list.filter(r => r.prompt).map(r => [r.room_key, r.prompt])), ...p }));
         const houseStyle = list.find(r => r.empty_image)?.style;
-        if (houseStyle) setStyle(houseStyle);
+        const asked = params.get('style');
+        if (asked && STYLE_IDS.includes(asked)) setStyle(asked);
+        else if (houseStyle) setStyle(houseStyle);
       } catch (e) {
         setLoadError(e.message);
       }
@@ -172,8 +196,24 @@ export default function RenderStudio() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
+  // "New version" from the saved photos changes the address while this page stays open: follow it
+  const paramKey = params.toString();
+  useEffect(() => {
+    const room = params.get('room');
+    if (!room) return;
+    setTab('rooms');
+    setSelected(room);
+    const pr = params.get('prompt');
+    if (pr) setPrompts(p => ({ ...p, [room]: pr }));
+    const st = params.get('style');
+    if (st && STYLE_IDS.includes(st)) setStyle(st);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paramKey]);
+
   const rooms = useMemo(() => roomsFromPlan(project?.elements_data || []), [project]);
-  useEffect(() => { if (!selected && rooms.length) setSelected(rooms[0].key); }, [rooms, selected]);
+  useEffect(() => {
+    if (rooms.length && (!selected || !rooms.some(r => r.key === selected))) setSelected(rooms[0].key);
+  }, [rooms, selected]);
   const room = rooms.find(r => r.key === selected);
   const shot = room ? renders[room.key] : null;
   const roomBusy = room ? busy[room.key] : null;
@@ -222,6 +262,36 @@ export default function RenderStudio() {
   const missingEmpty = rooms.filter(r => !renders[r.key]?.empty_image).length;
   const styleChanged = Object.values(renders).some(r => r.empty_image && r.style !== style);
 
+  const savePhoto = async (r, kind, image) => {
+    await call('/api/photos', {
+      project_id: Number(projectId), room_key: r.key, room_name: r.name, kind, style,
+      prompt: kind === 'furnished' ? (prompts[r.key] || '') : null,
+      title: `${r.name} · ${kind === 'empty' ? 'empty' : styleNames[style] || style}`, image,
+    }).catch(e => { setError(e.message); throw e; });
+    setSavedImages(s => new Set(s).add(image));
+    setGalleryKey(k => k + 1);
+  };
+
+  // renaming a room renames it in the plan itself, so the Studio and reports use the new name too
+  const renameRoom = async (r, name) => {
+    const clean = name.trim();
+    setRenaming(null);
+    if (!clean || clean === r.name || !project) return;
+    const elements = project.elements_data.map(e => (e && (e.id || null) === r.key ? { ...e, name: clean } : e));
+    setProject(p => ({ ...p, elements_data: elements }));
+    try {
+      const res = await fetch(`${API_URL}/api/projects/${projectId}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ elements_data: elements }),
+      });
+      if (!res.ok) throw new Error(`Couldn't save the new name (${res.status})`);
+      localStorage.setItem(`archetech_project_${projectId}`, JSON.stringify(elements));
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
   if (!projectId) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3 bg-zinc-950 text-zinc-300">
@@ -241,7 +311,7 @@ export default function RenderStudio() {
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div className="min-w-0">
-            <h1 className="text-sm font-semibold">Photo Render</h1>
+            <h1 className="flex items-center gap-1.5 text-sm font-semibold">Photo Render <InfoTip id="render" /></h1>
             <p className="truncate text-xs text-zinc-500">{project?.name || 'Loading…'}</p>
           </div>
         </div>
@@ -316,7 +386,21 @@ export default function RenderStudio() {
       <main className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-6xl px-4 py-6 sm:px-8">
 
-          {!enabled && (
+          <div className="mb-6 flex border-b border-zinc-800 text-sm">
+            {[['rooms', 'Rooms'], ['saved', 'Saved photos']].map(([id, label]) => (
+              <button
+                key={id}
+                onClick={() => setTab(id)}
+                className={`-mb-px border-b-2 px-4 pb-2.5 transition-colors ${tab === id ? 'border-white text-white' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {tab === 'saved' && <PhotoGallery projectId={projectId} reloadKey={galleryKey} />}
+
+          {tab === 'rooms' && !enabled && (
             <div className="mb-5 flex gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
               <p>AI photos aren't switched on yet. Add <code className="font-mono text-xs">CLOUDFLARE_ACCOUNT_ID</code> and{' '}
@@ -324,13 +408,29 @@ export default function RenderStudio() {
                 You can still upload your own photo of an empty room.</p>
             </div>
           )}
-          {loadError && <p className="mb-5 rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">{loadError}</p>}
+          {tab === 'rooms' && loadError && <p className="mb-5 rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">{loadError}</p>}
 
-          {room && (
+          {tab === 'rooms' && room && (
             <>
               <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
                 <div>
-                  <h2 className="text-xl font-semibold">{room.name}</h2>
+                  {renaming !== null ? (
+                    <input
+                      autoFocus
+                      onFocus={e => e.target.select()}
+                      value={renaming}
+                      maxLength={40}
+                      onChange={e => setRenaming(e.target.value)}
+                      onBlur={() => renameRoom(room, renaming)}
+                      onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') setRenaming(null); }}
+                      className="rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-xl font-semibold text-white focus:border-indigo-500 focus:outline-none"
+                    />
+                  ) : (
+                    <button onClick={() => setRenaming(room.name)} className="group flex items-center gap-2 text-left" title="Rename this room">
+                      <h2 className="text-xl font-semibold">{room.name}</h2>
+                      <Pencil className="h-3.5 w-3.5 text-zinc-600 transition-colors group-hover:text-zinc-300" />
+                    </button>
+                  )}
                   <p className="text-sm text-zinc-500">
                     {KIND_LABEL[room.kind] || room.kind} · {room.width_m} × {room.depth_m} m
                     {room.windows ? ` · ${room.windows} window${room.windows > 1 ? 's' : ''}` : ''}
@@ -352,7 +452,8 @@ export default function RenderStudio() {
                 <Compare before={shot.empty_image} after={shot.furnished_image} />
               ) : (
                 <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                  <Panel title="1 · Empty room" image={shot?.empty_image} busy={roomBusy?.which === 'empty' ? roomBusy : null}>
+                  <Panel title="1 · Empty room" image={shot?.empty_image} busy={roomBusy?.which === 'empty' ? roomBusy : null}
+                    action={<SaveButton saved={savedImages.has(shot?.empty_image)} onSave={() => savePhoto(room, 'empty', shot.empty_image)} />}>
                     <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
                       <ImageOff className="h-6 w-6 text-zinc-600" />
                       <p className="max-w-xs text-sm text-zinc-400">See this room as a bare shell, in the same style as the rest of the house.</p>
@@ -365,7 +466,8 @@ export default function RenderStudio() {
                       </button>
                     </div>
                   </Panel>
-                  <Panel title="2 · Furnished" image={shot?.furnished_image} busy={roomBusy?.which === 'furnished' ? roomBusy : null}>
+                  <Panel title="2 · Furnished" image={shot?.furnished_image} busy={roomBusy?.which === 'furnished' ? roomBusy : null}
+                    action={<SaveButton saved={savedImages.has(shot?.furnished_image)} onSave={() => savePhoto(room, 'furnished', shot.furnished_image)} />}>
                     <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
                       <Sparkles className="h-6 w-6 text-zinc-600" />
                       <p className="max-w-xs text-sm text-zinc-400">
