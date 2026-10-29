@@ -1020,6 +1020,7 @@ export default function Canvas3D({
   onPaint,
   walkthroughMode = false,
   roofStyle = 'none',          // 'none' | 'flat' | 'pitched'
+  autoRotate = false,          // the camera circles the house on its own (Overview)
   onToggleWalkthrough,
   onToggleCeiling
 }) {
@@ -1051,7 +1052,9 @@ export default function Canvas3D({
     <div className="absolute inset-0 bg-zinc-950 select-none overflow-hidden" id="studio-3d-viewport">
       <Canvas
         camera={{
-          position: walkthroughMode ? [bounds.centerX, PLAYER_HEIGHT, bounds.maxZ + 4] : [bounds.centerX, 22 + height, bounds.centerZ + 22 + height],
+          // the orbit camera stands back in proportion to the house, so small and large plans both fill the view
+          position: walkthroughMode ? [bounds.centerX, PLAYER_HEIGHT, bounds.maxZ + 4]
+            : [bounds.centerX, Math.max(bounds.width, bounds.depth) * 0.7 + 4 + height, bounds.centerZ + Math.max(bounds.width, bounds.depth) * 0.7 + 4 + height],
           fov: walkthroughMode ? 75 : 45
         }}
         shadows
@@ -1110,6 +1113,8 @@ export default function Canvas3D({
             makeDefault
             target={[bounds.centerX, Math.min(height / 2, 4), bounds.centerZ]}
             maxPolarAngle={Math.PI / 2 + 0.05}
+            autoRotate={autoRotate}
+            autoRotateSpeed={0.8}
             minDistance={2}
             maxDistance={180}
             dampingFactor={0.05}

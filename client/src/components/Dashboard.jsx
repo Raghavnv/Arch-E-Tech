@@ -6,7 +6,7 @@ import {
   Layout, Building, Trash2, Copy, FileText, Share2, Edit2, Eye, 
   Key, Globe, User, CheckCircle, Sparkles, X, Download, AlertCircle,
   Calculator, Check, ArrowRight, ShieldCheck, Sun, Search, Compass,
-  Activity, Layers, ArrowUpRight, Images
+  Activity, Layers, ArrowUpRight, Images, Play
 } from 'lucide-react';
 import PhotoGallery from './PhotoGallery';
 import Mark from './Mark';
@@ -441,7 +441,7 @@ export default function Dashboard() {
           <div 
             onClick={() => setActiveTab('projects')}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium cursor-pointer transition-colors ${
-              activeTab === 'projects' ? 'bg-zinc-900 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-900/50'
+              activeTab === 'projects' ? 'bg-zinc-900 text-white shadow-[inset_2px_0_0_#c8794a,0_0_18px_-8px_rgba(200,121,74,0.5)]' : 'text-zinc-400 hover:text-white hover:bg-zinc-900/50'
             }`}
           >
             <LayoutDashboard className="w-4 h-4" /> Projects
@@ -449,7 +449,7 @@ export default function Dashboard() {
           <div 
             onClick={() => setActiveTab('reports')}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium cursor-pointer transition-colors ${
-              activeTab === 'reports' ? 'bg-zinc-900 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-900/50'
+              activeTab === 'reports' ? 'bg-zinc-900 text-white shadow-[inset_2px_0_0_#c8794a,0_0_18px_-8px_rgba(200,121,74,0.5)]' : 'text-zinc-400 hover:text-white hover:bg-zinc-900/50'
             }`}
           >
             <FileText className="w-4 h-4" /> Reports
@@ -462,7 +462,7 @@ export default function Dashboard() {
           <div 
             onClick={() => setActiveTab('photos')}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium cursor-pointer transition-colors ${
-              activeTab === 'photos' ? 'bg-zinc-900 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-900/50'
+              activeTab === 'photos' ? 'bg-zinc-900 text-white shadow-[inset_2px_0_0_#c8794a,0_0_18px_-8px_rgba(200,121,74,0.5)]' : 'text-zinc-400 hover:text-white hover:bg-zinc-900/50'
             }`}
           >
             <Images className="w-4 h-4" /> Saved Photos
@@ -470,7 +470,7 @@ export default function Dashboard() {
           <div 
             onClick={() => setActiveTab('settings')}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium cursor-pointer transition-colors ${
-              activeTab === 'settings' ? 'bg-zinc-900 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-900/50'
+              activeTab === 'settings' ? 'bg-zinc-900 text-white shadow-[inset_2px_0_0_#c8794a,0_0_18px_-8px_rgba(200,121,74,0.5)]' : 'text-zinc-400 hover:text-white hover:bg-zinc-900/50'
             }`}
           >
             <Settings className="w-4 h-4" /> Settings
@@ -491,29 +491,36 @@ export default function Dashboard() {
         {/* ========================================================= */}
         {activeTab === 'projects' && (
           <>
-            <header className="sticky top-0 z-20 flex items-end justify-between border-b border-zinc-800/80 bg-zinc-950/90 px-10 pt-8 pb-6 backdrop-blur-xl">
-              <div>
+            <header className="sticky top-0 z-20 flex items-end justify-between overflow-hidden border-b border-zinc-800/80 bg-zinc-950/90 px-10 pt-8 pb-6 backdrop-blur-xl">
+              <div className="pointer-events-none absolute -left-20 -top-24 h-56 w-[520px] rounded-full bg-indigo-500/[0.07] blur-3xl" />
+              <div className="relative">
                 <p className="font-mono text-[11px] tracking-[0.25em] text-zinc-500">PROJECTS</p>
                 <h1 className="mt-2 text-3xl font-semibold tracking-[-0.025em] text-zinc-100">Your homes</h1>
               </div>
-              <Link to="/new-project" className="flex items-center gap-2 rounded-sm bg-zinc-200 px-5 py-2.5 text-sm font-semibold text-zinc-950 transition-colors hover:bg-white">
+              <Link to="/new-project" className="relative flex items-center gap-2 rounded-sm bg-zinc-200 px-5 py-2.5 text-sm font-semibold text-zinc-950 shadow-[0_0_24px_-6px_rgba(200,121,74,0.55)] transition-colors hover:bg-white">
                 <Plus className="h-4 w-4" /> New project
               </Link>
             </header>
 
-            {/* the numbers, laid out like a drawing's title block */}
-            <div className="mx-10 mt-8 grid grid-cols-2 border border-zinc-800 lg:grid-cols-4">
-              {[
-                ['PROJECTS', String(projects.length)],
-                ['FLOOR AREA', formatArea(projects.reduce((s, p) => s + projectArea(p), 0))],
-                ['ROOMS DESIGNED', String(projects.reduce((s, p) => s + (p.elements_data || []).filter(e => e && e.type === 'room').length, 0))],
-                ['SAVED PHOTOS', photoCount === null ? '—' : String(photoCount)],
-              ].map(([k, v], i) => (
-                <div key={k} className={`px-5 py-4 ${i ? 'border-l' : ''} ${i === 2 ? 'border-l-0 border-t lg:border-l lg:border-t-0' : ''} ${i === 3 ? 'border-t lg:border-t-0' : ''} border-zinc-800`}>
-                  <div className="font-mono text-[10px] tracking-[0.2em] text-zinc-500">{k}</div>
-                  <div className="mt-1.5 text-2xl font-semibold tracking-tight text-zinc-100">{v}</div>
-                </div>
-              ))}
+            {/* the numbers, laid out like a drawing's title block, each saying what it counts */}
+            <div className="mx-10 mt-8">
+              <p className="mb-2 font-mono text-[10px] tracking-[0.25em] text-zinc-500">AT A GLANCE</p>
+              <div className="relative grid grid-cols-2 border border-zinc-800 bg-zinc-950 lg:grid-cols-4">
+                {/* a thin warm line of light along the top edge */}
+                <span className="pointer-events-none absolute inset-x-8 -top-px h-px bg-gradient-to-r from-transparent via-indigo-400/70 to-transparent shadow-[0_0_12px_rgba(200,121,74,0.6)]" />
+                {[
+                  ['PROJECTS', String(projects.length), 'Homes you have started'],
+                  ['FLOOR AREA', formatArea(projects.reduce((s, p) => s + projectArea(p), 0)), 'All rooms, every floor, every project'],
+                  ['ROOMS DESIGNED', String(projects.reduce((s, p) => s + (p.elements_data || []).filter(e => e && e.type === 'room').length, 0)), 'Rooms across all your plans'],
+                  ['SAVED PHOTOS', photoCount === null ? '—' : String(photoCount), 'Renders kept in your gallery'],
+                ].map(([k, v, hint], i) => (
+                  <div key={k} className={`px-5 py-4 ${i ? 'border-l' : ''} ${i === 2 ? 'border-l-0 border-t lg:border-l lg:border-t-0' : ''} ${i === 3 ? 'border-t lg:border-t-0' : ''} border-zinc-800`}>
+                    <div className="font-mono text-[10px] tracking-[0.2em] text-zinc-500">{k}</div>
+                    <div className="mt-1.5 text-2xl font-semibold tracking-tight text-zinc-100">{v}</div>
+                    <div className="mt-1 text-[11px] text-zinc-500">{hint}</div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Search & Filter Toolbar */}
@@ -568,7 +575,7 @@ export default function Dashboard() {
                       // the whole card opens the project; buttons and links inside handle their own clicks
                       onClick={(e) => { if (!e.target.closest('a, button')) navigate(`/studio?projectId=${project.id}`); }}
                       onKeyDown={(e) => { if (e.key === 'Enter' && e.target === e.currentTarget) navigate(`/studio?projectId=${project.id}`); }}
-                      className="bg-zinc-900/70 backdrop-blur-md border border-zinc-800/90 rounded-2xl overflow-hidden flex flex-col justify-between hover:border-zinc-700 hover:shadow-xl transition-all group relative cursor-pointer"
+                      className="bg-zinc-900/70 backdrop-blur-md border border-zinc-800/90 rounded-2xl overflow-hidden flex flex-col justify-between hover:border-indigo-500/35 hover:shadow-[0_0_32px_-12px_rgba(200,121,74,0.5)] transition-all duration-300 group relative cursor-pointer"
                     >
                       {/* Top Blueprint Visual Stage */}
                       <div className="w-full h-36 bg-[#121110] border-b border-zinc-800/80 relative overflow-hidden group/canvas">
@@ -638,18 +645,25 @@ export default function Dashboard() {
                         </div>
 
                         {/* Direct Navigation Links */}
-                        <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between">
+                        <div className="pt-3 border-t border-zinc-800/80 flex flex-wrap items-center justify-between gap-2">
                           <Link 
                             to={`/studio?projectId=${project.id}`} 
-                            className="text-xs font-bold text-white hover:text-indigo-400 flex items-center gap-1 transition-colors group-hover:translate-x-0.5"
+                            className="whitespace-nowrap text-xs font-bold text-white hover:text-indigo-400 flex items-center gap-1 transition-colors group-hover:translate-x-0.5"
                           >
-                            Launch Studio <ArrowRight className="w-3.5 h-3.5 text-indigo-400" />
+                            Open Studio <ArrowRight className="w-3.5 h-3.5 text-indigo-400" />
                           </Link>
                           
                           <div className="flex items-center gap-1.5">
+                            <Link
+                              to={`/overview?projectId=${project.id}`}
+                              className="flex items-center gap-1 whitespace-nowrap rounded-lg border border-zinc-700/60 bg-zinc-800/80 px-2 py-1 text-[11px] font-medium text-zinc-200 hover:bg-zinc-700 hover:text-white transition-colors"
+                              title="Play a presentation of this house: plans, 3D, rooms, renders and costs"
+                            >
+                              <Play className="w-3 h-3 text-indigo-300" /> Overview
+                            </Link>
                             <Link 
                               to={`/render-studio?projectId=${project.id}`} 
-                              className="flex items-center gap-1 rounded-lg border border-zinc-700/60 bg-zinc-800/80 px-2.5 py-1 text-[11px] font-medium text-zinc-200 hover:bg-zinc-700 hover:text-white transition-colors"
+                              className="flex items-center gap-1 whitespace-nowrap rounded-lg border border-zinc-700/60 bg-zinc-800/80 px-2 py-1 text-[11px] font-medium text-zinc-200 hover:bg-zinc-700 hover:text-white transition-colors"
                               title="See this plan's rooms as AI photos, empty and furnished"
                             >
                               <Sparkles className="w-3 h-3 text-indigo-300" /> Photo Render

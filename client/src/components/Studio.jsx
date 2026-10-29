@@ -5,7 +5,7 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Menu, MousePointer2, Box, Home, PenTool, LayoutTemplate, 
   Settings, Save, FileText, ChevronRight, Calculator, CheckCircle, 
-  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip 
+  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play 
 } from 'lucide-react';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
@@ -13,7 +13,8 @@ import { AutoDetectPanel, AiLayoutPanel, ConceptVizPanel, EditPanel, RoomsPanel 
 import InfoTip from './InfoTip';
 import Mark from './Mark';
 import { ARCHITECTURAL_TEXTURES } from '../utils/textureLibrary';
-import { measurement, currencySymbol, currencyRate, currencyCode, CURRENCY, formatSize } from '../utils/units';
+import { measurement, currencySymbol, currencyCode, CURRENCY, formatSize } from '../utils/units';
+import { computeCosts } from '../utils/costs';
 
 const PLAIN_WALL = { id: 'mat_plain', name: 'Plain', color: '#f4f4f5' };
 
@@ -135,57 +136,7 @@ export default function Studio() {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [hist]);
   
-  const calculateCosts = () => {
-    let total = 0;
-    const breakdown = [];
-    const multiplier = currencyRate();
-
-    const rates = {
-      wall: 120 * multiplier,
-      door: 350 * multiplier,
-      window: 250 * multiplier,
-      furniture_bed: 800 * multiplier,
-      furniture_sofa: 1200 * multiplier,
-      furniture_table: 600 * multiplier,
-      furniture_armchair: 400 * multiplier,
-      furniture_bathtub: 1100 * multiplier,
-      furniture_vanity: 700 * multiplier,
-      furniture_kitchen: 1800 * multiplier,
-      stairs: 2500 * multiplier
-    };
-
-    let counts = {};
-    (canvasElements || []).forEach(el => {
-      if (el.isGrid || el.type === 'room') return;
-      const type = el.type || 'unknown';
-      if (!counts[type]) counts[type] = { count: 0, length: 0, cost: 0 };
-      
-      let itemCost = 0;
-      if (type === 'wall') {
-        const lengthMeters = (el.width || 0) * 0.05;
-        itemCost = lengthMeters * rates.wall;
-        counts[type].length += lengthMeters;
-      } else {
-        itemCost = rates[type] || 300;
-        counts[type].count += 1;
-      }
-      
-      counts[type].cost += itemCost;
-      total += itemCost;
-    });
-
-    Object.keys(counts).forEach(key => {
-      const unit = prefMeasurement === 'imperial' ? 'ft' : 'm';
-      const wallQty = prefMeasurement === 'imperial' ? (counts[key].length * 3.28084).toFixed(1) : counts[key].length.toFixed(1);
-      breakdown.push({
-        type: key.replace('furniture_', '').toUpperCase(),
-        qty: key === 'wall' ? `${wallQty}${unit}` : counts[key].count,
-        cost: Math.round(counts[key].cost)
-      });
-    });
-
-    return { total: Math.round(total), breakdown };
-  };
+  const calculateCosts = () => computeCosts(canvasElements);
 
   const costData = calculateCosts();
 
@@ -661,7 +612,7 @@ export default function Studio() {
 
         </div>
 
-        <div className="p-4 border-t border-zinc-800 grid grid-cols-1 gap-2 bg-black">
+        <div className="p-4 border-t border-zinc-800 grid grid-cols-2 gap-2 bg-black">
           <button 
             onClick={generatePDFReport}
             disabled={isGeneratingPDF}
@@ -672,6 +623,14 @@ export default function Studio() {
             ) : (
               <><FileText className="w-3.5 h-3.5" /> PDF Report</>
             )}
+          </button>
+          {/* the finished house, presented: plans, 3D, rooms, renders and costs */}
+          <button
+            onClick={() => projectId ? flushSave(`/overview?projectId=${projectId}`) : saveProject()}
+            title={projectId ? 'Play a presentation of this house' : 'Save the plan first'}
+            className="flex items-center justify-center gap-2 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white transition-colors shadow-[0_0_18px_rgba(200,121,74,0.25)]"
+          >
+            <Play className="w-3.5 h-3.5" /> Overview
           </button>
         </div>
       </aside>
