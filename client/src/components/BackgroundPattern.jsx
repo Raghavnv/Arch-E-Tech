@@ -1,6 +1,6 @@
 export default function BackgroundPattern() {
   return (
-    <div className="fixed inset-0 z-[-1] pointer-events-none bg-[#0a0a0c]">
+    <div className="fixed inset-0 z-[-1] pointer-events-none bg-[#0f0e0d]">
       {/* Premium Photographic Noise Texture */}
       <div 
         className="absolute inset-0 opacity-[0.04] mix-blend-overlay" 
@@ -13,7 +13,7 @@ export default function BackgroundPattern() {
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:48px_48px]"></div>
       
       {/* Soft Center Spotlight (Removes the harsh neon corners) */}
-      <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[1000px] h-[800px] bg-indigo-500/5 rounded-full blur-[120px]"></div>
+      <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[1000px] h-[800px] bg-transparent rounded-full blur-[120px]"></div>
     </div>
   );
 }

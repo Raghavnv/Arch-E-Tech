@@ -106,6 +106,8 @@ SHELL = {
                 "no fixtures fitted yet, a small high window",
     "study": "an empty small study room",
     "utility": "an empty utility room with plumbing points",
+    "balcony": "an empty upper-floor balcony with a tiled floor, a glass-and-metal railing and an open view",
+    "patio": "an empty ground-floor patio with a stone-tiled floor, opening onto the garden",
 }
 
 # what goes in when it is furnished (the user's own words come on top of this)
@@ -122,6 +124,8 @@ FURNISH = {
     "bathroom": "a vanity with basin and mirror, toilet, glass shower enclosure, towels, small plant, bath accessories",
     "study": "a desk with an office chair, bookshelves, a desk lamp, an armchair, rug",
     "utility": "a washing machine and dryer, storage cabinets, a utility sink, shelves",
+    "balcony": "two outdoor lounge chairs and a small side table, potted plants along the railing, a string of warm lights",
+    "patio": "an outdoor dining table with chairs, a lounge sofa with cushions, potted plants, a parasol",
 }
 
 

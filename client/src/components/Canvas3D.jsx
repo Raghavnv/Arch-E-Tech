@@ -12,6 +12,8 @@ const DOOR_HEIGHT = 2.2;
 const WINDOW_SILL_HEIGHT = 0.9;
 const WINDOW_HEADER_HEIGHT = 2.2;
 const PLAYER_HEIGHT = 1.7;
+const FLOOR_TO_FLOOR = 3.2;   // storey height: 3.0 m walls + 0.2 m slab
+const RAIL_HEIGHT = 1.05;
 const PLAYER_RADIUS = 0.45;
 
 // =================================================================
@@ -28,7 +30,10 @@ function useProcessedArchitecture(elements) {
     const doors = elements.filter(el => el && el.type === 'door');
     const windows = elements.filter(el => el && el.type === 'window');
     const furniture = elements.filter(el => el && el.type && el.type.startsWith('furniture_'));
-    const stairs = elements.filter(el => el && el.type === 'stairs');
+    // the top floor's stairs only mark where the flight arrives: they cut the slab, nothing is built
+    const stairs = elements.filter(el => el && el.type === 'stairs' && !el.arrival);
+    const stairHoles = elements.filter(el => el && el.type === 'stairs');
+    const railings = elements.filter(el => el && el.type === 'railing');
 
     // Calculate overall bounding box for Foundation and Roof
     let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
@@ -154,6 +159,13 @@ function useProcessedArchitecture(elements) {
       }
     });
 
+    // railings stop the walkthrough too
+    railings.forEach(r => {
+      const a = ((r.angle || 0) * Math.PI) / 180, L = (r.width || 0) * SCALE;
+      const x0 = (r.left || 0) * SCALE, z0 = (r.top || 0) * SCALE;
+      collisionSegments.push({ x0, z0, x1: x0 + L * Math.cos(a), z1: z0 + L * Math.sin(a), depth: 0.1 });
+    });
+
     // Bounding dimensions for slab/roof
     const hasBounds = isFinite(minX) && isFinite(maxX);
     const bounds = hasBounds ? {
@@ -173,6 +185,8 @@ function useProcessedArchitecture(elements) {
       standaloneOpenings,
       furniture,
       stairs,
+      stairHoles,
+      railings,
       collisionSegments,
       bounds
     };
@@ -588,6 +602,7 @@ const FLOOR_LOOK = {
   living: ['wood', '#b98a5b'], dining: ['wood', '#b98a5b'], lounge: ['wood', '#b98a5b'],
   master_bedroom: ['wood', '#c9a77c'], bedroom: ['wood', '#c9a77c'], study: ['wood', '#a9825a'],
   kitchen: ['tile', '#d8d4cf'], utility: ['tile', '#d8d4cf'], bathroom: ['tile', '#b9d3e0'],
+  balcony: ['tile', '#a39787'], patio: ['tile', '#a39787'],
 };
 const floorTextureCache = {};
 
@@ -622,71 +637,198 @@ function floorTexture(pattern, color) {
   return tex;
 }
 
-function RoomFloor({ room }) {
-  const [pattern, color] = FLOOR_LOOK[room.kind] || FLOOR_LOOK.living;
-  const w = room.width * SCALE;
-  const d = room.height * SCALE;
+function FloorPiece({ p, pattern, color }) {
   const tex = useMemo(() => {
     const t = floorTexture(pattern, color).clone();
     t.needsUpdate = true;
     const tile = pattern === 'wood' ? 1.4 : 1.2;   // metres per texture repeat
-    t.repeat.set(w / tile, d / tile);
+    t.repeat.set(p.w / tile, p.d / tile);
     return t;
-  }, [pattern, color, w, d]);
+  }, [pattern, color, p.w, p.d]);
   return (
-    <mesh position={[room.left * SCALE + w / 2, 0.025, room.top * SCALE]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-      <planeGeometry args={[w, d]} />
+    <mesh position={[p.x + p.w / 2, 0.025, p.z + p.d / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <planeGeometry args={[p.w, p.d]} />
       <meshStandardMaterial map={tex} roughness={pattern === 'wood' ? 0.55 : 0.25} metalness={0.02} />
     </mesh>
   );
 }
 
-function ArchitecturalSlabs({ bounds, showCeiling, rooms = [] }) {
-  const { width, depth, centerX, centerZ } = bounds;
-  const padding = 2.5;
-  const slabW = width + padding * 2;
-  const slabD = depth + padding * 2;
-
-  return (
-    <group>
-      {/* 1. Exterior Podium Foundation Slab (Architectural Concrete) */}
-      <mesh position={[centerX, -0.1, centerZ]} receiveShadow>
-        <boxGeometry args={[slabW, 0.2, slabD]} />
-        <meshStandardMaterial color="#27272a" roughness={0.9} />
-      </mesh>
-
-      {/* 2. Interior floor: one finished floor per room when the plan has rooms, else a single slab */}
-      {rooms.length > 0 ? (
-        rooms.map((room, i) => <RoomFloor key={room.id || i} room={room} />)
-      ) : (
-        <mesh position={[centerX, 0.01, centerZ]} receiveShadow>
-          <boxGeometry args={[width + 0.4, 0.02, depth + 0.4]} />
-          <meshStandardMaterial color="#d4b996" roughness={0.75} />
-        </mesh>
-      )}
-
-      {/* 3. Modern Cantilevered Ceiling & Roof Slab (Toggled ON/OFF) */}
-      {showCeiling && (
-        <group position={[centerX, WALL_HEIGHT + 0.1, centerZ]}>
-          <mesh castShadow receiveShadow>
-            <boxGeometry args={[width + 1.2, 0.2, depth + 1.2]} />
-            {/* Dark exterior roof face, clean matte white interior ceiling underside */}
-            <meshStandardMaterial color="#f4f4f5" roughness={0.8} />
-          </mesh>
-
-          {/* Warm Architectural Recessed Downlights inside the ceiling */}
-          <pointLight position={[0, -0.15, 0]} intensity={1.8} distance={15} color="#fef08a" decay={2} castShadow />
-          <pointLight position={[-width * 0.25, -0.15, -depth * 0.25]} intensity={1.2} distance={10} color="#fed7aa" decay={2} />
-          <pointLight position={[width * 0.25, -0.15, depth * 0.25]} intensity={1.2} distance={10} color="#fed7aa" decay={2} />
-        </group>
-      )}
-    </group>
-  );
+/** A room's finished floor; on an upper storey it stops at the stairwell. */
+function RoomFloor({ room, holes = [] }) {
+  const [pattern, color] = FLOOR_LOOK[room.kind] || FLOOR_LOOK.living;
+  const pieces = cutAll([roomRect(room)], holes);
+  return pieces.map((p, i) => <FloorPiece key={i} p={p} pattern={pattern} color={color} />);
 }
 
 // =================================================================
 // 7. TRUE FIRST-PERSON WALKTHROUGH PLAYER (Feature A)
 // =================================================================
+
+// =================================================================
+// 8. RAILINGS, STOREYS, CEILING LIGHTS AND ROOF
+// =================================================================
+
+function ProceduralRailing({ el }) {
+  const L = Math.max((el.width || 0) * SCALE, 0.2);
+  const rotY = -((el.angle || 0) * Math.PI) / 180;
+  const posts = Math.max(2, Math.round(L / 1.0) + 1);
+  return (
+    <group position={[(el.left || 0) * SCALE, 0, (el.top || 0) * SCALE]} rotation={[0, rotY, 0]}>
+      {Array.from({ length: posts }).map((_, i) => (
+        <mesh key={i} position={[(i / (posts - 1)) * L, RAIL_HEIGHT / 2, 0]} castShadow>
+          <boxGeometry args={[0.05, RAIL_HEIGHT, 0.05]} />
+          <meshStandardMaterial color="#2a2724" metalness={0.6} roughness={0.35} />
+        </mesh>
+      ))}
+      <mesh position={[L / 2, RAIL_HEIGHT, 0]} castShadow>
+        <boxGeometry args={[L, 0.06, 0.08]} />
+        <meshStandardMaterial color="#2a2724" metalness={0.6} roughness={0.35} />
+      </mesh>
+      <mesh position={[L / 2, RAIL_HEIGHT * 0.5, 0]}>
+        <boxGeometry args={[L, 0.03, 0.03]} />
+        <meshStandardMaterial color="#2a2724" metalness={0.6} roughness={0.35} />
+      </mesh>
+      <mesh position={[L / 2, RAIL_HEIGHT * 0.48, 0]}>
+        <boxGeometry args={[L, RAIL_HEIGHT * 0.9, 0.015]} />
+        <meshPhysicalMaterial color="#cfe3ea" transparent opacity={0.22} roughness={0.05} />
+      </mesh>
+    </group>
+  );
+}
+
+const roomRect = (r) => ({ x: r.left * SCALE, z: (r.top - r.height / 2) * SCALE, w: r.width * SCALE, d: r.height * SCALE });
+
+function stairRect(st) {
+  const L = (st.width || 0) * SCALE, W = (st.height || 0) * SCALE;
+  const x = (st.left || 0) * SCALE, z = (st.top || 0) * SCALE;
+  return Math.abs(Math.sin(((st.angle || 0) * Math.PI) / 180)) > 0.5
+    ? { x: x - W / 2, z, w: W, d: L }
+    : { x, z: z - W / 2, w: L, d: W };
+}
+
+/** A rectangle with a hole cut out, as up to four rectangles. */
+function rectMinus(r, h) {
+  const ix0 = Math.max(r.x, h.x), iz0 = Math.max(r.z, h.z);
+  const ix1 = Math.min(r.x + r.w, h.x + h.w), iz1 = Math.min(r.z + r.d, h.z + h.d);
+  if (ix0 >= ix1 || iz0 >= iz1) return [r];
+  const out = [];
+  if (iz0 > r.z) out.push({ x: r.x, z: r.z, w: r.w, d: iz0 - r.z });
+  if (iz1 < r.z + r.d) out.push({ x: r.x, z: iz1, w: r.w, d: r.z + r.d - iz1 });
+  if (ix0 > r.x) out.push({ x: r.x, z: iz0, w: ix0 - r.x, d: iz1 - iz0 });
+  if (ix1 < r.x + r.w) out.push({ x: ix1, z: iz0, w: r.x + r.w - ix1, d: iz1 - iz0 });
+  return out.filter(p => p.w > 0.05 && p.d > 0.05);
+}
+
+const cutAll = (rects, holes) => holes.reduce((acc, h) => acc.flatMap(r => rectMinus(r, h)), rects);
+
+/** The floor slab under an upper storey, with the stairwell left open. */
+function StoreySlab({ rooms, holes }) {
+  const pieces = cutAll(rooms.map(roomRect), holes);
+  return pieces.map((p, i) => (
+    <mesh key={i} position={[p.x + p.w / 2, -0.1, p.z + p.d / 2]} castShadow receiveShadow>
+      <boxGeometry args={[p.w + 0.2, 0.2, p.d + 0.2]} />
+      <meshStandardMaterial color="#d6d0c6" roughness={0.85} />
+    </mesh>
+  ));
+}
+
+const LIT = new Set(['living', 'dining', 'lounge', 'kitchen', 'master_bedroom', 'bedroom', 'study', 'bathroom', 'utility', 'balcony']);
+
+/** A ceiling over every room and a warm light in each: what makes the house feel lived in. */
+function CeilingsAndLights({ rooms, holes, isDay, withCeiling }) {
+  const lightPower = isDay ? 0.9 : 3.2;
+  return (
+    <group>
+      {withCeiling && cutAll(rooms.filter(r => r.kind !== 'balcony').map(roomRect), holes).map((p, i) => (
+        <mesh key={`c-${i}`} position={[p.x + p.w / 2, WALL_HEIGHT + 0.04, p.z + p.d / 2]} receiveShadow>
+          <boxGeometry args={[p.w, 0.08, p.d]} />
+          <meshStandardMaterial color="#f3f1ed" roughness={0.9} />
+        </mesh>
+      ))}
+      {rooms.filter(r => LIT.has(r.kind)).slice(0, 16).map((r, i) => {
+        const q = roomRect(r);
+        const cx = q.x + q.w / 2, cz = q.z + q.d / 2;
+        return (
+          <group key={`l-${i}`} position={[cx, WALL_HEIGHT - 0.18, cz]}>
+            {/* the fitting: a glowing disc under the ceiling */}
+            <mesh rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[0.22, 0.22, 0.05, 24]} />
+              <meshStandardMaterial color="#fff3df" emissive="#ffd9a8" emissiveIntensity={isDay ? 0.6 : 2.2} />
+            </mesh>
+            <pointLight intensity={lightPower} distance={Math.max(q.w, q.d) * 1.6 + 2} decay={2} color="#ffd6a0" />
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
+/** Roof over the top storey: a flat slab with a parapet, or a hipped roof over the footprint. */
+function Roof({ rooms, style }) {
+  if (!rooms.length || style === 'none') return null;
+  const rects = rooms.map(roomRect);
+  if (style === 'flat') {
+    return (
+      <group>
+        {rects.map((p, i) => (
+          <mesh key={i} position={[p.x + p.w / 2, WALL_HEIGHT + 0.14, p.z + p.d / 2]} castShadow receiveShadow>
+            <boxGeometry args={[p.w + 0.5, 0.24, p.d + 0.5]} />
+            <meshStandardMaterial color="#b9b2a6" roughness={0.9} />
+          </mesh>
+        ))}
+        {(() => {
+          const x0 = Math.min(...rects.map(p => p.x)) - 0.25, z0 = Math.min(...rects.map(p => p.z)) - 0.25;
+          const x1 = Math.max(...rects.map(p => p.x + p.w)) + 0.25, z1 = Math.max(...rects.map(p => p.z + p.d)) + 0.25;
+          const y = WALL_HEIGHT + 0.5, t = 0.12;
+          return [[(x0 + x1) / 2, z0, x1 - x0, t], [(x0 + x1) / 2, z1, x1 - x0, t], [x0, (z0 + z1) / 2, t, z1 - z0], [x1, (z0 + z1) / 2, t, z1 - z0]]
+            .map(([x, z, w, d], i) => (
+              <mesh key={`p-${i}`} position={[x, y, z]} castShadow>
+                <boxGeometry args={[w, 0.5, d]} />
+                <meshStandardMaterial color="#cfc8bd" roughness={0.9} />
+              </mesh>
+            ));
+        })()}
+      </group>
+    );
+  }
+  // hipped roof: a four-sided pyramid stretched over the footprint, with eaves
+  const x0 = Math.min(...rects.map(p => p.x)), z0 = Math.min(...rects.map(p => p.z));
+  const x1 = Math.max(...rects.map(p => p.x + p.w)), z1 = Math.max(...rects.map(p => p.z + p.d));
+  const w = x1 - x0 + 0.7, d = z1 - z0 + 0.7;   // eaves just past the walls
+  const h = Math.min(3.2, Math.max(1.4, Math.min(w, d) * 0.28));
+  return (
+    <group position={[(x0 + x1) / 2, WALL_HEIGHT + 0.02, (z0 + z1) / 2]}>
+      <mesh position={[0, h / 2, 0]} rotation={[0, Math.PI / 4, 0]} scale={[w / Math.SQRT2, 1, d / Math.SQRT2]} castShadow receiveShadow>
+        <coneGeometry args={[1, h, 4, 1]} />
+        <meshStandardMaterial color="#8a4b2c" roughness={0.75} flatShading />
+      </mesh>
+    </group>
+  );
+}
+
+/** One storey: everything drawn on that floor, lifted to its height. */
+function Storey({ elements, level, isTop, onPaint, roofStyle, isDay }) {
+  const { wallData, standaloneOpenings, furniture, stairs, stairHoles, railings } = useProcessedArchitecture(elements);
+  const rooms = useMemo(() => elements.filter(el => el && el.type === 'room'), [elements]);
+  // the slab above this storey is cut where the stairs from here come up
+  const holesAbove = useMemo(() => stairs.map(stairRect), [stairs]);
+  const holesHere = useMemo(() => stairHoles.filter(s => s.arrival).map(stairRect), [stairHoles]);
+  const lightsOn = roofStyle !== 'none' || !isTop;
+  return (
+    <group position={[0, (level - 1) * FLOOR_TO_FLOOR, 0]}>
+      {level > 1 && <StoreySlab rooms={rooms} holes={holesHere} />}
+      {rooms.map((room, i) => <RoomFloor key={room.id || i} room={room} holes={holesHere} />)}
+      {wallData.map(wall => <ArchitecturalWall key={wall.id} wall={wall} onPaint={onPaint} />)}
+      {standaloneOpenings.map((op, i) => <StandaloneOpening key={op.id || i} el={op} />)}
+      {furniture.map((item, i) => <ProceduralFurniture key={item.id || i} el={item} />)}
+      {stairs.map((item, i) => <ProceduralStairs key={item.id || i} el={item} />)}
+      {railings.map((item, i) => <ProceduralRailing key={item.id || i} el={item} />)}
+      {/* lower storeys always have a ceiling (the next floor's slab); the top one when the roof is on */}
+      {lightsOn && <CeilingsAndLights rooms={rooms} holes={holesAbove} isDay={isDay} withCeiling={isTop} />}
+      {isTop && <Roof rooms={rooms.filter(r => r.kind !== 'balcony')} style={roofStyle} />}
+    </group>
+  );
+}
 
 function FirstPersonPlayer({ collisionSegments, bounds, initialPosition, onLockChange }) {
   const { camera } = useThree();
@@ -877,13 +1019,20 @@ export default function Canvas3D({
   timeOfDay = 12,
   onPaint,
   walkthroughMode = false,
-  showCeiling = false,
+  roofStyle = 'none',          // 'none' | 'flat' | 'pitched'
   onToggleWalkthrough,
   onToggleCeiling
 }) {
-  const { wallData, standaloneOpenings, furniture, stairs, collisionSegments, bounds } = useProcessedArchitecture(elements);
+  // walking is done on one storey; looking at the house can stack every floor
+  const levels = useMemo(() => {
+    const by = {};
+    elements.forEach(el => { if (el) (by[el.floor || 1] = by[el.floor || 1] || []).push(el); });
+    return Object.keys(by).map(Number).sort((a, b) => a - b).map(level => ({ level, elements: by[level] }));
+  }, [elements]);
+  const ground = levels.length ? levels[0].elements : elements;
+  const { collisionSegments, bounds } = useProcessedArchitecture(walkthroughMode ? ground : elements);
+  const height = levels.length ? levels[levels.length - 1].level * FLOOR_TO_FLOOR : FLOOR_TO_FLOOR;
   const [isPointerLocked, setIsPointerLocked] = useState(false);
-  const rooms = useMemo(() => elements.filter(el => el && el.type === 'room'), [elements]);
 
   // Sun calculation using SunCalc
   const date = new Date();
@@ -902,12 +1051,12 @@ export default function Canvas3D({
     <div className="absolute inset-0 bg-zinc-950 select-none overflow-hidden" id="studio-3d-viewport">
       <Canvas
         camera={{
-          position: walkthroughMode ? [bounds.centerX, PLAYER_HEIGHT, bounds.maxZ + 4] : [bounds.centerX, 22, bounds.centerZ + 22],
+          position: walkthroughMode ? [bounds.centerX, PLAYER_HEIGHT, bounds.maxZ + 4] : [bounds.centerX, 22 + height, bounds.centerZ + 22 + height],
           fov: walkthroughMode ? 75 : 45
         }}
         shadows
       >
-        <color attach="background" args={[isDay ? '#09090b' : '#030712']} />
+        <color attach="background" args={[isDay ? '#0f0e0d' : '#030712']} />
 
         {/* Ambient & Natural Sunlight */}
         <ambientLight intensity={isDay ? 0.45 : 0.12} />
@@ -930,27 +1079,23 @@ export default function Canvas3D({
           cellSize={0.5}
         />
 
-        {/* Realistic Architectural Slabs: Foundation, Flooring & Optional Ceiling (Feature B) */}
-        <ArchitecturalSlabs bounds={bounds} rooms={rooms} showCeiling={showCeiling || (walkthroughMode && showCeiling)} />
+        {/* foundation under the whole house */}
+        <mesh position={[bounds.centerX, -0.1, bounds.centerZ]} receiveShadow>
+          <boxGeometry args={[bounds.width + 5, 0.2, bounds.depth + 5]} />
+          <meshStandardMaterial color="#2a2724" roughness={0.9} />
+        </mesh>
 
-        {/* Segmented Walls with Physical Doorway Cutouts & Window Panes (Feature B) */}
-        {wallData.map(wall => (
-          <ArchitecturalWall key={wall.id} wall={wall} onPaint={onPaint} />
-        ))}
-
-        {/* Standalone Doors & Windows */}
-        {standaloneOpenings.map((op, i) => (
-          <StandaloneOpening key={op.id || i} el={op} />
-        ))}
-
-        {/* Procedural Furniture */}
-        {furniture.map((item, i) => (
-          <ProceduralFurniture key={item.id || i} el={item} />
-        ))}
-
-        {/* Procedural Architectural Stairs */}
-        {stairs && stairs.map((item, i) => (
-          <ProceduralStairs key={item.id || i} el={item} />
+        {/* every storey at its height; lights inside, the roof on the top one */}
+        {levels.map(({ level, elements: els }, i) => (
+          <Storey
+            key={level}
+            elements={els}
+            level={levels.length > 1 ? level : 1}
+            isTop={i === levels.length - 1}
+            onPaint={onPaint}
+            roofStyle={roofStyle}
+            isDay={isDay}
+          />
         ))}
 
         {/* Controls: First-Person Walkthrough (Feature A) vs Orbit Mode */}
@@ -963,7 +1108,7 @@ export default function Canvas3D({
         ) : (
           <OrbitControls
             makeDefault
-            target={[bounds.centerX, 1.2, bounds.centerZ]}
+            target={[bounds.centerX, Math.min(height / 2, 4), bounds.centerZ]}
             maxPolarAngle={Math.PI / 2 + 0.05}
             minDistance={2}
             maxDistance={180}

@@ -15,6 +15,7 @@ from fastapi.security import OAuth2PasswordBearer
 from groq import Groq
 
 import models
+import multi_floor
 from database import engine, Base, get_db, add_missing_columns, DB_KIND
 
 # Create database tables
@@ -618,6 +619,57 @@ def edit_plan(req: PlanEditRequest):
         raise HTTPException(status_code=502, detail="The AI service didn't answer. Try again in a moment.")
 
 
+def _design_layout(prompt, program, style, rng, wishes, use_llm=True):
+    """One floor: the LLM designs it from reference houses; else a reshaped reference; else the zoned generator."""
+    import plan_designer as pd
+    from floorplan_builder import generate_layout
+    layout = _ask_layout(prompt, program, style, rng, wishes) if use_llm else None
+    if layout:
+        return layout, "+designed"
+    layout = pd.adapt_reference(program, rng, pd.program_target_area(program),
+                                open_kitchen=wishes.get("open_kitchen"), strict_baths=wishes.get("strict_baths", False))
+    if layout:
+        return layout, "+reference"
+    try:
+        return generate_layout(program, style=style, open_kitchen=wishes.get("open_kitchen")), ""
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Layout generation failed: {e}")
+
+
+def _multi_floor_plan(prompt, program, floors, wishes, style, rng, source):
+    """Share the rooms out over the floors, draw each floor, then stack them and add the stairs."""
+    beds = sum(1 for r in program if r.kind in ("master_bedroom", "bedroom"))
+    baths = sum(1 for r in program if r.kind == "bathroom" and r.name != "Powder Room")
+    powders = sum(1 for r in program if r.name == "Powder Room")
+    split = multi_floor.split_bedrooms(beds, floors, rng)
+    programs, master_floor = multi_floor.floor_programs(program, split, baths, powders)
+    balcony = multi_floor.wants_balcony(prompt)
+    # draw the floors a few times and keep the version where the stairs fit and the upper floors
+    # sit best over the ground floor (little or nothing overhanging)
+    best = None
+    for _attempt in range(12):
+        layouts = []
+        for f, prog in enumerate(programs):
+            label = "Ground floor" if f == 0 else f"Floor {f + 1}"
+            floor_prompt = (f"{label} of a {floors}-storey home. {prompt}" if f == 0 else
+                            f"{label} of a {floors}-storey home: a family lounge at the top of the stairs and "
+                            f"{split[f]} bedroom(s). The kitchen-sized room is really a {'balcony' if balcony else 'study'}.")
+            floor_wishes = dict(wishes, strict_baths=True, powder=wishes.get("powder") if f == 0 else 0,
+                                open_kitchen=wishes.get("open_kitchen") if f == 0 else False)
+            # only the first try asks the LLM (seconds per floor); the redraws use the fast generators
+            layout, _ = _design_layout(floor_prompt, prog, style, rng, floor_wishes, use_llm=_attempt == 0)
+            layouts.append(layout)
+        elements, overhang = multi_floor.finish(layouts, master_floor, balcony)
+        score = 2.0 if overhang is None else overhang
+        if best is None or score < best[0]:
+            best = (score, elements)
+        if overhang is not None and overhang < 0.06:
+            break
+    elements = best[1]
+    return {"status": "success", "elements": elements, "floors": floors, "split": split,
+            "source": f"{source}+floors"}
+
+
 @app.post("/api/ai/generate-plan")
 async def generate_floor_plan(payload: AIPrompt):
     import random
@@ -646,20 +698,13 @@ async def generate_floor_plan(payload: AIPrompt):
         source = "fallback"
         program = build_program([], 0, payload.prompt)
 
-    layout = _ask_layout(payload.prompt, program, style, rng, wishes)   # 1. LLM designs it from reference houses
-    if layout:
-        source += "+designed"
-    if not layout:                                                   # 2. a reference house, reshaped
-        layout = pd.adapt_reference(program, rng, pd.program_target_area(program),
-                                    open_kitchen=wishes["open_kitchen"], strict_baths=wishes["strict_baths"])
-        if layout:
-            source += "+reference"
-    if not layout:                                                   # 3. zoned generator
-        try:
-            layout = generate_layout(program, style=style, open_kitchen=wishes["open_kitchen"])
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Layout generation failed: {e}")
+    floors = multi_floor.parse_floors(payload.prompt)
+    beds = sum(1 for r in program if r.kind in ("master_bedroom", "bedroom"))
+    if floors > 1 and beds >= floors:
+        return _multi_floor_plan(payload.prompt, program, floors, wishes, style, rng, source)
 
+    layout, how = _design_layout(payload.prompt, program, style, rng, wishes)
+    source += how
     # the smallest common bathrooms become the powder room(s) the owner asked for
     if wishes["powder"]:
         common = sorted((r for r in layout.rooms if r.kind == "bathroom" and not r.ensuite),

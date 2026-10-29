@@ -19,7 +19,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const STYLE_IDS = ['modern', 'japandi', 'scandinavian', 'industrial', 'contemporary', 'indian'];
 const KIND_LABEL = {
   living: 'Living room', lounge: 'Lounge', dining: 'Dining room', kitchen: 'Kitchen', master_bedroom: 'Master bedroom',
-  bedroom: 'Bedroom', bathroom: 'Bathroom', study: 'Study', utility: 'Utility',
+  bedroom: 'Bedroom', bathroom: 'Bathroom', study: 'Study', utility: 'Utility', balcony: 'Balcony', patio: 'Patio',
 };
 const KIND_ORDER = ['living', 'lounge', 'dining', 'kitchen', 'master_bedroom', 'bedroom', 'study', 'bathroom', 'utility'];
 const PROMPT_HINT = {

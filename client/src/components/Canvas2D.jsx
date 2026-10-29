@@ -43,6 +43,13 @@ function get3DSpecs(type, lengthMeters) {
         sill3D: '0.90 m (3\' 0")',
         desc: `3D Glazing: ${len.toFixed(2)}m (W) × 1.30m (H) [Sill 0.9m]`
       };
+    case 'railing':
+      return {
+        label: 'Railing',
+        icon: '▦',
+        height3D: '1.05 m',
+        desc: `3D Railing: ${len.toFixed(2)}m long × 1.05m high (posts, rail and glass)`
+      };
     case 'stairs':
       return {
         label: 'Architectural Stairs',
@@ -134,7 +141,7 @@ function nearestWall(canvas, p) {
   return best;
 }
 
-export default function Canvas2D({ elements, drawingMode, setCanvasElements, blueprintMode, activeTab, smartSnap = false, onSelectionChange }) {
+export default function Canvas2D({ elements, drawingMode, setCanvasElements, blueprintMode, activeTab, smartSnap = false, onSelectionChange, viewKey }) {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const fabricRef = useRef(null);
@@ -154,6 +161,23 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
   drawingModeRef.current = drawingMode;
   const smartSnapRef = useRef(smartSnap);
   smartSnapRef.current = smartSnap;
+  // the view frames the whole plan when a project opens and when another floor is shown
+  const fitPending = useRef(true);
+  useEffect(() => { fitPending.current = true; }, [viewKey]);
+  const fitToPlan = (canvas) => {
+    const objs = canvas.getObjects().filter(o => !o.isGrid);
+    if (!objs.length) return;
+    const boxes = objs.map(o => o.getBoundingRect(true, true));
+    const x0 = Math.min(...boxes.map(b => b.left)), y0 = Math.min(...boxes.map(b => b.top));
+    const x1 = Math.max(...boxes.map(b => b.left + b.width)), y1 = Math.max(...boxes.map(b => b.top + b.height));
+    const W = canvas.getWidth(), H = canvas.getHeight();
+    const top = 90, bottom = 110;                    // keep clear of the toolbar and the bottom panels
+    const zoom = Math.max(0.4, Math.min(2.2, Math.min((W - 120) / (x1 - x0 || 1), (H - top - bottom) / (y1 - y0 || 1))));
+    canvas.setViewportTransform([zoom, 0, 0, zoom,
+      W / 2 - ((x0 + x1) / 2) * zoom, top + (H - top - bottom) / 2 - ((y0 + y1) / 2) * zoom]);
+  };
+  const elementsRef = useRef(elements);
+  elementsRef.current = elements;
   const onSelectionRef = useRef(onSelectionChange);
   onSelectionRef.current = onSelectionChange;
   const refreshSelectionRef = useRef(() => {});   // re-measure the selection after an outside change
@@ -178,7 +202,7 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
   useEffect(() => {
     if (fabricRef.current) {
       const canvas = fabricRef.current;
-      canvas.backgroundColor = blueprintMode ? '#1e3a8a' : '#09090b';
+      canvas.backgroundColor = blueprintMode ? '#1e3a8a' : '#0f0e0d';
       canvas.__blueprint = blueprintMode;
 
       canvas.getObjects().forEach(obj => {
@@ -212,7 +236,10 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
   const syncElements = () => {
     if (!fabricRef.current || reloadingRef.current) return;
     const canvas = fabricRef.current;
+    // keep whatever else the plan stored on an element (its floor, a stair's arrival mark, ...)
+    const before = new Map((elementsRef.current || []).map(e => [e.id, e]));
     const currentElements = canvas.getObjects().filter(obj => !obj.isGrid).map(obj => ({
+      ...(before.get(obj.id) || {}),
       id: obj.id || Math.random().toString(36).substr(2, 9),
       type: obj.type,
       left: obj.left,
@@ -275,7 +302,7 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
     fabricRef.current = new fabric.Canvas(canvasRef.current, {
       width: window.innerWidth - 320,
       height: window.innerHeight,
-      backgroundColor: blueprintMode ? '#1e3a8a' : '#09090b',
+      backgroundColor: blueprintMode ? '#1e3a8a' : '#0f0e0d',
       selectionColor: 'rgba(255,255,255,0.08)',
       selectionBorderColor: 'rgba(255,255,255,0.25)',
       selectionLineWidth: 1,
@@ -419,6 +446,7 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
       else if (currentMode === 'door') { strokeColor = '#facc15'; strokeWidth = 5; }
       else if (currentMode === 'window') { strokeColor = '#60a5fa'; strokeWidth = 5; }
       else if (currentMode === 'stairs') { strokeColor = '#c084fc'; strokeWidth = 18; }
+      else if (currentMode === 'railing') { strokeColor = '#c8794a'; strokeWidth = 4; }
 
       currentLine.current = new fabric.Rect({
         left: pointer.x,
@@ -658,6 +686,7 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
         else if (el.type === 'door') strokeColor = '#facc15';
         else if (el.type === 'window') strokeColor = '#60a5fa';
         else if (el.type === 'stairs') strokeColor = '#c084fc';
+        else if (el.type === 'railing') strokeColor = '#c8794a';
         else if (el.type === 'furniture_bed') strokeColor = '#cbd5e1';
         else if (el.type === 'furniture_sofa') strokeColor = '#818cf8';
         else if (el.type === 'furniture_table') strokeColor = '#fbbf24';
@@ -691,6 +720,7 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
         installSymbol(rect);
         canvas.add(rect);
       });
+      if (fitPending.current) { fitToPlan(canvas); fitPending.current = false; }
       canvas.renderAll();
       reloadingRef.current = false;
       hasLoadedElements.current = true;

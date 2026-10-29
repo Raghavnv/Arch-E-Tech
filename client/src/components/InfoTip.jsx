@@ -38,6 +38,21 @@ export const FEATURE_INFO = {
     what: 'Shows each room of your plan as a realistic photo: first empty, then furnished the way you describe.',
     how: 'All rooms share one house style so they look like the same home. Save the photos you like to your gallery.',
   },
+  roof: {
+    title: 'Roof & lights',
+    what: 'Puts a roof on the house, flat with a parapet or pitched, and turns on a warm light in every room.',
+    how: 'Lights glow brightest when the sun slider is set to evening. Turn the roof off to look inside from above.',
+  },
+  railing: {
+    title: 'Railing',
+    what: 'Draws a railing for a balcony, terrace, patio or stair landing, about 1 m high with glass panels in 3D.',
+    how: 'Press R or click Railing, then drag along the open edge. Name the space Balcony or Patio in Rooms.',
+  },
+  floors: {
+    title: 'Floors',
+    what: 'Each floor is drawn separately; the 3D view stacks them into one house.',
+    how: 'Pick the floor to edit here. In 3D, "All floors" shows the whole house, or just the floor you picked.',
+  },
   walkthrough: {
     title: 'Walkthrough',
     what: 'Walk through the house in first person, at eye level, in the 3D view.',

@@ -5,12 +5,13 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Menu, MousePointer2, Box, Home, PenTool, LayoutTemplate, 
   Settings, Save, FileText, ChevronRight, Calculator, CheckCircle, 
-  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2 
+  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip 
 } from 'lucide-react';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
 import { AutoDetectPanel, AiLayoutPanel, ConceptVizPanel, EditPanel, RoomsPanel } from './StudioTools';
 import InfoTip from './InfoTip';
+import Mark from './Mark';
 import { ARCHITECTURAL_TEXTURES } from '../utils/textureLibrary';
 import { measurement, currencySymbol, currencyRate, currencyCode, CURRENCY, formatSize } from '../utils/units';
 
@@ -40,7 +41,8 @@ export default function Studio() {
   const [showFurnitureCatalog, setShowFurnitureCatalog] = useState(false);
   // ?tool=concept (from a saved photo's "New version") opens that tool straight away
   const [toolPanel, setToolPanel] = useState(() => searchParams.get('tool'));   // 'detect' | 'layout' | 'edit' | 'rooms' | 'concept'
-  const [selectedEls, setSelectedEls] = useState([]);   // what is selected on the 2D plan, for "edit this"
+  const [selectedEls, setSelectedEls] = useState([]);
+  const [projectName, setProjectName] = useState('');   // what is selected on the 2D plan, for "edit this"
   const [smartSnap, setSmartSnap] = useState(() => localStorage.getItem('pref_smart_snap') === '1');
   const toggleSmartSnap = () => setSmartSnap(on => {
     try { localStorage.setItem('pref_smart_snap', on ? '0' : '1'); } catch { /* private mode */ }
@@ -53,7 +55,18 @@ export default function Studio() {
     setToolPanel(t => (t === name ? null : name));
   };
   const [activeFloor, setActiveFloor] = useState(1);
+  const [stacked, setStacked] = useState(true);          // 3D: every floor stacked into one house
+  const [roofStyle, setRoofStyle] = useState('none');    // none, flat or pitched
   const [canvasElements, setCanvasElements] = useState([]);
+  // the 2D plan edits one floor at a time; the other floors are left as they are
+  const floorOf = (el) => el.floor || 1;
+  const floorElements = canvasElements.filter(el => floorOf(el) === activeFloor);
+  const usedFloors = Math.max(1, ...canvasElements.map(floorOf));
+  const setFloorElements = (next) => setCanvasElements(prev => {
+    const mine = prev.filter(el => floorOf(el) === activeFloor);
+    const list = typeof next === 'function' ? next(mine) : next;
+    return [...prev.filter(el => floorOf(el) !== activeFloor), ...list.map(el => ({ ...el, floor: activeFloor }))];
+  });
   const [timeOfDay, setTimeOfDay] = useState(12);
   const totalFloors = 3;
   const [isSaving, setIsSaving] = useState(false);
@@ -62,7 +75,6 @@ export default function Studio() {
   const [showCostModal, setShowCostModal] = useState(false);
   const [blueprintMode, setBlueprintMode] = useState(false);
   const [walkthroughMode, setWalkthroughMode] = useState(false);
-  const [showCeiling, setShowCeiling] = useState(false);
   const [isCapturingForRender, setIsCapturingForRender] = useState(false);
   // Settings decide the units; square feet and rupees unless changed there
   const prefMeasurement = measurement();
@@ -111,6 +123,7 @@ export default function Studio() {
       else if (e.key.toLowerCase() === 'd') setDrawingMode(prev => prev === 'door' ? null : 'door');
       else if (e.key.toLowerCase() === 'n' || e.key.toLowerCase() === 'g') setDrawingMode(prev => prev === 'window' ? null : 'window');
       else if (e.key.toLowerCase() === 's') setDrawingMode(prev => prev === 'stairs' ? null : 'stairs');
+      else if (e.key.toLowerCase() === 'r') setDrawingMode(prev => prev === 'railing' ? null : 'railing');
       else if (e.key === 'Escape') setDrawingMode(null);
       else if (e.key === ' ') {
         e.preventDefault();
@@ -223,6 +236,7 @@ export default function Studio() {
         if (!res.ok) throw new Error(`Load failed (${res.status})`);
         const data = await res.json();
         if (!isMounted) return;
+        setProjectName(data.name || '');
         // edits that never reached the server (refresh mid-autosave, network drop) are newer
         // than the server copy, so keep them and push them up instead of overwriting them
         if (localStorage.getItem(dirtyKey) === '1' && cachedElements) {
@@ -290,7 +304,7 @@ export default function Studio() {
       const canvasContainer = document.getElementById("studio-canvas-container");
       let imgData = null;
       if (canvasContainer) {
-        const canvas = await html2canvas(canvasContainer, { backgroundColor: '#09090b', scale: 2 });
+        const canvas = await html2canvas(canvasContainer, { backgroundColor: '#0f0e0d', scale: 2 });
         imgData = canvas.toDataURL('image/png');
       }
 
@@ -445,7 +459,7 @@ export default function Studio() {
       await flushSave();
       const container = document.getElementById("studio-canvas-container");
       if (container) {
-        const snap = await html2canvas(container, { backgroundColor: '#09090b', scale: 1 });
+        const snap = await html2canvas(container, { backgroundColor: '#0f0e0d', scale: 1 });
         localStorage.setItem('renderStudioSnapshot', snap.toDataURL('image/png'));
       }
     } catch (e) {
@@ -496,10 +510,10 @@ export default function Studio() {
       <aside className="w-80 bg-zinc-950 border-r border-zinc-800 flex flex-col z-10 shrink-0">
         
         <div className="h-16 flex items-center justify-between px-6 border-b border-zinc-800 bg-black/50 backdrop-blur-sm">
-          <div className="font-semibold text-sm tracking-tight flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>
-            Studio Engine
-          </div>
+          <Link to="/dashboard" className="flex min-w-0 items-center gap-2.5" title="Back to your projects">
+            <Mark className="h-6 w-6 shrink-0" />
+            <span className="truncate text-sm font-semibold tracking-tight text-zinc-100">{projectName || 'Untitled plan'}</span>
+          </Link>
           <div className="flex items-center gap-4">
             <select 
               value={activeFloor}
@@ -507,9 +521,10 @@ export default function Studio() {
               className="bg-zinc-900 border border-zinc-700 text-xs text-white rounded-md px-2 py-1 focus:outline-none"
             >
               {[...Array(totalFloors)].map((_, i) => (
-                <option key={i+1} value={i+1}>Floor {i+1}</option>
+                <option key={i+1} value={i+1}>{i === 0 ? 'Ground floor' : `Floor ${i + 1}`}{i < usedFloors ? '' : ' (empty)'}</option>
               ))}
             </select>
+            <InfoTip id="floors" align="right" />
             <button 
               type="button"
               onClick={() => flushSave('/dashboard')}
@@ -667,27 +682,34 @@ export default function Studio() {
 
           <button 
             onClick={() => setDrawingMode(drawingMode === 'wall' ? null : 'wall')}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${drawingMode === 'wall' ? 'bg-zinc-200 text-black' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${drawingMode === 'wall' ? 'bg-zinc-200 text-black' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}
           >
             <Layers className="w-3.5 h-3.5" /> Wall
           </button>
           <button 
             onClick={() => setDrawingMode(drawingMode === 'door' ? null : 'door')}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${drawingMode === 'door' ? 'bg-yellow-400 text-black' : 'bg-zinc-800 text-yellow-400/70 hover:bg-zinc-700 hover:text-yellow-400'}`}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${drawingMode === 'door' ? 'bg-yellow-400 text-black' : 'bg-zinc-800 text-yellow-400/70 hover:bg-zinc-700 hover:text-yellow-400'}`}
           >
             <LayoutTemplate className="w-3.5 h-3.5" /> Door
           </button>
           <button 
             onClick={() => setDrawingMode(drawingMode === 'window' ? null : 'window')}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${drawingMode === 'window' ? 'bg-blue-400 text-black' : 'bg-zinc-800 text-blue-400/70 hover:bg-zinc-700 hover:text-blue-400'}`}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${drawingMode === 'window' ? 'bg-blue-400 text-black' : 'bg-zinc-800 text-blue-400/70 hover:bg-zinc-700 hover:text-blue-400'}`}
           >
             <Box className="w-3.5 h-3.5" /> Window
           </button>
           <button 
             onClick={() => setDrawingMode(drawingMode === 'stairs' ? null : 'stairs')}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${drawingMode === 'stairs' ? 'bg-purple-400 text-black' : 'bg-zinc-800 text-purple-400/70 hover:bg-zinc-700 hover:text-purple-400'}`}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${drawingMode === 'stairs' ? 'bg-purple-400 text-black' : 'bg-zinc-800 text-purple-400/70 hover:bg-zinc-700 hover:text-purple-400'}`}
           >
             <Layers className="w-3.5 h-3.5 rotate-90" /> Stairs
+          </button>
+          <button 
+            onClick={() => setDrawingMode(drawingMode === 'railing' ? null : 'railing')}
+            title="Railing for a balcony, terrace or patio (R)"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${drawingMode === 'railing' ? 'bg-indigo-400 text-black' : 'bg-zinc-800 text-indigo-300/80 hover:bg-zinc-700 hover:text-indigo-300'}`}
+          >
+            <Grip className="w-3.5 h-3.5" /> Railing
           </button>
 
           {drawingMode && (
@@ -777,40 +799,53 @@ export default function Studio() {
               >
                 <Eye className="w-4 h-4" /> {walkthroughMode ? 'Exit Walkthrough' : 'First-Person Walkthrough'}
               </button>
-              <button
-                onClick={() => setShowCeiling(!showCeiling)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${showCeiling ? 'bg-indigo-600 text-white border border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'bg-zinc-900 text-zinc-400 border border-zinc-800 hover:text-white'}`}
-              >
-                <Layers className="w-4 h-4" /> {showCeiling ? 'Roof & Ceiling: ON' : 'Roof & Ceiling: OFF'}
-              </button>
+              {/* roof: off, flat or pitched; with it on, the rooms get ceilings and warm lights */}
+              <div className="flex items-center rounded-lg border border-zinc-800 bg-zinc-900 p-0.5 text-xs font-semibold">
+                <span className="flex items-center gap-1.5 px-2.5 text-zinc-400"><Home className="h-3.5 w-3.5" /> Roof</span>
+                {[['none', 'Off'], ['flat', 'Flat'], ['pitched', 'Pitched']].map(([id, label]) => (
+                  <button key={id} onClick={() => setRoofStyle(id)}
+                    className={`rounded-md px-2.5 py-1.5 transition-colors ${roofStyle === id ? 'bg-zinc-200 text-zinc-950' : 'text-zinc-400 hover:text-white'}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <InfoTip id="roof" align="center" />
+              {usedFloors > 1 && !walkthroughMode && (
+                <button
+                  onClick={() => setStacked(v => !v)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${stacked ? 'bg-zinc-200 text-zinc-950 border border-zinc-200' : 'bg-zinc-900 text-zinc-400 border border-zinc-800 hover:text-white'}`}
+                >
+                  <Layers className="w-4 h-4" /> {stacked ? `All ${usedFloors} floors` : `${activeFloor === 1 ? 'Ground floor' : `Floor ${activeFloor}`} only`}
+                </button>
+              )}
             </>
           )}
         </div>
 
         <div className={activeTab === '2D' ? 'absolute inset-0' : 'hidden'}>
-          <Canvas2D elements={canvasElements} drawingMode={drawingMode} setCanvasElements={setCanvasElements} blueprintMode={blueprintMode} activeTab={activeTab} smartSnap={smartSnap} onSelectionChange={setSelectedEls} />
+          <Canvas2D elements={floorElements} drawingMode={drawingMode} setCanvasElements={setFloorElements} blueprintMode={blueprintMode} activeTab={activeTab} smartSnap={smartSnap} onSelectionChange={setSelectedEls} viewKey={`${projectId}-${activeFloor}`} />
         </div>
         {/* mounted only while visible: a WebGL canvas created inside a display:none box stays blank after it is shown */}
         {activeTab === '3D' && (
           <div className="absolute inset-0">
             <Canvas3D 
-              elements={canvasElements} 
+              elements={stacked && !walkthroughMode ? canvasElements : floorElements} 
               timeOfDay={timeOfDay} 
               onPaint={handlePaintWall} 
               walkthroughMode={walkthroughMode}
-              showCeiling={showCeiling}
+              roofStyle={roofStyle}
             />
           </div>
         )}
 
         {activeTab === '2D' && toolPanel === 'edit' && (
-          <EditPanel elements={canvasElements} setElements={(els) => setCanvasElements(cleanElements(els))} selected={selectedEls} apiUrl={API_URL} onClose={() => setToolPanel(null)} />
+          <EditPanel elements={floorElements} setElements={(els) => setFloorElements(cleanElements(els))} selected={selectedEls} apiUrl={API_URL} onClose={() => setToolPanel(null)} />
         )}
         {activeTab === '2D' && toolPanel === 'rooms' && (
           <RoomsPanel elements={canvasElements} setElements={setCanvasElements} onClose={() => setToolPanel(null)} />
         )}
         {activeTab === '2D' && toolPanel === 'detect' && (
-          <AutoDetectPanel elements={canvasElements} setElements={setCanvasElements} onClose={() => setToolPanel(null)} />
+          <AutoDetectPanel elements={floorElements} setElements={setFloorElements} onClose={() => setToolPanel(null)} />
         )}
         {activeTab === '2D' && toolPanel === 'layout' && (
           <AiLayoutPanel elements={canvasElements} setElements={setCanvasElements} onClose={() => setToolPanel(null)} apiUrl={API_URL} />

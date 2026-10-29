@@ -9,7 +9,28 @@ import {
   Activity, Layers, ArrowUpRight, Images
 } from 'lucide-react';
 import PhotoGallery from './PhotoGallery';
+import Mark from './Mark';
 import { formatArea, formatMoney, CURRENCY } from '../utils/units';
+
+// a small drawing of a project's ground floor for its card
+function PlanThumb({ elements }) {
+  const rooms = (elements || []).filter(e => e && e.type === 'room' && (e.floor || 1) === 1);
+  if (!rooms.length) {
+    return <div className="relative z-10 flex h-full items-center justify-center font-mono text-[10px] tracking-[0.2em] text-zinc-600">EMPTY SHEET</div>;
+  }
+  const x0 = Math.min(...rooms.map(r => r.left)), y0 = Math.min(...rooms.map(r => r.top - r.height / 2));
+  const x1 = Math.max(...rooms.map(r => r.left + r.width)), y1 = Math.max(...rooms.map(r => r.top + r.height / 2));
+  const pad = Math.max(x1 - x0, y1 - y0) * 0.08;
+  return (
+    <svg className="relative z-10 h-full w-full p-3" viewBox={`${x0 - pad} ${y0 - pad} ${x1 - x0 + pad * 2} ${y1 - y0 + pad * 2}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      {rooms.map((r, i) => (
+        <rect key={i} x={r.left} y={r.top - r.height / 2} width={r.width} height={r.height}
+          fill={['living', 'dining', 'lounge'].includes(r.kind) ? 'rgba(200,121,74,0.14)' : 'rgba(231,226,217,0.04)'}
+          stroke="#e7e2d9" strokeWidth={Math.max(x1 - x0, y1 - y0) / 160} />
+      ))}
+    </svg>
+  );
+}
 
 // a plan's floor area in m², from its rooms
 const projectArea = (p) => (p?.elements_data || []).filter(e => e && e.type === 'room')
@@ -116,6 +137,16 @@ export default function Dashboard() {
   useEffect(() => {
     fetchProjects();
   }, []);
+
+  const [photoCount, setPhotoCount] = useState(null);
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    fetch(`${API_URL}/api/photos`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => (r.ok ? r.json() : []))
+      .then(list => setPhotoCount(list.length))
+      .catch(() => setPhotoCount(0));
+  }, [API_URL]);
 
   const [activeMenu, setActiveMenu] = useState(null);
   const menuRef = useRef(null);
@@ -403,8 +434,8 @@ export default function Dashboard() {
       {/* Sidebar */}
       <aside className="w-64 border-r border-zinc-800 bg-zinc-950 flex flex-col z-20">
         <div className="p-6 border-b border-zinc-800 flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
-          <div className="w-6 h-6 bg-white rounded-sm"></div>
-          <span className="font-bold text-white tracking-tight">Arch-E-Tech</span>
+          <Mark />
+          <span className="font-semibold text-zinc-100 tracking-tight">Arch-E-Tech</span>
         </div>
         <nav className="flex-1 p-4 space-y-1">
           <div 
@@ -460,104 +491,29 @@ export default function Dashboard() {
         {/* ========================================================= */}
         {activeTab === 'projects' && (
           <>
-            <header className="px-10 py-7 flex items-center justify-between sticky top-0 bg-zinc-950/90 backdrop-blur-xl z-20 border-b border-zinc-800/80">
+            <header className="sticky top-0 z-20 flex items-end justify-between border-b border-zinc-800/80 bg-zinc-950/90 px-10 pt-8 pb-6 backdrop-blur-xl">
               <div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                  <span className="text-[11px] font-mono font-bold text-emerald-400 uppercase tracking-widest">
-                    Studio Command Hub • Engine v3.2
-                  </span>
-                </div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-0.5">
-                  Architectural Blueprints
-                </h1>
+                <p className="font-mono text-[11px] tracking-[0.25em] text-zinc-500">PROJECTS</p>
+                <h1 className="mt-2 text-3xl font-semibold tracking-[-0.025em] text-zinc-100">Your homes</h1>
               </div>
-              <div className="flex items-center gap-3">
-                <Link 
-                  to="/new-project"
-                  className="flex items-center gap-2 bg-white text-black px-5 py-2.5 rounded-full font-bold hover:bg-zinc-200 transition-all text-xs shadow-[0_0_25px_rgba(255,255,255,0.25)]"
-                >
-                  <Plus className="w-4 h-4" /> Create New Blueprint
-                </Link>
-              </div>
+              <Link to="/new-project" className="flex items-center gap-2 rounded-sm bg-zinc-200 px-5 py-2.5 text-sm font-semibold text-zinc-950 transition-colors hover:bg-white">
+                <Plus className="h-4 w-4" /> New project
+              </Link>
             </header>
 
-            {/* Quick Stats Overview */}
-            <div className="px-10 pt-8 pb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              
-              {/* Stat 1: Total Projects */}
-              <div className="bg-zinc-900/60 backdrop-blur-md border border-zinc-800/90 rounded-2xl p-5 flex flex-col justify-between relative overflow-hidden group hover:border-zinc-700 transition-all">
-                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-cyan-500 to-blue-500"></div>
-                <div className="flex items-center justify-between">
-                  <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider flex items-center gap-2">
-                    <Building className="w-4 h-4 text-cyan-400" /> Total Blueprints
-                  </span>
-                  <span className="text-[10px] font-mono bg-cyan-500/10 text-cyan-300 px-2 py-0.5 rounded border border-cyan-500/20">
-                    BIM Active
-                  </span>
+            {/* the numbers, laid out like a drawing's title block */}
+            <div className="mx-10 mt-8 grid grid-cols-2 border border-zinc-800 lg:grid-cols-4">
+              {[
+                ['PROJECTS', String(projects.length)],
+                ['FLOOR AREA', formatArea(projects.reduce((s, p) => s + projectArea(p), 0))],
+                ['ROOMS DESIGNED', String(projects.reduce((s, p) => s + (p.elements_data || []).filter(e => e && e.type === 'room').length, 0))],
+                ['SAVED PHOTOS', photoCount === null ? '—' : String(photoCount)],
+              ].map(([k, v], i) => (
+                <div key={k} className={`px-5 py-4 ${i ? 'border-l' : ''} ${i === 2 ? 'border-l-0 border-t lg:border-l lg:border-t-0' : ''} ${i === 3 ? 'border-t lg:border-t-0' : ''} border-zinc-800`}>
+                  <div className="font-mono text-[10px] tracking-[0.2em] text-zinc-500">{k}</div>
+                  <div className="mt-1.5 text-2xl font-semibold tracking-tight text-zinc-100">{v}</div>
                 </div>
-                <div className="mt-4">
-                  <div className="text-3xl font-extrabold text-white">{projects.length}</div>
-                  <div className="text-[11px] text-zinc-500 mt-1">Multi-Room CAD Models</div>
-                </div>
-              </div>
-
-              {/* Stat 2: Est. Area Drafted */}
-              <div className="bg-zinc-900/60 backdrop-blur-md border border-zinc-800/90 rounded-2xl p-5 flex flex-col justify-between relative overflow-hidden group hover:border-zinc-700 transition-all">
-                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-500 to-purple-500"></div>
-                <div className="flex items-center justify-between">
-                  <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider flex items-center gap-2">
-                    <Layout className="w-4 h-4 text-indigo-400" /> Est. Area Drafted
-                  </span>
-                  <span className="text-[10px] font-mono bg-indigo-500/10 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/20">
-                    1:50 Scale
-                  </span>
-                </div>
-                <div className="mt-4">
-                  <div className="text-3xl font-extrabold text-white">
-                    {formatArea(projects.reduce((s, p) => s + projectArea(p), 0))}
-                  </div>
-                  <div className="text-[11px] text-zinc-500 mt-1">Floor area across all your plans</div>
-                </div>
-              </div>
-
-              {/* Stat 3: Code Compliance */}
-              <div className="bg-zinc-900/60 backdrop-blur-md border border-zinc-800/90 rounded-2xl p-5 flex flex-col justify-between relative overflow-hidden group hover:border-zinc-700 transition-all">
-                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-emerald-500 to-teal-500"></div>
-                <div className="flex items-center justify-between">
-                  <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-400" /> Code Compliance
-                  </span>
-                  <span className="text-[10px] font-mono bg-emerald-500/10 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/20">
-                    Auto-Audit
-                  </span>
-                </div>
-                <div className="mt-4">
-                  <div className="text-3xl font-extrabold text-emerald-400">100% PASS</div>
-                  <div className="text-[11px] text-zinc-500 mt-1">IBC 2024 & NBC Standard Corridors</div>
-                </div>
-              </div>
-
-              {/* Stat 4: Fast AI Draft CTA */}
-              <Link 
-                to="/new-project" 
-                className="bg-zinc-900/60 backdrop-blur-md border border-indigo-500/30 hover:border-indigo-500/60 rounded-2xl p-5 flex flex-col justify-between relative overflow-hidden group hover:shadow-[0_0_25px_rgba(99,102,241,0.2)] transition-all cursor-pointer"
-              >
-                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-500 via-cyan-400 to-indigo-500"></div>
-                <div className="flex items-center justify-between">
-                  <span className="text-indigo-300 text-xs font-bold uppercase tracking-wider flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-indigo-400" /> AI Natural Language
-                  </span>
-                  <ArrowUpRight className="w-4 h-4 text-indigo-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                </div>
-                <div className="mt-4">
-                  <div className="text-lg font-bold text-white group-hover:text-indigo-300 transition-colors">
-                    Draft With Gemini/Groq
-                  </div>
-                  <div className="text-[11px] text-zinc-400 mt-1">Text-to-Space Spatial Parsing &rarr;</div>
-                </div>
-              </Link>
-
+              ))}
             </div>
 
             {/* Search & Filter Toolbar */}
@@ -568,7 +524,7 @@ export default function Dashboard() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search blueprints by name..."
+                  placeholder="Search projects by name..."
                   className="w-full bg-zinc-900/80 border border-zinc-800 rounded-xl pl-10 pr-9 py-2.5 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-indigo-500 transition-all"
                 />
                 {searchQuery && (
@@ -582,7 +538,7 @@ export default function Dashboard() {
               </div>
               <div className="flex items-center gap-3 text-xs text-zinc-400 font-mono">
                 <span className="px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-[11px]">
-                  {projects.filter(p => (p.name || '').toLowerCase().includes(searchQuery.toLowerCase())).length} Models Found
+                  {(() => { const n = projects.filter(p => (p.name || '').toLowerCase().includes(searchQuery.toLowerCase())).length; return `${n} project${n === 1 ? '' : 's'}`; })()}
                 </span>
               </div>
             </div>
@@ -615,33 +571,16 @@ export default function Dashboard() {
                       className="bg-zinc-900/70 backdrop-blur-md border border-zinc-800/90 rounded-2xl overflow-hidden flex flex-col justify-between hover:border-zinc-700 hover:shadow-xl transition-all group relative cursor-pointer"
                     >
                       {/* Top Blueprint Visual Stage */}
-                      <div className="w-full h-36 bg-[#080d1a] border-b border-zinc-800/80 relative overflow-hidden group/canvas">
-                        {/* CAD Grid lines */}
-                        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:16px_16px] opacity-40"></div>
-                        
-                        {/* Miniature Vector Floorplan Wireframe */}
-                        <svg className="w-full h-full p-4 relative z-10" viewBox="0 0 240 120" preserveAspectRatio="xMidYMid meet">
-                          {/* Foundation slab */}
-                          <rect x="20" y="15" width="200" height="90" fill="rgba(6,182,212,0.06)" stroke="#06b6d4" strokeWidth="1.8" />
-                          {/* Interior Partitions */}
-                          <line x1="110" y1="15" x2="110" y2="105" stroke="#38bdf8" strokeWidth="1.6" />
-                          <line x1="20" y1="65" x2="110" y2="65" stroke="#38bdf8" strokeWidth="1.6" />
-                          {/* Door swing arcs */}
-                          <path d="M 110 40 A 18 18 0 0 1 92 58" fill="none" stroke="#facc15" strokeWidth="1.4" strokeDasharray="2 2" />
-                          <path d="M 110 85 A 18 18 0 0 1 128 103" fill="none" stroke="#facc15" strokeWidth="1.4" strokeDasharray="2 2" />
-                          {/* Window glazing */}
-                          <rect x="45" y="13" width="40" height="4" fill="#60a5fa" rx="1" />
-                          <rect x="145" y="103" width="50" height="4" fill="#60a5fa" rx="1" />
-                          {/* Room labels */}
-                          <text x="65" y="42" fill="#94a3b8" fontSize="8" fontFamily="monospace" textAnchor="middle">SUITE 1</text>
-                          <text x="65" y="88" fill="#94a3b8" fontSize="8" fontFamily="monospace" textAnchor="middle">ENSUITE</text>
-                          <text x="165" y="62" fill="#94a3b8" fontSize="8" fontFamily="monospace" textAnchor="middle">LIVING</text>
-                        </svg>
+                      <div className="w-full h-36 bg-[#121110] border-b border-zinc-800/80 relative overflow-hidden group/canvas">
+                        {/* drafting grid */}
+                        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(231,226,217,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(231,226,217,0.05)_1px,transparent_1px)] bg-[size:16px_16px]"></div>
 
-                        {/* Top Badges */}
-                        <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-950/80 text-cyan-300 border border-cyan-500/30 flex items-center gap-1 shadow-sm">
-                            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span> 2D/3D BIM
+                        {/* the project's own ground-floor plan, in miniature */}
+                        <PlanThumb elements={project.elements_data} />
+
+                        <div className="absolute top-2.5 left-2.5 z-20">
+                          <span className="rounded-sm border border-zinc-700 bg-zinc-950/80 px-2 py-0.5 font-mono text-[10px] text-zinc-400">
+                            {(() => { const n = Math.max(1, ...(project.elements_data || []).filter(Boolean).map(e => e.floor || 1)); return n > 1 ? `${n} FLOORS` : 'SINGLE FLOOR'; })()}
                           </span>
                         </div>
 
@@ -691,7 +630,7 @@ export default function Dashboard() {
                           </h3>
                           <div className="flex items-center gap-3 text-[11px] text-zinc-400 font-mono mb-4">
                             <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3 text-zinc-500" /> {project.created_at || 'Recently Saved'}
+                              <Clock className="w-3 h-3 text-zinc-500" /> {project.created_at ? new Date(project.created_at.endsWith('Z') ? project.created_at : `${project.created_at}Z`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recently saved'}
                             </span>
                             <span>•</span>
                             <span className="text-zinc-500">{projectArea(project) ? formatArea(projectArea(project)) : 'No rooms yet'}</span>

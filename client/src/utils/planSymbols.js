@@ -15,7 +15,7 @@ import { formatArea } from './units';
  */
 
 const SYMBOL_TYPES = new Set([
-  'room', 'door', 'window', 'stairs',
+  'room', 'door', 'window', 'stairs', 'railing',
   'furniture_bed', 'furniture_sofa', 'furniture_table', 'furniture_armchair',
   'furniture_bathtub', 'furniture_vanity', 'furniture_kitchen',
 ]);
@@ -75,6 +75,8 @@ const FLOORS = {
   kitchen:        { tint: 'rgba(203,213,225,0.15)', pattern: 'tile' },
   utility:        { tint: 'rgba(203,213,225,0.12)', pattern: 'tile' },
   bathroom:       { tint: 'rgba(56,189,248,0.17)', pattern: 'tile' },
+  balcony:        { tint: 'rgba(200,121,74,0.12)', pattern: 'tile' },
+  patio:          { tint: 'rgba(200,121,74,0.10)', pattern: 'tile' },
 };
 
 export function drawRoom(ctx, w, h, { kind, blueprint = false } = {}) {
@@ -134,7 +136,7 @@ export function drawRoomLabel(ctx, room, blueprint = false) {
 // -------------------------------------------------------------------------------------------
 // Openings
 // -------------------------------------------------------------------------------------------
-export function drawDoor(ctx, w, h, { swing = 1, hinge = 1, bg = '#09090b', blueprint = false } = {}) {
+export function drawDoor(ctx, w, h, { swing = 1, hinge = 1, bg = '#0f0e0d', blueprint = false } = {}) {
   const t = WALL_T + 1;
   const wall = blueprint ? '#ffffff' : '#e4e4e7';
   const accent = '#facc15';
@@ -173,7 +175,7 @@ export function drawDoor(ctx, w, h, { swing = 1, hinge = 1, bg = '#09090b', blue
   line(ctx, -w / 2, 0, w / 2, 0, 'rgba(250,204,21,0.35)', 0.8);
 }
 
-export function drawWindow(ctx, w, h, { bg = '#09090b', blueprint = false } = {}) {
+export function drawWindow(ctx, w, h, { bg = '#0f0e0d', blueprint = false } = {}) {
   const t = WALL_T + 1;
   const wall = blueprint ? '#ffffff' : '#e4e4e7';
   ctx.fillStyle = bg;
@@ -192,6 +194,14 @@ export function drawWindow(ctx, w, h, { bg = '#09090b', blueprint = false } = {}
   line(ctx, -w / 2 + 1, 1.3, w / 2 - 1, 1.3, '#60a5fa', 1.1);
   // casement divisions on wide windows
   if (w > 40) line(ctx, 0, -WALL_T / 2 + 0.5, 0, WALL_T / 2 - 0.5, edge, 1);
+}
+
+// a balcony / patio railing: a thin double line with balusters
+export function drawRailing(ctx, w, h, { blueprint = false } = {}) {
+  const c = blueprint ? '#ffffff' : '#c8794a';
+  line(ctx, -w / 2, -h / 2, w / 2, -h / 2, c, 1);
+  line(ctx, -w / 2, h / 2, w / 2, h / 2, c, 1);
+  for (let x = -w / 2; x <= w / 2 + 0.1; x += 6) line(ctx, x, -h / 2, x, h / 2, c, 0.8);
 }
 
 export function drawStairs(ctx, w, h, { blueprint = false } = {}) {
@@ -321,6 +331,7 @@ export function drawSymbol(type, ctx, w, h, opts = {}) {
     else if (type === 'door') drawDoor(ctx, w, h, opts);
     else if (type === 'window') drawWindow(ctx, w, h, opts);
     else if (type === 'stairs') drawStairs(ctx, w, h, opts);
+    else if (type === 'railing') drawRailing(ctx, w, h, opts);
     else if (FURNITURE[type]) FURNITURE[type](ctx, w, h);
   } catch (e) {
     console.warn(`Could not draw ${type} (${w} x ${h})`, e);
@@ -353,7 +364,7 @@ export function installSymbol(rect) {
       kind: this.kind,
       name: this.name,
       area: this.area,
-      bg: (canvas && canvas.backgroundColor) || '#09090b',
+      bg: (canvas && canvas.backgroundColor) || '#0f0e0d',
       blueprint: !!(canvas && canvas.__blueprint),
     });
     ctx.restore();
