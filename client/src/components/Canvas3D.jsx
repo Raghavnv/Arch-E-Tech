@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, createContext, useContext } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Grid, Environment, PointerLockControls } from '@react-three/drei';
@@ -210,6 +210,20 @@ function WallMaterial({ matProps }) {
 // 3. ARCHITECTURAL WALL WITH REAL DOOR/WINDOW OPENINGS
 // =================================================================
 
+// whether the scene is lit by day: at night the glass glows with the rooms' lights behind it
+const DayContext = createContext(true);
+
+function WindowGlass({ w, h }) {
+  const isDay = useContext(DayContext);
+  return (
+    <mesh>
+      <boxGeometry args={[w, h, 0.02]} />
+      <meshPhysicalMaterial color={isDay ? '#a9c4d4' : '#ffd9a8'} emissive={isDay ? '#000000' : '#ffbf73'} emissiveIntensity={isDay ? 0 : 0.9}
+        roughness={0.04} metalness={0.15} transparent opacity={isDay ? 0.55 : 0.85} envMapIntensity={1.2} />
+    </mesh>
+  );
+}
+
 function ArchitecturalWall({ wall, onPaint }) {
   const { x0, z0, ux, uz, nx, nz, depth, length, angle, openings, id, material, isColor } = wall;
   const matProps = useWallMaterial(material, isColor, length, WALL_HEIGHT);
@@ -333,24 +347,16 @@ function ArchitecturalWall({ wall, onPaint }) {
       segments.push(
         <group key={`window-glass-frame-${idx}`} position={[opCenterX, windowCenterY, opCenterZ]} rotation={[0, rotY, 0]}>
           {/* Sleek Minimalist Outer Frame */}
-          <mesh castShadow>
-            <boxGeometry args={[opLen, windowHeight, depth * 0.6]} />
-            <meshStandardMaterial color="#18181b" roughness={0.3} metalness={0.8} wireframe={false} />
-          </mesh>
-          {/* Glass Pane with realistic physical transmission */}
-          <mesh>
-            <boxGeometry args={[opLen - 0.08, windowHeight - 0.08, 0.02]} />
-            <meshPhysicalMaterial
-              transmission={0.85}
-              opacity={1}
-              transparent
-              roughness={0.05}
-              metalness={0.1}
-              ior={1.52}
-              thickness={0.05}
-              color="#bfdbfe"
-            />
-          </mesh>
+          {/* a slim frame round the opening (it used to be a solid box that filled it, so windows looked black) */}
+          {[[0, windowHeight / 2 - 0.03, opLen, 0.06], [0, -windowHeight / 2 + 0.03, opLen, 0.06],
+            [-opLen / 2 + 0.03, 0, 0.06, windowHeight], [opLen / 2 - 0.03, 0, 0.06, windowHeight],
+            [0, 0, 0.04, windowHeight]].map(([fx, fy, fw, fh], k) => (
+            <mesh key={k} position={[fx, fy, 0]} castShadow>
+              <boxGeometry args={[fw, fh, depth * 0.6]} />
+              <meshStandardMaterial color="#2a2724" roughness={0.4} metalness={0.6} />
+            </mesh>
+          ))}
+          <WindowGlass w={opLen - 0.08} h={windowHeight - 0.08} />
         </group>
       );
     }
@@ -815,6 +821,7 @@ function Storey({ elements, level, isTop, onPaint, roofStyle, isDay }) {
   const holesHere = useMemo(() => stairHoles.filter(s => s.arrival).map(stairRect), [stairHoles]);
   const lightsOn = roofStyle !== 'none' || !isTop;
   return (
+    <DayContext.Provider value={isDay}>
     <group position={[0, (level - 1) * FLOOR_TO_FLOOR, 0]}>
       {level > 1 && <StoreySlab rooms={rooms} holes={holesHere} />}
       {rooms.map((room, i) => <RoomFloor key={room.id || i} room={room} holes={holesHere} />)}
@@ -825,10 +832,32 @@ function Storey({ elements, level, isTop, onPaint, roofStyle, isDay }) {
       {railings.map((item, i) => <ProceduralRailing key={item.id || i} el={item} />)}
       {/* lower storeys always have a ceiling (the next floor's slab); the top one when the roof is on */}
       {lightsOn && <CeilingsAndLights rooms={rooms} holes={holesAbove} isDay={isDay} withCeiling={isTop} />}
+      {/* a lower floor is roofed by the floor above, and by a terrace slab wherever nothing is built on it */}
+      {!isTop && cutAll(rooms.map(roomRect), holesAbove).map((p, i) => (
+        <mesh key={`t-${i}`} position={[p.x + p.w / 2, WALL_HEIGHT + 0.1, p.z + p.d / 2]} castShadow receiveShadow>
+          <boxGeometry args={[p.w + 0.2, 0.2, p.d + 0.2]} />
+          <meshStandardMaterial color="#cfc8bd" roughness={0.9} />
+        </mesh>
+      ))}
       {isTop && <Roof rooms={rooms.filter(r => r.kind !== 'balcony')} style={roofStyle} />}
     </group>
+    </DayContext.Provider>
   );
 }
+
+/** The whole house (every storey, roof and lights) with no ground, sky or camera: for other scenes. */
+export function HouseModel({ elements, roofStyle = 'pitched', isDay = true }) {
+  const levels = useMemo(() => {
+    const by = {};
+    (elements || []).forEach(el => { if (el && el.type) (by[el.floor || 1] = by[el.floor || 1] || []).push(el); });
+    return Object.keys(by).map(Number).sort((a, b) => a - b).map(level => ({ level, elements: by[level] }));
+  }, [elements]);
+  return levels.map(({ level, elements: els }, i) => (
+    <Storey key={level} elements={els} level={level} isTop={i === levels.length - 1} roofStyle={roofStyle} isDay={isDay} />
+  ));
+}
+
+export { SCALE as PLAN_SCALE, FLOOR_TO_FLOOR };
 
 function FirstPersonPlayer({ collisionSegments, bounds, initialPosition, onLockChange }) {
   const { camera } = useThree();

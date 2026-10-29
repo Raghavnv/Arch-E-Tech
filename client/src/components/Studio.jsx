@@ -720,7 +720,7 @@ export default function Studio() {
 
           {/* the finished house in a landscape and weather setting */}
           <button 
-            onClick={() => flushSave('/immersive')}
+            onClick={() => flushSave(projectId ? `/immersive?projectId=${projectId}` : '/immersive')}
             className="flex items-center gap-2 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-medium transition-colors bg-white/10 hover:bg-white/20 text-white"
           >
             <ImageIcon className="w-3.5 h-3.5" />
