@@ -670,6 +670,26 @@ def _multi_floor_plan(prompt, program, floors, wishes, style, rng, source):
             "source": f"{source}+floors"}
 
 
+class BudgetRequest(BaseModel):
+    budget: float
+    currency_symbol: str = "₹"
+    total: float
+    breakdown: list = []
+    rooms: list = []
+    floors: int = 1
+    area_sqft: float = 0
+
+
+@app.post("/api/ai/budget-advice")
+def budget_advice(req: BudgetRequest):
+    """Where to cut back to meet the budget, ranked by saving against loss of comfort."""
+    import budget_advisor
+    if req.budget <= 0:
+        raise HTTPException(status_code=400, detail="Enter your budget first.")
+    return budget_advisor.advise(req.budget, req.currency_symbol, req.total, req.breakdown, req.rooms,
+                                 req.floors, req.area_sqft, os.getenv("GROQ_API_KEY"))
+
+
 @app.post("/api/ai/generate-plan")
 async def generate_floor_plan(payload: AIPrompt):
     import random

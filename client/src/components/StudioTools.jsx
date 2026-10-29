@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { X, Loader2, AlertTriangle, Download, ScanLine, LayoutTemplate, Image as ImageIcon, Wand2 as Wand, Home, Bookmark, Check } from 'lucide-react';
+import { X, Loader2, AlertTriangle, Download, ScanLine, LayoutTemplate, Image as ImageIcon, Wand2 as Wand, Home, Bookmark, Check, Wallet } from 'lucide-react';
 import { detectRooms } from '../utils/detectRooms';
 import InfoTip from './InfoTip';
-import { formatArea } from '../utils/units';
+import { formatArea, currencyCode, CURRENCY } from '../utils/units';
 
 /*
  * The Studio's tool panels: Auto Detect (label the rooms your walls enclose), AI Layout (a new plan
@@ -33,8 +33,8 @@ async function post(url, body) {
 function Panel({ icon: Icon, title, info, onClose, wide, bottom, children }) {
   // most tools open on the right; AI Edit sits along the bottom of the grid, under the plan
   const place = bottom
-    ? 'bottom-6 left-[21rem] right-24 max-w-2xl max-h-[45%]'
-    : `top-24 right-6 max-h-[calc(100%-8rem)] ${wide ? 'w-[min(720px,calc(100%-3rem))]' : 'w-[min(380px,calc(100%-3rem))]'}`;
+    ? 'bottom-6 left-[21rem] right-[calc(var(--dock,1.5rem)+4.5rem)] max-w-2xl max-h-[45%]'
+    : `top-24 right-[var(--dock,1.5rem)] max-h-[calc(100%-8rem)] ${wide ? 'w-[min(720px,calc(100%-3rem))]' : 'w-[min(380px,calc(100%-3rem))]'}`;
   return (
     <div className={`absolute z-30 flex flex-col rounded-2xl border border-zinc-800 bg-zinc-950/95 shadow-2xl backdrop-blur-xl ${place}`}>
       <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
@@ -427,6 +427,173 @@ export function RoomsPanel({ elements, setElements, onClose }) {
             Save room names
           </button>
         </>
+      )}
+    </Panel>
+  );
+}
+
+// ------------------------------------------------------------------------------------------------
+// Budget Advisor: compare the live estimate with the owner's budget and find where to cut
+// ------------------------------------------------------------------------------------------------
+const IMPACT_STYLE = {
+  low: ['Barely noticed', 'border-emerald-500/30 text-emerald-300'],
+  medium: ['Some change', 'border-amber-500/30 text-amber-300'],
+  high: ['Big change', 'border-rose-500/30 text-rose-300'],
+};
+
+export function BudgetPanel({ elements, setElements, costs, projectId, apiUrl, onClose }) {
+  const code = currencyCode();
+  const { symbol, locale } = CURRENCY[code];
+  const fmt = (v) => `${symbol}${Math.round(v).toLocaleString(locale)}`;
+  const short = (v) => (code === 'INR'
+    ? (Math.abs(v) >= 1e7 ? `${symbol}${(v / 1e7).toFixed(2)} Cr` : `${symbol}${(v / 1e5).toFixed(1)} L`)
+    : `${symbol}${Math.round(v / 1000).toLocaleString(locale)}k`);
+  const key = `budget_${projectId || 'draft'}`;
+  const [budget, setBudget] = useState(() => { try { return Number(localStorage.getItem(key)) || ''; } catch { return ''; } });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [advice, setAdvice] = useState(null);
+  const [picked, setPicked] = useState(new Set());
+  const [applying, setApplying] = useState(null);
+  const [applied, setApplied] = useState(new Set());
+
+  const total = costs.total;
+  const gap = budget ? total - budget : 0;
+  const saved = advice ? advice.suggestions.filter((_, i) => picked.has(i)).reduce((s, x) => s + x.saving, 0) : 0;
+  const after = total - saved;
+
+  const setB = (v) => {
+    const n = Math.max(0, Number(String(v).replace(/[^\d.]/g, '')) || 0);
+    setBudget(n || '');
+    try { localStorage.setItem(key, String(n)); } catch { /* private mode */ }
+  };
+
+  const analyse = async () => {
+    setBusy(true); setError(null); setAdvice(null); setPicked(new Set()); setApplied(new Set());
+    try {
+      const rooms = elements.filter(e => e.type === 'room').map(r => ({ name: r.name, kind: r.kind, floor: r.floor || 1, area_sqft: Math.round((r.area || 0) * 10.7639) }));
+      const data = await post(`${apiUrl}/api/ai/budget-advice`, {
+        budget: Number(budget), currency_symbol: symbol, total,
+        breakdown: costs.breakdown.map(b => ({ key: b.key, label: b.label, qty: b.qty, cost: b.cost })),
+        rooms, floors: Math.max(1, ...elements.map(e => e.floor || 1)),
+        area_sqft: rooms.reduce((s, r) => s + r.area_sqft, 0),
+      });
+      setAdvice(data);
+      // pre-tick the gentlest cuts until the gap is covered
+      let cover = 0; const pre = new Set();
+      data.suggestions.forEach((s, i) => { if (cover < gap && s.impact !== 'high') { pre.add(i); cover += s.saving; } });
+      setPicked(pre);
+    } catch (e) {
+      setError(e.message === 'Failed to fetch' ? "Can't reach the server. It may be waking up; try again in a few seconds." : e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const apply = async (s, i) => {
+    setApplying(i); setError(null);
+    try {
+      const data = await post(`${apiUrl}/api/ai/edit-plan`, { instruction: s.edit, elements, selected: [] });
+      if (data.changed > 0) {
+        setElements(data.elements);
+        setApplied(a => new Set(a).add(i));
+      } else {
+        setError(data.summary || "That change couldn't be made automatically; make it in the Studio instead.");
+      }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setApplying(null);
+    }
+  };
+
+  return (
+    <Panel icon={Wallet} title="Budget Advisor" info="budget" onClose={onClose} wide>
+      <div className="grid gap-4 md:grid-cols-[1fr_1.2fr]">
+        <div>
+          <label htmlFor="budget-input" className="mb-1.5 block text-xs text-zinc-400">Your budget</label>
+          <div className="flex items-center rounded-lg border border-zinc-800 bg-zinc-900 px-3 focus-within:border-indigo-500">
+            <span className="text-sm text-zinc-500">{symbol}</span>
+            <input
+              id="budget-input"
+              inputMode="numeric"
+              value={budget ? Number(budget).toLocaleString(locale) : ''}
+              onChange={e => setB(e.target.value)}
+              onKeyDown={e => e.stopPropagation()}
+              placeholder={code === 'INR' ? '30,00,000' : '50,000'}
+              className="w-full bg-transparent px-2 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none"
+            />
+          </div>
+          {code === 'INR' && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {[20e5, 30e5, 50e5, 1e7].map(v => (
+                <button key={v} onClick={() => setB(v)} className="rounded-full border border-zinc-800 px-2.5 py-0.5 text-[11px] text-zinc-400 hover:border-zinc-600 hover:text-zinc-200">{short(v)}</button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* where the estimate stands against the budget */}
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
+          <div className="flex items-baseline justify-between text-xs">
+            <span className="text-zinc-400">Current estimate</span>
+            <span className="font-mono text-sm text-zinc-100">{fmt(total)}</span>
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-800">
+            <div className={`h-full rounded-full ${gap > 0 ? 'bg-amber-500/80' : 'bg-emerald-500/80'}`} style={{ width: `${budget ? Math.min(100, (total / Math.max(total, budget)) * 100) : 0}%` }} />
+          </div>
+          <p className={`mt-2 text-xs ${!budget ? 'text-zinc-500' : gap > 0 ? 'text-amber-300' : 'text-emerald-300'}`}>
+            {!budget ? 'Enter a budget to compare.' : gap > 0 ? `${short(gap)} over budget` : `Within budget, ${short(-gap)} to spare`}
+          </p>
+        </div>
+      </div>
+
+      <button onClick={analyse} disabled={!budget || busy}
+        className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-40">
+        {busy ? <><Loader2 className="h-4 w-4 animate-spin" /> Looking through the plan…</> : advice ? 'Look again' : gap > 0 ? 'Find where to save' : 'Find savings anyway'}
+      </button>
+      {error && <ErrorLine>{error}</ErrorLine>}
+
+      {advice && (
+        <div className="mt-4">
+          {advice.summary && <p className="mb-3 text-xs leading-relaxed text-zinc-400">{advice.summary}</p>}
+          <ul className="space-y-2">
+            {advice.suggestions.map((s, i) => {
+              const [label, tone] = IMPACT_STYLE[s.impact] || IMPACT_STYLE.medium;
+              return (
+                <li key={i} className={`rounded-xl border p-3 transition-colors ${picked.has(i) ? 'border-indigo-500/40 bg-indigo-500/[0.06]' : 'border-zinc-800 bg-zinc-900/40'}`}>
+                  <div className="flex items-start gap-3">
+                    <input type="checkbox" checked={picked.has(i)} aria-label={`Count "${s.title}" in the plan`}
+                      onChange={() => setPicked(p => { const n = new Set(p); n.has(i) ? n.delete(i) : n.add(i); return n; })}
+                      className="mt-1 h-4 w-4 accent-[#c8794a]" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium text-zinc-100">{s.title}</span>
+                        <span className={`rounded-full border px-2 py-px text-[10px] ${tone}`}>{label}</span>
+                      </div>
+                      <p className="mt-1 text-xs leading-relaxed text-zinc-400">{s.detail}</p>
+                      {s.edit && (
+                        <button onClick={() => apply(s, i)} disabled={applying !== null || applied.has(i)}
+                          className="mt-2 rounded-md border border-zinc-700 px-2.5 py-1 text-[11px] text-zinc-200 hover:bg-zinc-800 disabled:opacity-60">
+                          {applied.has(i) ? <span className="flex items-center gap-1 text-emerald-300"><Check className="h-3 w-3" /> Applied to the plan</span>
+                            : applying === i ? 'Changing the plan…' : 'Apply to plan'}
+                        </button>
+                      )}
+                    </div>
+                    <span className="shrink-0 font-mono text-sm text-emerald-300">−{short(s.saving)}</span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm">
+            <span className="text-zinc-400">With the ticked cuts: <span className="font-mono text-zinc-100">{fmt(after)}</span></span>
+            <span className={`font-mono text-xs ${after <= budget ? 'text-emerald-300' : 'text-amber-300'}`}>
+              {after <= budget ? `within budget by ${short(budget - after)}` : `still ${short(after - budget)} over`}
+            </span>
+          </div>
+          <p className="mt-2 text-[11px] text-zinc-500">Savings are estimates from the live cost takeoff. "Apply to plan" changes the drawing through AI Edit; Ctrl+Z undoes it.</p>
+        </div>
       )}
     </Panel>
   );

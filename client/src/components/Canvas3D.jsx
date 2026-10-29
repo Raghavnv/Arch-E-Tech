@@ -876,8 +876,12 @@ function FirstPersonPlayer({ collisionSegments, bounds, initialPosition, onLockC
   const velocity = useRef(new THREE.Vector3());
   const bobTimer = useRef(0);
 
-  // Set initial spawn location
+  // place the walker once, when the walkthrough starts: re-running this whenever the parent re-rendered
+  // (a new bounds object each time) is what kept snapping people back to the start after a few steps
+  const spawned = useRef(false);
   useEffect(() => {
+    if (spawned.current) return;
+    spawned.current = true;
     if (initialPosition) {
       camera.position.set(initialPosition[0], PLAYER_HEIGHT, initialPosition[1]);
     } else {

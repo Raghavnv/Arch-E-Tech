@@ -1,15 +1,16 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Menu, MousePointer2, Box, Home, PenTool, LayoutTemplate, 
   Settings, Save, FileText, ChevronRight, Calculator, CheckCircle, 
-  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play 
+  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen 
 } from 'lucide-react';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
-import { AutoDetectPanel, AiLayoutPanel, ConceptVizPanel, EditPanel, RoomsPanel } from './StudioTools';
+import { AutoDetectPanel, AiLayoutPanel, ConceptVizPanel, EditPanel, RoomsPanel, BudgetPanel } from './StudioTools';
+import FeatureDock from './FeatureDock';
 import InfoTip from './InfoTip';
 import Mark from './Mark';
 import { ARCHITECTURAL_TEXTURES } from '../utils/textureLibrary';
@@ -39,10 +40,21 @@ export default function Studio() {
 
   const [drawingMode, setDrawingMode] = useState(null);
   const [activeTab, setActiveTab] = useState('2D');
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
   const [showFurnitureCatalog, setShowFurnitureCatalog] = useState(false);
   // ?tool=concept (from a saved photo's "New version") opens that tool straight away
   const [toolPanel, setToolPanel] = useState(() => searchParams.get('tool'));   // 'detect' | 'layout' | 'edit' | 'rooms' | 'concept'
   const [selectedEls, setSelectedEls] = useState([]);
+  const pref = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : v === '1'; } catch { return d; } };
+  const [leftOpen, setLeftOpen] = useState(() => pref('studio_left_open', true));
+  const [dockOpen, setDockOpen] = useState(() => pref('studio_dock_open', true));
+  useEffect(() => {
+    try { localStorage.setItem('studio_left_open', leftOpen ? '1' : '0'); localStorage.setItem('studio_dock_open', dockOpen ? '1' : '0'); } catch { /* private mode */ }
+    // the 2D canvas sizes itself on window resize; the panel moving changes its room
+    const t = setTimeout(() => window.dispatchEvent(new Event('resize')), 220);
+    return () => clearTimeout(t);
+  }, [leftOpen, dockOpen]);
   const [projectName, setProjectName] = useState('');   // what is selected on the 2D plan, for "edit this"
   const [smartSnap, setSmartSnap] = useState(() => localStorage.getItem('pref_smart_snap') === '1');
   const toggleSmartSnap = () => setSmartSnap(on => {
@@ -61,7 +73,8 @@ export default function Studio() {
   const [canvasElements, setCanvasElements] = useState([]);
   // the 2D plan edits one floor at a time; the other floors are left as they are
   const floorOf = (el) => el.floor || 1;
-  const floorElements = canvasElements.filter(el => floorOf(el) === activeFloor);
+  // the same array while nothing changed, so the 2D and 3D views don't treat every re-render as a new plan
+  const floorElements = useMemo(() => canvasElements.filter(el => floorOf(el) === activeFloor), [canvasElements, activeFloor]);
   const usedFloors = Math.max(1, ...canvasElements.map(floorOf));
   const setFloorElements = (next) => setCanvasElements(prev => {
     const mine = prev.filter(el => floorOf(el) === activeFloor);
@@ -108,6 +121,8 @@ export default function Studio() {
   useEffect(() => {
     const handleGlobalKeyDown = (e) => {
       if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+      // in the 3D view W A S D move the walker, so the 2D drawing shortcuts must not fire there
+      if (activeTabRef.current === '3D' && !((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') && e.key !== ' ') return;
       
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
@@ -458,18 +473,21 @@ export default function Studio() {
     <div className="h-screen w-screen flex overflow-hidden font-sans bg-transparent text-zinc-100">
       
       {/* Left Sidebar */}
-      <aside className="w-80 bg-zinc-950 border-r border-zinc-800 flex flex-col z-10 shrink-0">
+      <aside className={`${leftOpen ? 'w-80 border-r' : 'w-0 border-r-0'} overflow-hidden bg-zinc-950 border-zinc-800 flex flex-col z-10 shrink-0 transition-[width] duration-200`}>
         
         <div className="h-16 flex items-center justify-between px-6 border-b border-zinc-800 bg-black/50 backdrop-blur-sm">
           <Link to="/dashboard" className="flex min-w-0 items-center gap-2.5" title="Back to your projects">
             <Mark className="h-6 w-6 shrink-0" />
             <span className="truncate text-sm font-semibold tracking-tight text-zinc-100">{projectName || 'Untitled plan'}</span>
           </Link>
-          <div className="flex items-center gap-4">
+          <button onClick={() => setLeftOpen(false)} title="Hide this panel" className="ml-1 rounded p-1 text-zinc-500 hover:bg-zinc-800 hover:text-white">
+            <PanelLeftClose className="h-4 w-4" />
+          </button>
+          <div className="flex shrink-0 items-center gap-2">
             <select 
               value={activeFloor}
               onChange={(e) => setActiveFloor(Number(e.target.value))}
-              className="bg-zinc-900 border border-zinc-700 text-xs text-white rounded-md px-2 py-1 focus:outline-none"
+              className="w-[6.5rem] shrink-0 bg-zinc-900 border border-zinc-700 text-xs text-white rounded-md px-1.5 py-1 focus:outline-none"
             >
               {[...Array(totalFloors)].map((_, i) => (
                 <option key={i+1} value={i+1}>{i === 0 ? 'Ground floor' : `Floor ${i + 1}`}{i < usedFloors ? '' : ' (empty)'}</option>
@@ -612,31 +630,43 @@ export default function Studio() {
 
         </div>
 
-        <div className="p-4 border-t border-zinc-800 grid grid-cols-2 gap-2 bg-black">
-          <button 
-            onClick={generatePDFReport}
-            disabled={isGeneratingPDF}
-            className="flex items-center justify-center gap-2 py-2.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-xs font-semibold text-white transition-colors border border-zinc-800 disabled:opacity-50"
-          >
-            {isGeneratingPDF ? (
-              <span className="flex items-center gap-2 animate-pulse"><FileText className="w-3.5 h-3.5" /> Building PDF...</span>
-            ) : (
-              <><FileText className="w-3.5 h-3.5" /> PDF Report</>
-            )}
-          </button>
-          {/* the finished house, presented: plans, 3D, rooms, renders and costs */}
-          <button
-            onClick={() => projectId ? flushSave(`/overview?projectId=${projectId}`) : saveProject()}
-            title={projectId ? 'Play a presentation of this house' : 'Save the plan first'}
-            className="flex items-center justify-center gap-2 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white transition-colors shadow-[0_0_18px_rgba(200,121,74,0.25)]"
-          >
-            <Play className="w-3.5 h-3.5" /> Overview
-          </button>
-        </div>
       </aside>
 
       {/* Main Canvas Area */}
-      <main id="studio-canvas-container" className="flex-1 relative bg-zinc-950 flex flex-col">
+      <main id="studio-canvas-container" className="flex-1 relative bg-zinc-950 flex flex-col" style={{ '--dock': dockOpen ? '18.5rem' : '3.25rem' }}>
+        {!leftOpen && (
+          <button onClick={() => setLeftOpen(true)} title="Show the tools panel"
+            className="absolute left-4 top-6 z-30 flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950/90 px-3 py-2 text-xs text-zinc-300 shadow-xl backdrop-blur-xl hover:text-white">
+            <PanelLeftOpen className="h-4 w-4" /> Tools
+          </button>
+        )}
+        <FeatureDock open={dockOpen} setOpen={setDockOpen} groups={[
+          { title: 'VIEW', items: [
+            { id: 'walk', icon: Eye, label: 'Walkthrough', desc: 'Walk the rooms at eye level', info: 'walkthrough', active: walkthroughMode && activeTab === '3D',
+              onClick: () => { setActiveTab('3D'); setWalkthroughMode(true); } },
+            { id: 'immersive', icon: Trees, label: 'Immersive View', desc: 'The house on its street', info: 'immersive',
+              onClick: () => flushSave(projectId ? `/immersive?projectId=${projectId}` : '/immersive') },
+            { id: 'overview', icon: Play, label: 'Overview', desc: 'A presentation of the whole house', info: 'overview', disabled: !projectId,
+              onClick: () => flushSave(`/overview?projectId=${projectId}`) },
+          ] },
+          { title: 'AI', items: [
+            { id: 'render', icon: Sparkles, label: isCapturingForRender ? 'Opening…' : 'Photo Render', desc: 'Every room as a photo', info: 'render', accent: true,
+              onClick: handleOpenRenderStudio },
+            { id: 'concept', icon: ImageIcon, label: 'Concept Viz', desc: '3D cutaway or exterior image', info: 'concept', active: toolPanel === 'concept',
+              onClick: () => openTool('concept') },
+            { id: 'budget', icon: Wallet, label: 'Budget Advisor', desc: 'Find where to cut back', info: 'budget', accent: true, active: toolPanel === 'budget',
+              onClick: () => setToolPanel(t => (t === 'budget' ? null : 'budget')) },
+          ] },
+          { title: 'REPORTS', items: [
+            { id: 'cost', icon: Calculator, label: 'Cost takeoff', desc: `${money(costData.total)} estimated`, onClick: () => setShowCostModal(true) },
+            { id: 'pdf', icon: FileText, label: isGeneratingPDF ? 'Building PDF…' : 'PDF Report', desc: 'Plan, costs and notes', disabled: isGeneratingPDF,
+              onClick: generatePDFReport },
+          ] },
+        ]} />
+        {toolPanel === 'budget' && (
+          <BudgetPanel elements={canvasElements} setElements={(els) => setCanvasElements(cleanElements(els))} costs={costData}
+            projectId={projectId} apiUrl={API_URL} onClose={() => setToolPanel(null)} />
+        )}
         <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 bg-zinc-900 border border-zinc-800 p-1.5 rounded-full shadow-2xl">
 
           <button 
@@ -708,37 +738,6 @@ export default function Studio() {
             )}
           </button>
           
-          {/* first person: walk the rooms in the 3D view */}
-          <button 
-            onClick={() => { setActiveTab('3D'); setWalkthroughMode(true); }}
-            className={`flex items-center gap-2 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${walkthroughMode && activeTab === '3D' ? 'bg-white text-black' : 'bg-white/10 hover:bg-white/20 text-white'}`}
-          >
-            <Eye className="w-3.5 h-3.5" />
-            Walkthrough
-          </button>
-          <InfoTip id="walkthrough" align="center" />
-
-          {/* the finished house in a landscape and weather setting */}
-          <button 
-            onClick={() => flushSave(projectId ? `/immersive?projectId=${projectId}` : '/immersive')}
-            className="flex items-center gap-2 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-medium transition-colors bg-white/10 hover:bg-white/20 text-white"
-          >
-            <ImageIcon className="w-3.5 h-3.5" />
-            Immersive
-          </button>
-          <InfoTip id="immersive" align="center" />
-
-          <div className="ml-1 flex items-center gap-1.5 border-l border-zinc-800 pl-2">
-            <button
-              onClick={handleOpenRenderStudio}
-              disabled={isCapturingForRender}
-              className="flex items-center gap-2 whitespace-nowrap rounded-full bg-indigo-500 px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-indigo-400 disabled:opacity-60"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              {isCapturingForRender ? 'Opening…' : 'Photo Render'}
-            </button>
-            <InfoTip id="render" align="right" className="mr-1" />
-          </div>
         </div>
 
         <div className="absolute bottom-6 left-6 z-20 flex gap-2">
@@ -851,7 +850,7 @@ export default function Studio() {
         )}
 
         {activeTab === '3D' && (
-          <div className="absolute top-24 right-6 w-72 max-h-[calc(100%-8rem)] bg-zinc-950/90 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl flex flex-col z-20">
+          <div className="absolute top-24 right-[var(--dock)] w-72 max-h-[calc(100%-8rem)] bg-zinc-950/90 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl flex flex-col z-20">
             <div className="p-4 border-b border-zinc-800">
               <h3 className="flex items-center gap-2 text-sm font-bold text-white">Material Painter <InfoTip id="painter" align="right" /></h3>
               <p className="text-[11px] text-zinc-400 mt-1">

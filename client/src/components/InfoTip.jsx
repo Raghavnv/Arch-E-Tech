@@ -38,6 +38,16 @@ export const FEATURE_INFO = {
     what: 'Shows each room of your plan as a realistic photo: first empty, then furnished the way you describe.',
     how: 'All rooms share one house style so they look like the same home. Save the photos you like to your gallery.',
   },
+  budget: {
+    title: 'Budget Advisor',
+    what: 'Compares the live cost estimate with your budget and suggests where to cut back, biggest savings with the least change to daily life first.',
+    how: 'Enter your budget, find savings, tick the ones you would accept to see the new total. Plan changes can be applied in one click and undone.',
+  },
+  overview: {
+    title: 'Overview',
+    what: 'A presentation of the finished house that plays by itself: floor plans, the 3D model, every room, the photo renders and the cost takeoff.',
+    how: 'Space pauses, the arrow keys step through, Esc closes.',
+  },
   roof: {
     title: 'Roof & lights',
     what: 'Puts a roof on the house, flat with a parapet or pitched, and turns on a warm light in every room.',
