@@ -1,452 +1,299 @@
 import { useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { 
-  ArrowRight, ScanLine, PenTool, Box, Calculator, Code2, 
-  Layers, Zap, Sun, CheckCircle2, ShieldCheck, Sparkles, 
-  ChevronDown, Eye, Sofa, Building, Check, Sliders, RefreshCw, 
-  Activity, Play 
-} from 'lucide-react';
-import gsap from 'gsap';
-import { useGSAP } from '@gsap/react';
-import TechHologramEngine from './TechHologramEngine';
+import { Link } from 'react-router-dom';
+import { ArrowRight, ArrowDown, Plus, Minus } from 'lucide-react';
+import EngineLoop from './EngineLoop';
+
+/*
+ * The front page, designed like a set of architectural drawings: a charcoal drafting sheet, bone
+ * linework, hairline grids, dimension lines, sheet numbers and a title block. One warm accent.
+ */
+
+const HERO_PHOTO = 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1400&q=80';
+const RENDER_PHOTO = 'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1400&q=80';
+
+const INDEX = [
+  { sheet: 'A-101', title: 'AI Layout', text: 'Describe the home and get a complete floor plan, with bedrooms spread around the house the way architects plan them.' },
+  { sheet: 'A-102', title: 'AI Edit', text: 'Change the plan in a sentence: narrow a door, extend a wall, add a window. Every edit can be undone.' },
+  { sheet: 'A-103', title: 'Drafting tools', text: 'Smart Snap closes corners and seats doors on walls; Auto Detect turns enclosed spaces into named rooms.' },
+  { sheet: 'A-201', title: '3D model & walkthrough', text: 'The plan rises into a 3D model you can orbit, paint with real materials and walk through at eye level.' },
+  { sheet: 'A-301', title: 'Photo Render', text: 'Every room as a photograph, first empty and then furnished as you describe, all in one house style.' },
+  { sheet: 'A-302', title: 'Concept views', text: 'A furnished 3D cutaway of the whole house, or the finished exterior, rendered from your own plan.' },
+  { sheet: 'A-401', title: 'Cost & checks', text: 'Area, an estimated build cost and layout checks update as you draw, and export to a PDF report.' },
+];
+
+const FAQ = [
+  { q: 'Do I need CAD experience?', a: 'No. Describe the home in plain words and a full plan is drawn for you. Editing works by dragging, or by typing the change you want.' },
+  { q: 'How accurate are the plans?', a: 'Plans are drawn to scale in metres with real wall thicknesses and door widths, and rooms are sized to usual residential minimums. Treat them as a strong first design to refine with your architect.' },
+  { q: 'What does Photo Render actually produce?', a: 'For each room of your plan it makes a photograph of the empty room in your chosen house style, then the same room furnished the way you describe. Save the ones you like to your gallery.' },
+  { q: 'Can I walk through the house?', a: 'Yes. Switch to the 3D view and start the walkthrough to move through the rooms at eye level.' },
+  { q: 'Is my work saved?', a: 'Projects, renders and saved photos are stored with your account and kept in sync as you work.' },
+];
+
+// a dimension line with end ticks and a centred label; draws itself in on load
+function Dim({ x1, y1, x2, y2, label, vertical = false, delay = 0 }) {
+  const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+  return (
+    <g className="text-stone-500" style={{ animationDelay: `${delay}s` }}>
+      <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="currentColor" strokeWidth="1" pathLength="1" className="draw-in" style={{ animationDelay: `${delay}s` }} />
+      {vertical ? (
+        <>
+          <line x1={x1 - 5} y1={y1} x2={x1 + 5} y2={y1} stroke="currentColor" />
+          <line x1={x2 - 5} y1={y2} x2={x2 + 5} y2={y2} stroke="currentColor" />
+          <text x={mx - 8} y={my} fill="currentColor" fontSize="11" fontFamily="'JetBrains Mono', monospace" textAnchor="middle" transform={`rotate(-90 ${mx - 8} ${my})`}>{label}</text>
+        </>
+      ) : (
+        <>
+          <line x1={x1} y1={y1 - 5} x2={x1} y2={y1 + 5} stroke="currentColor" />
+          <line x1={x2} y1={y2 - 5} x2={x2} y2={y2 + 5} stroke="currentColor" />
+          <text x={mx} y={my - 7} fill="currentColor" fontSize="11" fontFamily="'JetBrains Mono', monospace" textAnchor="middle">{label}</text>
+        </>
+      )}
+    </g>
+  );
+}
+
+// small key plan drawn over the hero photo
+function KeyPlan() {
+  const rooms = [[0, 0, 52, 40], [52, 0, 40, 26], [52, 26, 40, 34], [0, 40, 30, 20], [30, 40, 22, 20]];
+  return (
+    <svg viewBox="-6 -6 104 76" className="h-24 w-32" aria-hidden="true">
+      {rooms.map(([x, y, w, h], i) => (
+        <rect key={i} x={x} y={y} width={w} height={h} fill="rgba(15,14,13,0.55)" stroke="#e7e2d9" strokeWidth="1.4" pathLength="1" className="draw-in" style={{ animationDelay: `${0.8 + i * 0.15}s` }} />
+      ))}
+      <circle cx="26" cy="20" r="2.2" fill="#c8794a" />
+    </svg>
+  );
+}
+
+function Hero() {
+  return (
+    <header className="relative mx-auto grid max-w-7xl grid-cols-1 items-center gap-14 px-6 pt-36 pb-24 lg:grid-cols-[1.1fr_1fr] lg:pt-44">
+      <div>
+        <p className="rise-in font-mono text-[11px] tracking-[0.25em] text-stone-500">SHEET A-000 · HOME DESIGN STUDIO</p>
+        <h1 className="rise-in mt-6 text-5xl font-semibold leading-[1.02] tracking-[-0.035em] text-stone-100 sm:text-6xl xl:text-7xl" style={{ animationDelay: '.08s' }}>
+          Design the home<br /><span className="text-stone-500">before you build it.</span>
+        </h1>
+        <p className="rise-in mt-7 max-w-md text-[17px] leading-relaxed text-stone-400" style={{ animationDelay: '.16s' }}>
+          Describe a house in a sentence. Arch-E-Tech draws the plan to scale, raises it into 3D, prices it, and photographs every room.
+        </p>
+        <div className="rise-in mt-9 flex flex-wrap items-center gap-5" style={{ animationDelay: '.24s' }}>
+          <Link to="/auth" className="group inline-flex items-center gap-2 rounded-sm bg-[#e7e2d9] px-6 py-3.5 text-sm font-semibold text-[#141312] transition-colors hover:bg-white">
+            Start designing <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          </Link>
+          <a href="#engine" className="inline-flex items-center gap-2 text-sm text-stone-400 transition-colors hover:text-stone-100">
+            See how it works <ArrowDown className="h-4 w-4" />
+          </a>
+        </div>
+        <dl className="rise-in mt-14 grid max-w-md grid-cols-3 border-t border-stone-800 pt-5" style={{ animationDelay: '.32s' }}>
+          {[['Plan', '~10 s'], ['Scale', 'Metric'], ['Views', '2D · 3D · Photo']].map(([k, v]) => (
+            <div key={k}>
+              <dt className="font-mono text-[10px] tracking-[0.2em] text-stone-600 uppercase">{k}</dt>
+              <dd className="mt-1 text-sm text-stone-300">{v}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+
+      {/* the drafting sheet */}
+      <div className="rise-in relative" style={{ animationDelay: '.2s' }}>
+        <svg className="pointer-events-none absolute -top-10 left-0 h-8 w-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 600 30" aria-hidden="true">
+          <Dim x1={0} y1={20} x2={600} y2={20} label="14.60 m" delay={0.5} />
+        </svg>
+        <svg className="pointer-events-none absolute -left-10 top-0 hidden h-full w-8 overflow-visible sm:block" preserveAspectRatio="none" viewBox="0 0 30 440" aria-hidden="true">
+          <Dim x1={20} y1={0} x2={20} y2={440} label="10.20 m" vertical delay={0.7} />
+        </svg>
+        <div className="border border-stone-700/80 bg-[#121110] p-2">
+          <div className="relative aspect-[4/3] overflow-hidden">
+            <img src={HERO_PHOTO} alt="Open-plan living room with a long sofa and a kitchen beyond" className="h-full w-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+            <div className="absolute bottom-3 left-3 border border-stone-500/50 bg-[#0f0e0d]/70 p-1.5 backdrop-blur-sm"><KeyPlan /></div>
+          </div>
+          {/* title block */}
+          <div className="mt-2 grid grid-cols-4 border border-stone-800 font-mono text-[10px] text-stone-400">
+            {[['PROJECT', 'Courtyard House'], ['ROOM', 'Living · 01'], ['SCALE', '1 : 100'], ['SHEET', 'A-301']].map(([k, v], i) => (
+              <div key={k} className={`px-2.5 py-2 ${i ? 'border-l border-stone-800' : ''}`}>
+                <div className="tracking-[0.2em] text-stone-600">{k}</div>
+                <div className="mt-0.5 truncate text-stone-300">{v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function SectionHead({ sheet, title, children }) {
+  return (
+    <div className="mb-14 grid gap-6 border-t border-stone-800 pt-6 lg:grid-cols-[260px_1fr] lg:gap-12">
+      <p className="font-mono text-[11px] tracking-[0.25em] text-stone-500">{sheet}</p>
+      <div>
+        <h2 className="max-w-2xl text-3xl font-semibold tracking-[-0.025em] text-stone-100 sm:text-4xl">{title}</h2>
+        {children && <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-stone-400">{children}</p>}
+      </div>
+    </div>
+  );
+}
+
+// a line drawing of the room on the left, the photograph on the right, with a handle between them
+function SketchToPhoto() {
+  const [pos, setPos] = useState(50);
+  const ref = useRef(null);
+  const move = (x) => {
+    const r = ref.current.getBoundingClientRect();
+    setPos(Math.max(3, Math.min(97, ((x - r.left) / r.width) * 100)));
+  };
+  return (
+    <div
+      ref={ref}
+      className="relative aspect-[16/10] w-full cursor-ew-resize touch-none select-none overflow-hidden border border-stone-800"
+      onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); move(e.clientX); }}
+      onPointerMove={(e) => { if (e.buttons) move(e.clientX); }}
+      role="slider" aria-label="Compare the line drawing with the photograph" aria-valuenow={Math.round(pos)} aria-valuemin={0} aria-valuemax={100} tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'ArrowLeft') setPos(p => Math.max(3, p - 4)); if (e.key === 'ArrowRight') setPos(p => Math.min(97, p + 4)); }}
+    >
+      <svg className="absolute h-0 w-0" aria-hidden="true">
+        <filter id="pencil">
+          <feColorMatrix type="saturate" values="0" />
+          <feConvolveMatrix order="3" kernelMatrix="-1 -1 -1 -1 8 -1 -1 -1 -1" preserveAlpha="true" />
+          <feComponentTransfer>
+            <feFuncR type="linear" slope="-3.2" intercept="1" /><feFuncG type="linear" slope="-3.2" intercept="1" /><feFuncB type="linear" slope="-3.2" intercept="1" />
+          </feComponentTransfer>
+        </filter>
+      </svg>
+      <img src={RENDER_PHOTO} alt="Furnished living room with a leather sofa, plants and gallery wall" className="absolute inset-0 h-full w-full object-cover" draggable={false} />
+      <div className="absolute inset-0 bg-[#ecebe6]" style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }}>
+        <img src={RENDER_PHOTO} alt="" className="absolute inset-0 h-full w-full object-cover opacity-90 mix-blend-multiply" style={{ filter: 'url(#pencil)' }} draggable={false} />
+      </div>
+      <div className="absolute inset-y-0 w-px bg-[#e7e2d9]" style={{ left: `${pos}%` }}>
+        <div className="absolute left-1/2 top-1/2 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-stone-400 bg-[#0f0e0d] font-mono text-[11px] text-stone-200">⇆</div>
+      </div>
+      <span className="absolute left-3 top-3 bg-[#0f0e0d]/80 px-2 py-1 font-mono text-[10px] tracking-[0.2em] text-stone-300">DRAWING</span>
+      <span className="absolute right-3 top-3 bg-[#0f0e0d]/80 px-2 py-1 font-mono text-[10px] tracking-[0.2em] text-stone-300">PHOTOGRAPH</span>
+    </div>
+  );
+}
 
 export default function LandingPage() {
-  const containerRef = useRef(null);
-  const navigate = useNavigate();
-
-  // Entrance animations
-  useGSAP(() => {
-    const mm = gsap.matchMedia();
-    mm.add("(prefers-reduced-motion: no-preference)", () => {
-      gsap.from('.hero-elem', {
-        y: 30,
-        opacity: 0,
-        duration: 1.2,
-        stagger: 0.1,
-        ease: 'power3.out',
-        delay: 0.1
-      });
-    });
-  }, { scope: containerRef });
-
-  const scrollToSection = (id) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  // Interactive FAQ Accordion State
-  const [openFaq, setOpenFaq] = useState(null);
-  const toggleFaq = (index) => {
-    setOpenFaq(openFaq === index ? null : index);
-  };
-
-  // Before/After Stager Interactive Toggle
-  const [stagedPreview, setStagedPreview] = useState(true);
+  const [openFaq, setOpenFaq] = useState(0);
 
   return (
-    <div ref={containerRef} className="min-h-screen bg-transparent text-zinc-300 font-sans selection:bg-zinc-200 selection:text-black relative">
-      
-      {/* ========================================================================= */}
-      {/* 1. TOP NAVIGATION (Refined Glassmorphism)                                 */}
-      {/* ========================================================================= */}
-      <nav className="flex items-center justify-between px-8 py-4 border-b border-white/5 backdrop-blur-2xl bg-[#0a0a0c]/70 fixed top-0 w-full z-50">
-        <div className="flex items-center gap-3 cursor-pointer group" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>
-          <div className="w-7 h-7 bg-zinc-100 rounded-md flex items-center justify-center transition-transform group-hover:scale-105">
-            <Building className="w-4 h-4 text-black" />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-white tracking-tight text-lg">Arch-E-Tech</span>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700">
-              Studio v3.2
-            </span>
-          </div>
-        </div>
+    <div className="relative min-h-screen bg-[#0f0e0d] font-sans text-stone-300 selection:bg-[#c8794a] selection:text-white">
+      {/* drafting-sheet grid, fading out towards the bottom of the hero */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[1100px] bg-[linear-gradient(rgba(231,226,217,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(231,226,217,0.035)_1px,transparent_1px)] bg-[size:56px_56px] [mask-image:linear-gradient(to_bottom,black,transparent)]" />
 
-        <div className="hidden md:flex items-center gap-8 text-sm font-medium">
-          <button onClick={() => scrollToSection('features')} className="text-zinc-400 hover:text-white transition-colors">
-            Modules
-          </button>
-          <button onClick={() => scrollToSection('technology')} className="text-zinc-400 hover:text-white transition-colors flex items-center gap-1.5">
-            Engine
-          </button>
-          <button onClick={() => scrollToSection('stager-demo')} className="text-zinc-400 hover:text-white transition-colors">
-            Virtual Stager
-          </button>
-          <button onClick={() => scrollToSection('faq')} className="text-zinc-400 hover:text-white transition-colors">
-            FAQ
-          </button>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <Link to="/auth" className="text-sm font-medium text-zinc-400 hover:text-white transition-colors hidden sm:block">
-            Log in
-          </Link>
-          <Link 
-            to="/auth" 
-            className="text-sm font-semibold text-black bg-white hover:bg-zinc-200 px-5 py-2 rounded-full transition-transform hover:scale-105 active:scale-95"
-          >
-            Launch App
-          </Link>
+      <nav className="fixed top-0 z-50 w-full border-b border-stone-800/70 bg-[#0f0e0d]/80 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+          <a href="#top" className="flex items-center gap-3" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
+            {/* monogram: a room with a door swing */}
+            <svg viewBox="0 0 28 28" className="h-7 w-7" aria-hidden="true">
+              <rect x="1.5" y="1.5" width="25" height="25" fill="none" stroke="#e7e2d9" strokeWidth="1.5" />
+              <path d="M1.5 26.5 V14 A12.5 12.5 0 0 1 14 26.5" fill="none" stroke="#c8794a" strokeWidth="1.5" />
+            </svg>
+            <span className="text-[15px] font-semibold tracking-tight text-stone-100">Arch-E-Tech</span>
+          </a>
+          <div className="hidden items-center gap-9 text-[13px] text-stone-400 md:flex">
+            <a href="#engine" className="transition-colors hover:text-stone-100">How it works</a>
+            <a href="#index" className="transition-colors hover:text-stone-100">Features</a>
+            <a href="#renders" className="transition-colors hover:text-stone-100">Photo Render</a>
+            <a href="#faq" className="transition-colors hover:text-stone-100">FAQ</a>
+          </div>
+          <div className="flex items-center gap-5">
+            <Link to="/auth" className="hidden text-[13px] text-stone-400 transition-colors hover:text-stone-100 sm:block">Log in</Link>
+            <Link to="/auth" className="rounded-sm bg-[#e7e2d9] px-4 py-2 text-[13px] font-semibold text-[#141312] transition-colors hover:bg-white">Start designing</Link>
+          </div>
         </div>
       </nav>
 
-      {/* ========================================================================= */}
-      {/* 2. WELCOMING HERO SECTION                                                 */}
-      {/* ========================================================================= */}
-      <header className="pt-48 pb-20 px-6 max-w-7xl mx-auto relative overflow-hidden">
-        
-        <div className="text-center max-w-4xl mx-auto relative z-10">
-          
-          <div className="hero-elem inline-flex items-center gap-2 px-3 py-1 rounded-full border border-zinc-800 bg-zinc-900/50 backdrop-blur-md mb-8">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span className="text-[11px] font-medium text-zinc-300 tracking-wide uppercase">
-              Autonomous Architectural Copilot
-            </span>
+      <Hero />
+
+      <main className="relative mx-auto max-w-7xl px-6">
+        <section id="engine" className="scroll-mt-28 py-20">
+          <SectionHead sheet="A-100 · HOW IT WORKS" title="One sentence in. A buildable plan out.">
+            The same brief travels the whole way: it becomes a room program, a plan drawn to scale, a 3D model and a costed set of numbers.
+          </SectionHead>
+          <EngineLoop />
+        </section>
+
+        <section id="index" className="scroll-mt-28 py-20">
+          <SectionHead sheet="DRAWING INDEX" title="Everything in one studio." />
+          <ul className="border-t border-stone-800">
+            {INDEX.map(item => (
+              <li key={item.sheet} className="group grid grid-cols-[70px_1fr] gap-4 border-b border-stone-800 py-6 transition-colors hover:bg-stone-900/30 sm:grid-cols-[110px_240px_1fr] sm:gap-8 sm:px-2">
+                <span className="font-mono text-[12px] text-stone-500 transition-colors group-hover:text-[#c8794a]">{item.sheet}</span>
+                <span className="text-[17px] font-medium text-stone-100">{item.title}</span>
+                <span className="col-span-2 text-[15px] leading-relaxed text-stone-400 sm:col-span-1">{item.text}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section id="renders" className="scroll-mt-28 py-20">
+          <SectionHead sheet="A-301 · PHOTO RENDER" title="From line drawing to photograph.">
+            Each room is photographed empty first, in one shared house style, then furnished the way you describe. Drag across to compare.
+          </SectionHead>
+          <div className="grid gap-10 lg:grid-cols-[260px_1fr] lg:gap-12">
+            <ul className="space-y-5 text-[14px]">
+              {[['01', 'Pick a house style', 'Modern, Japandi, Scandinavian, industrial and more.'],
+                ['02', 'Photograph the empty room', 'Every room matches: same floors, walls and light.'],
+                ['03', 'Describe the furniture', 'Your words decide what goes in and how it looks.'],
+                ['04', 'Keep the ones you like', 'Saved photos stay in your gallery to rename or remake.']].map(([n, t, d]) => (
+                <li key={n} className="grid grid-cols-[28px_1fr] gap-2">
+                  <span className="font-mono text-[11px] text-[#c8794a]">{n}</span>
+                  <span><span className="block text-stone-100">{t}</span><span className="text-stone-500">{d}</span></span>
+                </li>
+              ))}
+            </ul>
+            <SketchToPhoto />
           </div>
+        </section>
 
-          <h1 className="hero-elem text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-bold tracking-tighter text-white mb-6 leading-[1.05]">
-            Architecture, <br className="hidden sm:block" />
-            <span className="text-zinc-500">engineered from sketch to 8K.</span>
-          </h1>
+        <section id="faq" className="scroll-mt-28 py-20">
+          <SectionHead sheet="NOTES" title="Questions, answered." />
+          <div className="grid lg:grid-cols-[260px_1fr] lg:gap-12">
+            <div />
+            <ul className="border-t border-stone-800">
+              {FAQ.map((f, i) => {
+                const open = openFaq === i;
+                return (
+                  <li key={f.q} className="border-b border-stone-800">
+                    <button onClick={() => setOpenFaq(open ? null : i)} className="flex w-full items-center justify-between gap-6 py-5 text-left" aria-expanded={open}>
+                      <span className="text-[16px] text-stone-100">{f.q}</span>
+                      {open ? <Minus className="h-4 w-4 shrink-0 text-stone-500" /> : <Plus className="h-4 w-4 shrink-0 text-stone-500" />}
+                    </button>
+                    <div className={`grid transition-all duration-300 ${open ? 'grid-rows-[1fr] pb-5 opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+                      <p className="overflow-hidden max-w-2xl text-[15px] leading-relaxed text-stone-400">{f.a}</p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </section>
 
-          <p className="hero-elem text-lg text-zinc-400 mb-10 max-w-2xl mx-auto font-light leading-relaxed">
-            Generate structurally sound multi-room blueprints, verify IBC codes instantly, and step inside with first-person 3D walkthroughs — all within a single unified browser studio.
-          </p>
-
-          <div className="hero-elem flex flex-wrap items-center justify-center gap-4 mb-16">
-            <Link 
-              to="/auth" 
-              className="inline-flex items-center justify-center gap-2 bg-white text-black px-7 py-3.5 rounded-full font-semibold hover:bg-zinc-200 transition-all active:scale-95 text-sm"
-            >
-              Start Designing Free <ArrowRight className="w-4 h-4" />
+        <section className="py-24">
+          <div className="border border-stone-800 px-6 py-16 text-center sm:px-12">
+            <p className="font-mono text-[11px] tracking-[0.25em] text-stone-500">BEGIN</p>
+            <h2 className="mx-auto mt-5 max-w-2xl text-4xl font-semibold tracking-[-0.03em] text-stone-100 sm:text-5xl">Start with a sentence.</h2>
+            <p className="mx-auto mt-4 max-w-md text-[15px] text-stone-400">Your first plan takes about ten seconds. No drawing skills needed.</p>
+            <Link to="/auth" className="group mt-9 inline-flex items-center gap-2 rounded-sm bg-[#e7e2d9] px-6 py-3.5 text-sm font-semibold text-[#141312] transition-colors hover:bg-white">
+              Start designing <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
-            <button 
-              onClick={() => scrollToSection('technology')}
-              className="inline-flex items-center justify-center gap-2 bg-zinc-900 text-white border border-zinc-800 hover:bg-zinc-800 px-7 py-3.5 rounded-full font-medium transition-all text-sm backdrop-blur-md"
-            >
-              <Play className="w-4 h-4 text-zinc-400" /> Watch Demo
-            </button>
           </div>
-        </div>
+        </section>
+      </main>
 
-        {/* ========================================================================= */}
-        {/* 3. HERO GRAPHICAL STUDIO PREVIEW MOCKUP                                    */}
-        {/* ========================================================================= */}
-        <div className="hero-elem mt-8 max-w-5xl mx-auto rounded-2xl border border-zinc-800/80 bg-[#0a0a0c] shadow-2xl overflow-hidden relative">
-          
-          <div className="h-10 border-b border-zinc-800/80 bg-zinc-900/50 px-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full bg-zinc-700"></div>
-              <div className="w-2.5 h-2.5 rounded-full bg-zinc-700"></div>
-              <div className="w-2.5 h-2.5 rounded-full bg-zinc-700"></div>
-            </div>
-            <div className="flex items-center gap-3 text-[10px] text-zinc-500 font-mono tracking-wider">
-              <span>arch-e-tech.studio/live-engine</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 aspect-[16/9] max-h-[500px] bg-[#0a0a0c] relative">
-            
-            {/* Left: 2D Vector CAD View */}
-            <div className="relative border-r border-zinc-800/80 p-6 flex flex-col justify-between overflow-hidden">
-              <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:24px_24px]"></div>
-
-              <div className="relative z-10 flex items-center justify-between">
-                <span className="text-[10px] font-mono font-bold tracking-widest text-zinc-400 uppercase">
-                  2D Vector Draft
-                </span>
-                <span className="text-[10px] text-zinc-600 font-mono">1:50 Scale</span>
-              </div>
-
-              <div className="relative z-10 my-auto flex items-center justify-center">
-                <svg width="380" height="250" viewBox="0 0 420 280" className="w-full max-w-sm">
-                  <rect x="20" y="20" width="380" height="240" fill="none" stroke="#52525b" strokeWidth="4" rx="2" />
-                  <line x1="20" y1="140" x2="200" y2="140" stroke="#52525b" strokeWidth="4" />
-                  <line x1="200" y1="20" x2="200" y2="140" stroke="#52525b" strokeWidth="4" />
-                  <line x1="130" y1="20" x2="130" y2="80" stroke="#52525b" strokeWidth="4" />
-                  <line x1="20" y1="80" x2="130" y2="80" stroke="#52525b" strokeWidth="4" />
-                  <path d="M 200 80 A 30 30 0 0 1 170 110" fill="none" stroke="#71717a" strokeWidth="2" strokeDasharray="4 4" />
-                  <line x1="200" y1="80" x2="200" y2="110" stroke="#71717a" strokeWidth="2" />
-                  <line x1="60" y1="20" x2="110" y2="20" stroke="#a1a1aa" strokeWidth="4" />
-                  <line x1="260" y1="20" x2="340" y2="20" stroke="#a1a1aa" strokeWidth="4" />
-                  
-                  <text x="40" y="115" fill="#71717a" fontSize="10" fontFamily="monospace">Master Suite</text>
-                  <text x="35" y="55" fill="#52525b" fontSize="8" fontFamily="monospace">Ensuite</text>
-                  <text x="230" y="140" fill="#71717a" fontSize="10" fontFamily="monospace">Living Pavilion</text>
-                </svg>
-              </div>
-            </div>
-
-            {/* Right: 3D Render View */}
-            <div className="relative p-6 flex flex-col justify-between overflow-hidden bg-zinc-950">
-              <img 
-                src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1280&q=80" 
-                alt="3D Photorealistic Render" 
-                className="absolute inset-0 w-full h-full object-cover filter contrast-[1.02] grayscale-[0.1]"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0c]/90 via-transparent to-transparent"></div>
-
-              <div className="relative z-10 flex items-center justify-between">
-                <span className="text-[10px] font-mono font-bold tracking-widest text-zinc-200 bg-black/60 backdrop-blur-md border border-white/10 px-2.5 py-1 rounded">
-                  8K NEURAL RENDER
-                </span>
-              </div>
-
-              <div className="relative z-10 flex flex-col gap-2">
-                <div className="bg-black/60 backdrop-blur-md border border-white/10 rounded-lg p-2.5 flex items-center justify-between text-[11px]">
-                  <span className="text-zinc-300 font-medium">IBC Compliance:</span>
-                  <span className="text-emerald-400 font-mono">100% Pass</span>
-                </div>
-                <div className="bg-black/60 backdrop-blur-md border border-white/10 rounded-lg p-2.5 flex items-center justify-between text-[11px]">
-                  <span className="text-zinc-300 font-medium">Est. Takeoff Cost:</span>
-                  <span className="text-white font-mono">$48,500 USD</span>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </header>
-
-      {/* ========================================================================= */}
-      {/* 4. PLATFORM METRICS COUNTER BAR                                           */}
-      {/* ========================================================================= */}
-      <section className="py-12 border-y border-zinc-900 bg-[#0a0a0c]">
-        <div className="max-w-6xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-          <div>
-            <div className="text-3xl font-bold text-white mb-1 tracking-tight">50k+</div>
-            <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Sq Ft Drafted</div>
-          </div>
-          <div>
-            <div className="text-3xl font-bold text-white mb-1 tracking-tight">&lt; 3s</div>
-            <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">AI Synthesis</div>
-          </div>
-          <div>
-            <div className="text-3xl font-bold text-white mb-1 tracking-tight">100%</div>
-            <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Code Compliant</div>
-          </div>
-          <div>
-            <div className="text-3xl font-bold text-white mb-1 tracking-tight">Zero</div>
-            <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">CAD Experience Needed</div>
-          </div>
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 5. INTERACTIVE 3D ARCHITECTURAL HOLOGRAPHIC CAD SIMULATOR                 */}
-      {/* ========================================================================= */}
-      <section id="technology" className="py-24 px-6 max-w-6xl mx-auto relative scroll-mt-20">
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-4">
-            Interactive Architecture Engine
-          </h2>
-          <p className="text-zinc-400 text-sm md:text-base font-light leading-relaxed">
-            Drag to orbit the 3D topology. Switch between exploded BIM layers, LiDAR radar sweeps, and dynamic solar illumination.
-          </p>
-        </div>
-        <TechHologramEngine />
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 6. COMPUTATIONAL MODULES (Feature Grid)                                   */}
-      {/* ========================================================================= */}
-      <section id="features" className="py-24 px-6 max-w-6xl mx-auto border-t border-zinc-900">
-        
-        <div className="text-center max-w-2xl mx-auto mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-4">
-            A Unified Workflow
-          </h2>
-          <p className="text-zinc-400 text-sm md:text-base font-light leading-relaxed">
-            Draft, validate, simulate, and present your projects seamlessly within the browser.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          
-          {/* Card 1 */}
-          <div className="bg-zinc-900/30 border border-zinc-800/60 hover:border-zinc-700 rounded-2xl p-6 transition-colors group">
-            <ScanLine className="w-5 h-5 text-zinc-400 mb-4 group-hover:text-white transition-colors" />
-            <h3 className="text-base font-semibold text-white mb-2">Prompt-Driven Blueprints</h3>
-            <p className="text-zinc-500 text-sm leading-relaxed mb-4">
-              Type descriptions like "3-bedroom villa with master suite" to generate full architectural layouts instantly.
-            </p>
-          </div>
-
-          {/* Card 2 */}
-          <div className="bg-zinc-900/30 border border-zinc-800/60 hover:border-zinc-700 rounded-2xl p-6 transition-colors group">
-            <PenTool className="w-5 h-5 text-zinc-400 mb-4 group-hover:text-white transition-colors" />
-            <h3 className="text-base font-semibold text-white mb-2">Sub-Millimeter 2D CAD</h3>
-            <p className="text-zinc-500 text-sm leading-relaxed mb-4">
-              Vector draft with intelligent 45° angle snapping, automatic wall joining, and dynamic dimensions.
-            </p>
-          </div>
-
-          {/* Card 3 */}
-          <div className="bg-zinc-900/30 border border-zinc-800/60 hover:border-zinc-700 rounded-2xl p-6 transition-colors group">
-            <Box className="w-5 h-5 text-zinc-400 mb-4 group-hover:text-white transition-colors" />
-            <h3 className="text-base font-semibold text-white mb-2">First-Person Walkthrough</h3>
-            <p className="text-zinc-500 text-sm leading-relaxed mb-4">
-              Step inside your design. Walk through physical doors with authentic camera collision detection.
-            </p>
-          </div>
-
-          {/* Card 4 */}
-          <div className="bg-zinc-900/30 border border-zinc-800/60 hover:border-zinc-700 rounded-2xl p-6 transition-colors group">
-            <Sofa className="w-5 h-5 text-zinc-400 mb-4 group-hover:text-white transition-colors" />
-            <h3 className="text-base font-semibold text-white mb-2">Virtual Stager</h3>
-            <p className="text-zinc-500 text-sm leading-relaxed mb-4">
-              Furnish entire spaces with 14mm wide-angle magazine quality in modern, Japandi, or industrial styles.
-            </p>
-          </div>
-
-          {/* Card 5 */}
-          <div className="bg-zinc-900/30 border border-zinc-800/60 hover:border-zinc-700 rounded-2xl p-6 transition-colors group">
-            <Sun className="w-5 h-5 text-zinc-400 mb-4 group-hover:text-white transition-colors" />
-            <h3 className="text-base font-semibold text-white mb-2">Solar Simulation</h3>
-            <p className="text-zinc-500 text-sm leading-relaxed mb-4">
-              Simulate accurate geographic sun position and shadows to optimize room daylighting.
-            </p>
-          </div>
-
-          {/* Card 6 */}
-          <div className="bg-zinc-900/30 border border-zinc-800/60 hover:border-zinc-700 rounded-2xl p-6 transition-colors group">
-            <Calculator className="w-5 h-5 text-zinc-400 mb-4 group-hover:text-white transition-colors" />
-            <h3 className="text-base font-semibold text-white mb-2">Live Cost Takeoffs</h3>
-            <p className="text-zinc-500 text-sm leading-relaxed mb-4">
-              Real-time bill of quantities calculating wall linear meters and material totals for quick estimation.
-            </p>
-          </div>
-
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 7. VIRTUAL ROOM STAGER INTERACTIVE SHOWCASE                               */}
-      {/* ========================================================================= */}
-      <section id="stager-demo" className="py-24 px-6 max-w-6xl mx-auto border-t border-zinc-900">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          
-          <div className="space-y-6">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-              <Sofa className="w-3 h-3" /> Virtual Staging
-            </div>
-            
-            <h3 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
-              From empty space to designer interior.
-            </h3>
-            
-            <p className="text-zinc-400 text-sm leading-relaxed">
-              Upload a picture of any empty room, specify your desired furnishings, and generate a fully staged, photorealistic interior in seconds.
-            </p>
-
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                onClick={() => setStagedPreview(false)}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-                  !stagedPreview ? 'bg-white text-black' : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white'
-                }`}
-              >
-                Empty Room
-              </button>
-              <button
-                onClick={() => setStagedPreview(true)}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                  stagedPreview ? 'bg-zinc-800 border border-zinc-700 text-white' : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white'
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5 text-zinc-400" /> Staged
-              </button>
-            </div>
-          </div>
-
-          <div className="aspect-[4/3] rounded-2xl overflow-hidden border border-zinc-800 relative bg-[#0a0a0c]">
-            <img 
-              src={stagedPreview 
-                ? "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1280&q=80" 
-                : "https://images.unsplash.com/photo-1598928506311-c55ded91a20c?auto=format&fit=crop&w=1280&q=80"
-              } 
-              alt="Room Staging Preview" 
-              className="w-full h-full object-cover transition-opacity duration-300"
-            />
-          </div>
-
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 8. ARCHITECTURE FAQ                                                       */}
-      {/* ========================================================================= */}
-      <section id="faq" className="py-24 px-6 max-w-3xl mx-auto border-t border-zinc-900">
-        
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-white tracking-tight mb-3">
-            Questions & Answers
-          </h2>
-        </div>
-
-        <div className="space-y-3">
-          {[
-            {
-              q: "Do I need prior CAD experience to use Arch-E-Tech?",
-              a: "No. You can generate complete multi-room layouts from plain text descriptions. For manual edits, our editor automatically snaps walls and angles for you."
-            },
-            {
-              q: "Can I walk through my floor plan in 3D?",
-              a: "Yes. Click the '3D View' tab and toggle 'First-Person Walkthrough'. You can navigate using standard WASD keys, and physical collisions prevent walking through solid walls."
-            },
-            {
-              q: "How does the structural cost estimation work?",
-              a: "The engine calculates linear meters of walls, counts doors and windows, and applies regional contractor rates to generate a live Bill of Quantities (BoQ) which can be exported to PDF."
-            }
-          ].map((item, idx) => (
-            <div key={idx} className="bg-zinc-900/30 border border-zinc-800/60 rounded-xl overflow-hidden">
-              <button 
-                onClick={() => toggleFaq(idx)}
-                className="w-full p-5 text-left flex items-center justify-between text-zinc-200 font-medium text-sm hover:bg-zinc-900/50 transition-colors"
-              >
-                <span>{item.q}</span>
-                <ChevronDown className={`w-4 h-4 text-zinc-500 transition-transform duration-200 ${openFaq === idx ? 'rotate-180' : ''}`} />
-              </button>
-              {openFaq === idx && (
-                <div className="px-5 pb-5 text-zinc-400 text-sm leading-relaxed border-t border-zinc-800/50 pt-4 bg-zinc-900/20">
-                  {item.a}
-                </div>
-              )}
+      {/* footer as a drawing title block */}
+      <footer className="border-t border-stone-800">
+        <div className="mx-auto grid max-w-7xl grid-cols-2 font-mono text-[10px] text-stone-500 sm:grid-cols-5">
+          {[['STUDIO', 'Arch-E-Tech'], ['PROJECT', 'Your next home'], ['SCALE', '1 : 100'], ['SHEET', 'A-000'], ['YEAR', String(new Date().getFullYear())]].map(([k, v], i) => (
+            <div key={k} className={`px-6 py-5 ${i ? 'sm:border-l' : ''} ${i % 2 ? 'border-l sm:border-l' : ''} ${i > 1 ? 'border-t sm:border-t-0' : ''} border-stone-800`}>
+              <div className="tracking-[0.2em] text-stone-600">{k}</div>
+              <div className="mt-1 text-stone-300">{v}</div>
             </div>
           ))}
         </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 9. BOTTOM CTA                                                             */}
-      {/* ========================================================================= */}
-      <section className="py-32 px-6 border-t border-zinc-900 text-center">
-        <h2 className="text-3xl md:text-5xl font-bold text-white tracking-tight mb-6">
-          Ready to build?
-        </h2>
-        <p className="text-zinc-400 text-base font-light mb-8">
-          Draft your first project free. No credit card required.
-        </p>
-        <Link 
-          to="/auth" 
-          className="inline-flex items-center justify-center bg-white text-black font-semibold text-sm px-8 py-3.5 rounded-full hover:bg-zinc-200 transition-all active:scale-95"
-        >
-          Launch Studio
-        </Link>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 10. FOOTER                                                                */}
-      {/* ========================================================================= */}
-      <footer className="border-t border-zinc-900 py-8 px-6 bg-[#0a0a0c]">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-zinc-600">
-          <div className="flex items-center gap-2">
-            <Building className="w-4 h-4 text-zinc-500" />
-            <span className="font-semibold text-zinc-400">Arch-E-Tech Platform</span>
-          </div>
-          <div>© {new Date().getFullYear()} Arch-E-Tech. Engineered for precision.</div>
-        </div>
       </footer>
-
     </div>
   );
 }

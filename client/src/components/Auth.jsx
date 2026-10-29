@@ -279,50 +279,46 @@ export default function Auth() {
       )}
 
       {/* ========================================================================= */}
-      {/* LEFT PANEL: LIVING ARCHITECTURAL MATRIX & TELEMETRY                       */}
+      {/* LEFT PANEL: the model on a drawing sheet                                   */}
       {/* ========================================================================= */}
       <div className="hidden lg:flex flex-1 relative bg-zinc-950 border-r border-zinc-900 flex-col justify-between p-12 overflow-hidden select-none">
         
-        {/* Top Header */}
+        {/* top: the studio mark and the sheet it is on */}
         <div className="relative z-10 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3 group">
-            <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center font-extrabold text-black tracking-tighter text-sm shadow-md group-hover:scale-105 transition-transform">
-              AE
-            </div>
-            <span className="font-extrabold text-white text-lg tracking-tight">Arch-E-Tech</span>
+          <Link to="/" className="flex items-center gap-3">
+            <svg viewBox="0 0 28 28" className="h-8 w-8" aria-hidden="true">
+              <rect x="1.5" y="1.5" width="25" height="25" fill="none" stroke="#e7e2d9" strokeWidth="1.5" />
+              <path d="M1.5 26.5 V14 A12.5 12.5 0 0 1 14 26.5" fill="none" stroke="#c8794a" strokeWidth="1.5" />
+            </svg>
+            <span className="text-lg font-semibold tracking-tight text-stone-100">Arch-E-Tech</span>
           </Link>
-          
-          <span className="px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[11px] font-mono font-bold flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
-            NEURAL CAD MATRIX ACTIVE
-          </span>
+          <span className="font-mono text-[11px] tracking-[0.25em] text-stone-500">SHEET A-000</span>
         </div>
 
-        {/* Center: Interactive 3D Architectural Canvas */}
+        {/* centre: the model, with a north arrow and scale bar like a drawing */}
         <div className="relative flex-1 my-6 flex items-center justify-center min-h-[360px]">
           <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
-          
-          {/* Floating Telemetry Chips in 3D Space */}
-          <div className="absolute top-4 left-4 bg-zinc-950/80 backdrop-blur-md border border-zinc-800/80 rounded-xl p-3 text-xs font-mono text-zinc-300 space-y-1 shadow-2xl">
-            <div className="text-[10px] text-cyan-400 font-bold flex items-center gap-1.5 uppercase">
-              <Activity className="w-3.5 h-3.5" /> Telemetry Feed
-            </div>
-            <div className="text-[11px]">Inference: <span className="text-white font-bold">8.4 ms</span></div>
-            <div className="text-[11px]">Precision: <span className="text-emerald-400 font-bold">Sub-Millimeter CAD</span></div>
-            <div className="text-[11px]">Audit: <span className="text-white font-bold">100% IBC Compliant</span></div>
-          </div>
+          <svg className="absolute bottom-2 left-2 h-12 w-32 text-stone-600" viewBox="0 0 128 48" aria-hidden="true">
+            <path d="M14 4 L21 22 L14 17 L7 22 Z" fill="currentColor" />
+            <text x="14" y="36" textAnchor="middle" fontSize="10" fill="currentColor" fontFamily="'JetBrains Mono', monospace">N</text>
+            <g stroke="currentColor" strokeWidth="1"><line x1="42" y1="30" x2="122" y2="30" /><line x1="42" y1="25" x2="42" y2="35" /><line x1="82" y1="26" x2="82" y2="34" /><line x1="122" y1="25" x2="122" y2="35" /></g>
+            <text x="82" y="20" textAnchor="middle" fontSize="9" fill="currentColor" fontFamily="'JetBrains Mono', monospace">5 m</text>
+          </svg>
         </div>
 
-        {/* Bottom Architectural Credo */}
-        <div className="relative z-10 bg-zinc-900/60 backdrop-blur-md border border-zinc-800/80 rounded-2xl p-6">
-          <p className="text-sm text-zinc-300 leading-relaxed italic">
-            "Arch-E-Tech merges topological adjacency graph theory with vector CAD precision — turning natural language concepts into structural BIM models and 8K renders in seconds."
+        {/* bottom: what the studio is for, and a title block */}
+        <div className="relative z-10">
+          <h2 className="text-3xl font-semibold leading-tight tracking-[-0.025em] text-stone-100">Every home begins<br /><span className="text-stone-500">as a plan.</span></h2>
+          <p className="mt-3 max-w-sm text-sm leading-relaxed text-stone-400">
+            Describe it, and see it drawn to scale, raised in 3D and photographed room by room.
           </p>
-          <div className="mt-4 flex items-center justify-between text-xs text-zinc-400 border-t border-zinc-800/80 pt-3">
-            <span className="font-mono text-zinc-400">Next-Gen Autonomous Architecture</span>
-            <span className="text-emerald-400 font-bold flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Studio Tier Verified
-            </span>
+          <div className="mt-8 grid grid-cols-3 border border-stone-800 font-mono text-[10px] text-stone-500">
+            {[['PROJECT', 'Your home'], ['SCALE', '1 : 100'], ['DRAWN', 'Arch-E-Tech']].map(([k, v], i) => (
+              <div key={k} className={`px-3 py-2.5 ${i ? 'border-l border-stone-800' : ''}`}>
+                <div className="tracking-[0.2em] text-stone-600">{k}</div>
+                <div className="mt-0.5 text-stone-300">{v}</div>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -346,8 +342,6 @@ export default function Auth() {
           {/* Card Container with subtle gradient border */}
           <div className="bg-zinc-900/70 backdrop-blur-2xl border border-zinc-800/90 rounded-3xl p-8 sm:p-10 shadow-[0_0_50px_rgba(0,0,0,0.5)] relative overflow-hidden">
             
-            {/* Top Glowing Accent Line */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-cyan-400 to-indigo-500"></div>
 
             {/* Mode Switch Tabs (Sign In / Create Account) */}
             <div className="flex items-center p-1 bg-zinc-950/80 rounded-2xl border border-zinc-800/80 mb-8">
@@ -395,15 +389,15 @@ export default function Auth() {
 
             {/* 1-Click Quick Demo Sign-In Pill */}
             {isLogin && (
-              <div className="mb-6 p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-xs text-indigo-300">
-                  <Sparkles className="w-4 h-4 text-indigo-400 shrink-0" />
+              <div className="mb-6 p-3 rounded-xl border border-stone-800 bg-stone-900/40 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs text-stone-300">
+                  <Sparkles className="w-4 h-4 text-[#c8794a] shrink-0" />
                   <span className="font-medium">Testing out the studio?</span>
                 </div>
                 <button
                   type="button"
                   onClick={handleQuickDemoLogin}
-                  className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold transition-colors whitespace-nowrap shadow-sm"
+                  className="px-3 py-1.5 rounded-lg border border-stone-600 text-stone-200 hover:bg-stone-800 text-[11px] font-semibold transition-colors whitespace-nowrap"
                 >
                   Fill Demo Login
                 </button>

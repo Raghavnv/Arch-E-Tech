@@ -1,5 +1,20 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* landing: lines that draw themselves, and content that settles in */
+@keyframes draw { to { stroke-dashoffset: 0; } }
+.draw-in { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 1.6s cubic-bezier(.65,0,.35,1) forwards; }
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.rise-in { opacity: 0; animation: rise .9s cubic-bezier(.2,.7,.2,1) forwards; }
+@media (prefers-reduced-motion: reduce) {
+  .draw-in { animation: none; stroke-dashoffset: 0; }
+  .rise-in { animation: none; opacity: 1; }
+}
+
 /* High-End Architectural Typography & Scrolling */
 html {
   scroll-behavior: smooth;
