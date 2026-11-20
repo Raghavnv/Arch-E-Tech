@@ -5,11 +5,11 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Menu, MousePointer2, Box, Home, PenTool, LayoutTemplate, 
   Settings, Save, FileText, ChevronRight, Calculator, CheckCircle, 
-  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen, FileUp 
+  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen, FileUp, Compass 
 } from 'lucide-react';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
-import { AutoDetectPanel, AiLayoutPanel, ConceptVizPanel, EditPanel, RoomsPanel, BudgetPanel } from './StudioTools';
+import { AutoDetectPanel, AiLayoutPanel, ConceptVizPanel, EditPanel, RoomsPanel, BudgetPanel, VastuPanel } from './StudioTools';
 import FeatureDock from './FeatureDock';
 import ImportPlanModal from './ImportPlanModal';
 import InfoTip from './InfoTip';
@@ -57,7 +57,8 @@ export default function Studio() {
     const t = setTimeout(() => window.dispatchEvent(new Event('resize')), 220);
     return () => clearTimeout(t);
   }, [leftOpen, dockOpen]);
-  const [projectName, setProjectName] = useState('');   // what is selected on the 2D plan, for "edit this"
+  const [projectName, setProjectName] = useState('');
+  const [projectSite, setProjectSite] = useState(null);   // the plot, when the project has one   // what is selected on the 2D plan, for "edit this"
   const [smartSnap, setSmartSnap] = useState(() => localStorage.getItem('pref_smart_snap') === '1');
   const toggleSmartSnap = () => setSmartSnap(on => {
     try { localStorage.setItem('pref_smart_snap', on ? '0' : '1'); } catch { /* private mode */ }
@@ -205,6 +206,7 @@ export default function Studio() {
         const data = await res.json();
         if (!isMounted) return;
         setProjectName(data.name || '');
+        setProjectSite(data.site || null);
         // edits that never reached the server (refresh mid-autosave, network drop) are newer
         // than the server copy, so keep them and push them up instead of overwriting them
         if (localStorage.getItem(dirtyKey) === '1' && cachedElements) {
@@ -658,6 +660,8 @@ export default function Studio() {
               onClick: handleOpenRenderStudio },
             { id: 'concept', icon: ImageIcon, label: 'Concept Viz', desc: '3D cutaway or exterior image', info: 'concept', active: toolPanel === 'concept',
               onClick: () => openTool('concept') },
+            { id: 'vastu', icon: Compass, label: 'Vastu check', desc: 'The plan against Vastu guidelines', active: toolPanel === 'vastu',
+              onClick: () => setToolPanel(t => (t === 'vastu' ? null : 'vastu')) },
             { id: 'budget', icon: Wallet, label: 'Budget Advisor', desc: 'Find where to cut back', info: 'budget', accent: true, active: toolPanel === 'budget',
               onClick: () => setToolPanel(t => (t === 'budget' ? null : 'budget')) },
           ] },
@@ -667,6 +671,9 @@ export default function Studio() {
               onClick: generatePDFReport },
           ] },
         ]} />
+        {toolPanel === 'vastu' && (
+          <VastuPanel elements={canvasElements} site={projectSite} projectId={projectId} apiUrl={API_URL} onClose={() => setToolPanel(null)} />
+        )}
         {toolPanel === 'budget' && (
           <BudgetPanel elements={canvasElements} setElements={(els) => setCanvasElements(cleanElements(els))} costs={costData}
             projectId={projectId} apiUrl={API_URL} onClose={() => setToolPanel(null)} />

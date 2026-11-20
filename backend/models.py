@@ -26,6 +26,8 @@ class Project(Base):
     
     # Store the 2D elements (walls, doors, etc.) as JSON for easy serialization
     elements_data = Column(JSON, default=list)
+    # the plot, when known: size, facing, setbacks, buildable area, Vastu wish, notes from generation
+    site = Column(JSON, nullable=True)
     
     owner_id = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.datetime.utcnow)

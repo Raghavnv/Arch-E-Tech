@@ -56,6 +56,7 @@ unzip ResPlan.zip && cd ../../..
 .venv/bin/python -m archetech_ml.make_dataset --variants 3          # ResPlan drawings: data/rendered/{train,val,test}
 .venv/bin/python -m archetech_ml.generated --count 3000             # + drawings of generator plans
 .venv/bin/python -m archetech_ml.train --name v2 --init runs/resplan_r34_v1/best.pt   # fine-tune (or no --init)
+# v2 (current): ResPlan + generator drawings, 12 x 700 steps from v1 -> mean IoU 0.847 on the ResPlan test split (v1: 0.748)
 .venv/bin/python -m archetech_ml.evaluate runs/v2/best.pt           # IoU per class on the ResPlan test split
 .venv/bin/python -m archetech_ml.eval_real runs/v2/best.pt          # real drawings: counts + overlay pictures
 .venv/bin/python -m archetech_ml.check_vectorize                    # vectorize on true labels (upper bound)

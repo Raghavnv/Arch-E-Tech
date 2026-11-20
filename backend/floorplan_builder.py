@@ -104,7 +104,7 @@ def parse_prompt(prompt: str) -> dict:
     out = {"bedrooms": None, "bathrooms": None, "area_sqm": None,
            "study": False, "dining": False, "utility": False, "studio": False,
            "open_kitchen": None, "kids": None, "guest_bedroom": False, "powder": 0,
-           "extra_bath": False, "common_bath": False}
+           "extra_bath": False, "common_bath": False, "plot_m": None, "facing": None, "vastu": False}
 
     # "3 bed", "3-bed", "3 bedrooms", "3BHK", "3 BR", "3bd": all mean three bedrooms, master included
     m = re.search(r"\b" + _NUM + r"\s*[- ]?\s*(?:bhk|bed\s*rooms?\b|beds?\b|brs?\b|bds?\b)", t)
@@ -147,6 +147,20 @@ def parse_prompt(prompt: str) -> dict:
     out["extra_bath"] = bool(re.search(r"\b(?:extra|additional|another|second|separate|spare)\s+(?:common\s+)?(?:bath(?:room)?|toilet|washroom)", t))
     out["common_bath"] = bool(re.search(r"\bcommon\s+(?:bath(?:room)?|toilet|washroom)|shared\s+bath(?:room)?", t))
 
+    # plot: "30x40 plot", "40 x 60 ft site", "12 x 18 m plot" (Indian plots are quoted in feet: width x depth)
+    m = re.search(r"(\d{1,3}(?:\.\d+)?)\s*(?:ft|feet|'|m|metres?|meters?)?\s*[x×*]\s*(\d{1,3}(?:\.\d+)?)\s*"
+                  r"(ft|feet|'|m\b|metres?|meters?)?\s*(?:plot|site|land)", t)
+    if m:
+        a, b = float(m.group(1)), float(m.group(2))
+        unit = m.group(3) or ""
+        k = 1.0 if unit.startswith("m") else 0.3048
+        if 4 <= a * k <= 100 and 4 <= b * k <= 100:
+            out["plot_m"] = (round(a * k, 2), round(b * k, 2))
+    m = re.search(r"\b(north|east|south|west)[- ]?facing\b|\b(?:road|street)\s+(?:on|to|at)\s+the\s+(north|east|south|west)\b", t)
+    if m:
+        out["facing"] = (m.group(1) or m.group(2))[0].upper()
+    out["vastu"] = bool(re.search(r"\bvaa?stu\b", t))
+
     out["study"] = bool(re.search(r"\b(study|office|library)\b", t))
     out["dining"] = bool(re.search(r"\bdining\b", t))
     out["utility"] = bool(re.search(r"\b(utility|laundry)\b", t))
@@ -158,10 +172,11 @@ def _clamp(v, lo, hi):
     return max(lo, min(hi, v))
 
 
-def build_program(llm_rooms, llm_total_sqm, prompt: str) -> list[Room]:
+def build_program(llm_rooms, llm_total_sqm, prompt: str, max_sqm: float | None = None) -> list[Room]:
     """
     Merge what the AI proposed with what the prompt literally says.
     llm_rooms: list of dicts {"kind": str, "area_sqm": float} (may be empty/None)
+    max_sqm: the most room area that fits (e.g. on the plot); the program is shrunk to it when larger.
     """
     p = parse_prompt(prompt)
     llm_rooms = [r for r in (llm_rooms or []) if r.get("kind") in KIND_SPEC]
@@ -224,6 +239,10 @@ def build_program(llm_rooms, llm_total_sqm, prompt: str) -> list[Room]:
         wanted.append(("bathroom", 3.6))    # a powder room: a small WC and basin near the living area
 
     target = p["area_sqm"] or (llm_total_sqm if llm_total_sqm and llm_total_sqm > 0 else None)
+    if max_sqm:
+        # the plot only caps the size: a small plot shrinks the rooms, a big one doesn't inflate them
+        natural = sum(a for _, a in wanted)
+        target = min(target, max_sqm) if target else (max_sqm if natural > max_sqm else None)
     if target:
         target = _clamp(target, 25, 600)
         # bathrooms stay bathroom-sized in a big house; the other rooms take up the area
@@ -583,6 +602,8 @@ class Layout:
         self.line_ops: dict = {}
         self.bbox = (0, 0, 0, 0)
         self.entrance_room_id = None
+        self.entrance_side = "S"        # the side the front door prefers (the road side, when known)
+        self.entrance_side_used = None
 
     # -- step 1: geometry ----------------------------------------------
     def _private_order(self, priv):
@@ -892,8 +913,9 @@ class Layout:
                 living = dining
         if not pieces:
             raise LayoutError("no exterior wall for entrance")
-        pieces.sort(key=lambda p: (p[0] != "S", -(p[4] - p[3])))
+        pieces.sort(key=lambda p: (p[0] != self.entrance_side, -(p[4] - p[3])))
         side, orient, line, lo, hi = pieces[0]
+        self.entrance_side_used = side
         length = hi - lo
         c = lo + (0.3 * length if length >= 100 else 0.5 * length)
         self._add_opening("door", orient, line, c, ENTRY_W, [living])

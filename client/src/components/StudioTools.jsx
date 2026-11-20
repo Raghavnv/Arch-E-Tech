@@ -598,3 +598,90 @@ export function BudgetPanel({ elements, setElements, costs, projectId, apiUrl, o
     </Panel>
   );
 }
+
+// ------------------------------------------------------------------------------------------------
+// Vastu check: the ground floor against the usual Vastu guidelines, for any plan
+// ------------------------------------------------------------------------------------------------
+const NORTH = [['up', 'Top of the plan'], ['right', 'Right'], ['down', 'Bottom'], ['left', 'Left']];
+const STATUS = {
+  pass: ['bg-emerald-500/15 text-emerald-300', 'OK'],
+  warn: ['bg-amber-500/15 text-amber-200', 'Fair'],
+  fail: ['bg-rose-500/15 text-rose-200', 'Fix'],
+};
+
+export function VastuPanel({ elements, site, projectId, apiUrl, onClose }) {
+  const key = `vastu_north_${projectId || 'draft'}`;
+  const [north, setNorth] = useState(() => { try { return localStorage.getItem(key) || site?.north || 'up'; } catch { return 'up'; } });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [report, setReport] = useState(null);
+
+  const check = async (dir = north) => {
+    setBusy(true); setError(null);
+    try {
+      const res = await fetch(`${apiUrl}/api/ai/vastu-check`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ elements, north: dir }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || `The server answered ${res.status}.`);
+      setReport(data);
+    } catch (e) {
+      setError(e.message);
+      setReport(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // check when the panel opens; the owner re-checks after editing
+  useEffect(() => { check(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pickNorth = (dir) => {
+    setNorth(dir);
+    try { localStorage.setItem(key, dir); } catch { /* private mode */ }
+    check(dir);
+  };
+
+  return (
+    <Panel icon={Home} title="Vastu check" onClose={onClose}>
+      <label className="block text-xs text-zinc-400">North is towards the
+        <select value={north} onChange={(e) => pickNorth(e.target.value)}
+          className="mt-1 w-full rounded bg-zinc-900 px-2 py-1.5 text-xs text-zinc-100 focus:outline-none">
+          {NORTH.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+        </select>
+      </label>
+      {site?.plot_m && (
+        <p className="mt-2 text-[11px] text-zinc-500">
+          Plot {site.plot_m[0]} × {site.plot_m[1]} m, road on the {{ N: 'north', E: 'east', S: 'south', W: 'west' }[site.facing] || site.facing}.
+        </p>
+      )}
+      {(site?.notes || []).map((n, i) => <p key={i} className="mt-2 rounded-lg bg-zinc-900 px-3 py-2 text-[11px] text-zinc-300">{n}</p>)}
+      {busy && <p className="mt-4 flex items-center gap-2 text-xs text-zinc-400"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking…</p>}
+      {error && <ErrorLine>{error}</ErrorLine>}
+      {report && !busy && (
+        <>
+          <div className="mt-4 flex items-end gap-2">
+            <span className="text-3xl font-semibold text-white">{report.score}</span>
+            <span className="pb-1 text-xs text-zinc-500">/ 100 on the ground floor</span>
+          </div>
+          <ul className="mt-3 space-y-2">
+            {report.checks.map((c, i) => (
+              <li key={i} className="rounded-lg border border-zinc-800 bg-zinc-900 p-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium text-zinc-100">{c.rule}</span>
+                  <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${STATUS[c.status][0]}`}>{STATUS[c.status][1]}</span>
+                </div>
+                <p className="mt-1 text-[11px] leading-snug text-zinc-400">{c.detail}</p>
+              </li>
+            ))}
+          </ul>
+          <button onClick={() => check()} className="mt-3 w-full rounded-lg border border-zinc-700 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800">
+            Check again
+          </button>
+          <p className="mt-2 text-[10px] leading-snug text-zinc-600">Rooms are placed in the 3 × 3 grid of directions by their centre. Guidance only.</p>
+        </>
+      )}
+    </Panel>
+  );
+}

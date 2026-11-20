@@ -1,6 +1,6 @@
 """Plan reader service: POST a floor plan image or PDF, get Arch-E-Tech plan elements back.
 
-    PLAN_READER_MODEL=runs/resplan_r34_v1/best.pt PLAN_READER_TOKEN=... \\
+    PLAN_READER_MODEL=runs/v2/best.pt PLAN_READER_TOKEN=... \\
         .venv/bin/uvicorn serve:app --port 8100
 
 Endpoints
@@ -23,7 +23,7 @@ from fastapi.concurrency import run_in_threadpool
 
 from archetech_ml.reader import PlanReader
 
-MODEL = os.getenv("PLAN_READER_MODEL", str(Path(__file__).parent / "runs" / "resplan_r34_v1" / "best.pt"))
+MODEL = os.getenv("PLAN_READER_MODEL", str(Path(__file__).parent / "runs" / "v2" / "best.pt"))
 TOKEN = os.getenv("PLAN_READER_TOKEN", "")
 MAX_BYTES = int(os.getenv("PLAN_READER_MAX_MB", "15")) * 1024 * 1024
 TYPES = {"image/png", "image/jpeg", "image/webp", "application/pdf"}

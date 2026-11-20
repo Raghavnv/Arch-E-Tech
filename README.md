@@ -46,6 +46,18 @@ Write the house you want in plain English. The prompt is read for:
 
 The planner picks similar reference houses, asks the LLM to design a new layout, then cleans and validates it. Bedrooms are spread around the house rather than lined up. If the LLM's answer is unusable, a reference plan is adapted instead, so a plan is always produced.
 
+### Plot, facing and Vastu
+- New Project takes an optional plot (frontage × depth, in ft or m), which side the road is on, and a Vastu toggle.
+  The prompt works too: "3 bhk on a 30x40 plot, east facing, vastu".
+- The house is fitted inside the plot after typical Indian setbacks (smaller plots: front ≥ 1 m, rear 0.75 m,
+  0.5 m a side; larger: front ≥ 1.5 m, rear 1.5 m, 1 m a side), with the front door on the road side. Tight plots get
+  compact layouts (living at the front, kitchen and dining in the middle, bedrooms behind, along a passage when needed).
+- If the rooms don't fit on one floor, the house goes up to two or three floors and says so. If nothing fits, the plan
+  ignores the plot and says why.
+- With Vastu on, layouts that follow it are preferred (kitchen south-east, master bedroom south-west, no toilet in the
+  north-east, open centre, north / east entrance, ...). **Studio → Vastu check** scores any plan and explains each rule;
+  set which way north points on the drawing.
+
 ### Multi-floor houses
 - Rooms are split across floors, with stairs placed to line up on both levels.
 - Balconies and patios get railings automatically.
@@ -147,7 +159,8 @@ Arch-E-Tech/
 │   ├── plan_editor.py           AI Edit: sentence → validated update/delete/add operations
 │   ├── budget_advisor.py        Budget Advisor (Groq + rule fallback)
 │   ├── render_ai.py             Cloudflare Workers AI prompts and image calls
-│   ├── layout_generator.py      Procedural layouts: a different house for almost every brief
+│   ├── layout_generator.py      Procedural layouts: a different house for almost every brief; fits plots
+│   ├── vastu.py                 Vastu checks and score for any plan
 │   ├── plan_import.py           Plan import routes (forwards drawings to the plan reader service)
 │   ├── export_plan_imports.py   Exports shared (consented) imports for retraining the reader
 │   └── requirements.txt
@@ -288,8 +301,9 @@ All project, photo and AI endpoints except health take `Authorization: Bearer <t
 | POST | `/api/projects` | Create a project |
 | GET / PUT / DELETE | `/api/projects/{id}` | Read, save or delete a project |
 | POST | `/api/projects/{id}/duplicate` | Copy a project |
-| POST | `/api/ai/generate-plan` | Prompt → plan elements (single or multi-floor) |
+| POST | `/api/ai/generate-plan` | Prompt (+ optional `plot_width_m`, `plot_depth_m`, `facing`, `vastu`) → plan elements, plus `site`, `vastu` and `notes` when a plot is given |
 | POST | `/api/ai/edit-plan` | Instruction + elements → edited elements |
+| POST | `/api/ai/vastu-check` | Elements + which way north points → Vastu score and checklist |
 | POST | `/api/ai/budget-advice` | Budget + takeoff + rooms → ranked cuts |
 | POST | `/api/ai/report-narrative` | Written summary for the PDF report |
 | POST | `/api/ai/compliance` | Basic code-compliance notes on a plan |

@@ -54,12 +54,19 @@ class UserLogin(BaseModel):
 class ProjectCreate(BaseModel):
     name: str
     elements_data: list = []
+    site: dict | None = None
 
 class ProjectUpdate(BaseModel):
     elements_data: list
 
 class AIPrompt(BaseModel):
     prompt: str
+    # the plot, when known: frontage (along the road) x depth in metres, the side the road is on,
+    # and whether to follow Vastu. Any of these can also come from the prompt ("30x40 plot, east facing, vastu").
+    plot_width_m: float | None = None
+    plot_depth_m: float | None = None
+    facing: Literal["N", "E", "S", "W"] | None = None
+    vastu: bool | None = None
 
 class AIChatRequest(BaseModel):
     message: str
@@ -172,6 +179,7 @@ def create_project(project: ProjectCreate, db: Session = Depends(get_db), curren
     new_project = models.Project(
         name=project.name,
         elements_data=project.elements_data,
+        site=project.site,
         owner_id=current_user.id
     )
     db.add(new_project)
@@ -623,16 +631,20 @@ def edit_plan(req: PlanEditRequest):
         raise HTTPException(status_code=502, detail="The AI service didn't answer. Try again in a moment.")
 
 
-def _design_layout(prompt, program, style, rng, wishes, use_llm=True, budget_s=2.0, gen_program=None):
+def _design_layout(prompt, program, style, rng, wishes, use_llm=True, budget_s=2.0, gen_program=None, site=None):
     """One floor. The procedural generator comes first: it gives a different house almost every time.
     If it finds nothing sound, the LLM designs one from reference houses; then a reshaped reference;
-    then the zoned generator."""
+    then the zoned generator. With a site, only the generator can respect the plot, so (None, "")
+    means nothing fitted."""
     import layout_generator
     import plan_designer as pd
     from floorplan_builder import generate_layout
-    layout = layout_generator.generate(gen_program or program, rng, wishes.get("open_kitchen"), budget_s=budget_s)
+    layout = layout_generator.generate(gen_program or program, rng, wishes.get("open_kitchen"), budget_s=budget_s,
+                                       site=site)
     if layout:
         return layout, "+generated"
+    if site is not None:
+        return None, ""
     layout = _ask_layout(prompt, program, style, rng, wishes) if use_llm else None
     if layout:
         return layout, "+designed"
@@ -646,19 +658,21 @@ def _design_layout(prompt, program, style, rng, wishes, use_llm=True, budget_s=2
         raise HTTPException(status_code=500, detail=f"Layout generation failed: {e}")
 
 
-def _multi_floor_plan(prompt, program, floors, wishes, style, rng, source):
+def _multi_floor_plan(prompt, program, floors, wishes, style, rng, source, site=None):
     """Share the rooms out over the floors, draw each floor, then stack them and add the stairs."""
     beds = sum(1 for r in program if r.kind in ("master_bedroom", "bedroom"))
     baths = sum(1 for r in program if r.kind == "bathroom" and r.name != "Powder Room")
     powders = sum(1 for r in program if r.name == "Powder Room")
     split = multi_floor.split_bedrooms(beds, floors, rng)
     programs, master_floor = multi_floor.floor_programs(program, split, baths, powders)
+    if site is not None:
+        programs = [_fit_floor(prog, site) for prog in programs]
     balcony = multi_floor.wants_balcony(prompt)
     # draw the floors a few times and keep the version where the stairs fit and the upper floors
     # sit best over the ground floor (little or nothing overhanging)
     best = None
     gen_failed = set()      # floors the procedural generator could not draw: don't keep paying for it
-    for _attempt in range(12):
+    for _attempt in range(4 if site is not None else 12):    # with a plot the floors already share limits
         layouts = []
         for f, prog in enumerate(programs):
             label = "Ground floor" if f == 0 else f"Floor {f + 1}"
@@ -671,7 +685,10 @@ def _multi_floor_plan(prompt, program, floors, wishes, style, rng, source):
             # upstairs without a balcony needs no stand-in kitchen (it used to become a study nobody asked for)
             gen_prog = [r for r in prog if r.kind != "kitchen"] if f > 0 and not balcony else None
             layout, how = _design_layout(floor_prompt, prog, style, rng, floor_wishes, use_llm=_attempt == 0,
-                                         budget_s=0 if f in gen_failed else 0.5, gen_program=gen_prog)
+                                         budget_s=0 if f in gen_failed and site is None else (1.0 if site else 0.5),
+                                         gen_program=gen_prog, site=site)
+            if layout is None:
+                return None                     # this floor doesn't fit the plot
             if how != "+generated":
                 gen_failed.add(f)
             layouts.append(layout)
@@ -706,6 +723,22 @@ def budget_advice(req: BudgetRequest):
                                  req.floors, req.area_sqft, os.getenv("GROQ_API_KEY"))
 
 
+class VastuCheck(BaseModel):
+    elements: list
+    north: Literal["up", "right", "down", "left"] = "up"
+
+
+@app.post("/api/ai/vastu-check")
+def vastu_check(req: VastuCheck):
+    """Vastu checklist for the ground floor of any plan; north says which way north points on the drawing."""
+    import vastu
+    rooms, entrance = vastu.rooms_from_elements(req.elements)
+    if not rooms:
+        raise HTTPException(status_code=400, detail="The plan has no rooms to check. Label rooms first (Rooms panel).")
+    report = vastu.evaluate(rooms, entrance, north=req.north)
+    return {"score": report["score"], "checks": report["checks"]}
+
+
 @app.post("/api/ai/generate-plan")
 async def generate_floor_plan(payload: AIPrompt):
     import random
@@ -727,31 +760,120 @@ async def generate_floor_plan(payload: AIPrompt):
         source = "fallback"
     rng = random.Random()
 
-    try:
-        program = build_program(llm_rooms, llm_total, payload.prompt)
-    except Exception as e:
-        print(f"Program from AI failed ({e}); using prompt-only program")
-        source = "fallback"
-        program = build_program([], 0, payload.prompt)
+    def program_for(max_sqm=None):
+        nonlocal source
+        try:
+            return build_program(llm_rooms, llm_total, payload.prompt, max_sqm=max_sqm)
+        except Exception as e:
+            print(f"Program from AI failed ({e}); using prompt-only program")
+            source = "fallback"
+            return build_program([], 0, payload.prompt, max_sqm=max_sqm)
 
     floors = multi_floor.parse_floors(payload.prompt)
+    site, site_info = _site_for(payload, asked)
+    notes = []
+    if site is not None:
+        # fit the plot: shrink the rooms step by step, and on one floor too small, go up a floor
+        for n_floors in ([floors] if floors > 2 else range(floors, 4)):
+            for frac in (0.85, 0.75, 0.65):
+                program = program_for(site.width_m * site.depth_m * frac * n_floors)
+                beds = sum(1 for r in program if r.kind in ("master_bedroom", "bedroom"))
+                if n_floors > 1 and beds >= n_floors:
+                    res = _multi_floor_plan(payload.prompt, program, n_floors, wishes, style, rng, source, site=site)
+                    if res:
+                        if n_floors > floors:
+                            notes.append(f"The rooms didn't fit on {'one floor' if floors == 1 else f'{floors} floors'} "
+                                         f"of this plot, so the house has {n_floors} floors.")
+                        res["source"] += "+site"
+                        return _with_site(res, site, site_info, notes)
+                elif n_floors == 1:
+                    layout, how = _design_layout(payload.prompt, program, style, rng, wishes, site=site, budget_s=1.5)
+                    if layout:
+                        _name_powder_rooms(layout, wishes)
+                        return _with_site({"status": "success", "elements": layout.elements(),
+                                           "source": source + how + "+site"}, site, site_info, notes)
+        notes.append("Nothing sensible fitted inside the plot with these rooms, so this plan ignores the plot. "
+                     "Try fewer rooms, more floors or a bigger plot.")
+
+    program = program_for()
     beds = sum(1 for r in program if r.kind in ("master_bedroom", "bedroom"))
     if floors > 1 and beds >= floors:
-        return _multi_floor_plan(payload.prompt, program, floors, wishes, style, rng, source)
+        res = _multi_floor_plan(payload.prompt, program, floors, wishes, style, rng, source)
+        return _with_site(res, None, site_info, notes) if site_info else res
 
     layout, how = _design_layout(payload.prompt, program, style, rng, wishes)
     source += how
-    # the smallest common bathrooms become the powder room(s) the owner asked for
-    if wishes["powder"]:
-        common = sorted((r for r in layout.rooms if r.kind == "bathroom" and not r.ensuite),
-                        key=lambda r: (r.x1 - r.x0) * (r.y1 - r.y0))
-        for r in common[:wishes["powder"]]:
-            r.name = "Powder Room"
-        left = [r for r in common[wishes["powder"]:]]
-        for i, r in enumerate(left, 1):
-            r.name = "Bathroom" if len(left) == 1 else f"Bathroom {i}"
+    _name_powder_rooms(layout, wishes)
+    res = {"status": "success", "elements": layout.elements(), "source": source}
+    return _with_site(res, None, site_info, notes) if (site_info or asked["vastu"] or payload.vastu) else res
 
-    return {"status": "success", "elements": layout.elements(), "source": source}
+
+def _fit_floor(program, site, share=0.8):
+    """Shrink one floor's rooms (never below their minimum size) so they fit the buildable area."""
+    import dataclasses
+    from floorplan_builder import KIND_SPEC
+    cap = site.width_m * site.depth_m * share
+    total = sum(r.area for r in program)
+    if total <= cap:
+        return program
+    k = cap / total
+    return [dataclasses.replace(r, area=max(KIND_SPEC[r.kind][1], r.area * k)) for r in program]
+
+
+def _name_powder_rooms(layout, wishes):
+    """The smallest common bathrooms become the powder room(s) the owner asked for."""
+    if not wishes["powder"]:
+        return
+    common = sorted((r for r in layout.rooms if r.kind == "bathroom" and not r.ensuite),
+                    key=lambda r: (r.x1 - r.x0) * (r.y1 - r.y0))
+    for r in common[:wishes["powder"]]:
+        r.name = "Powder Room"
+    left = [r for r in common[wishes["powder"]:]]
+    for i, r in enumerate(left, 1):
+        r.name = "Bathroom" if len(left) == 1 else f"Bathroom {i}"
+
+
+def _site_for(payload, asked):
+    """(layout_generator.Site, a summary for the owner) from the request and the prompt, or (None, None).
+
+    Setbacks are typical Indian residential ones: front max(1 m, 10% of the depth), rear 0.75 m and
+    0.5 m a side on plots under 15 m wide; front max(1.5 m, 10%), rear 1.5 m, 1 m a side on bigger ones."""
+    import layout_generator
+    plot = (payload.plot_width_m, payload.plot_depth_m) if payload.plot_width_m and payload.plot_depth_m \
+        else asked.get("plot_m")
+    vastu_on = payload.vastu if payload.vastu is not None else asked.get("vastu", False)
+    if not plot:
+        return None, ({"vastu": True} if vastu_on else None)
+    w, d = float(plot[0]), float(plot[1])
+    if not (4 <= w <= 200 and 4 <= d <= 200):
+        return None, None
+    road = payload.facing or asked.get("facing") or "S"
+    small = w < 15
+    front, rear, side = max(1.0 if small else 1.5, 0.1 * d), (0.75 if small else 1.5), (0.5 if small else 1.0)
+    along, deep = w - 2 * side, d - front - rear            # parallel to the road, away from it
+    if along < 3 or deep < 3:
+        return None, None
+    # plan coordinates have north up: a north / south road runs east-west along the frontage
+    ew, ns = (along, deep) if road in ("N", "S") else (deep, along)
+    site = layout_generator.Site(width_m=ew, depth_m=ns, road=road, vastu=bool(vastu_on))
+    info = {"plot_m": [round(w, 2), round(d, 2)], "facing": road, "vastu": bool(vastu_on),
+            "setbacks_m": {"front": round(front, 2), "rear": rear, "sides": side},
+            "buildable_m": [round(ew, 2), round(ns, 2)], "north": "up"}
+    return site, info
+
+
+def _with_site(res, site, site_info, notes):
+    """Add the plot summary, Vastu report and notes to a generate-plan response."""
+    import vastu
+    if site_info:
+        res["site"] = site_info
+    if site_info and site_info.get("vastu") or site is not None:
+        rooms, entrance = vastu.rooms_from_elements(res["elements"])
+        report = vastu.evaluate(rooms, entrance)
+        res["vastu"] = {"score": report["score"], "checks": report["checks"]}
+    if notes:
+        res["notes"] = notes
+    return res
 
 
 @app.get("/")

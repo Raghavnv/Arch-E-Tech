@@ -28,6 +28,7 @@ import random
 import time
 
 import floorplan_builder as fb
+import vastu
 from plan_designer import bedroom_spread_fail
 
 OPEN_KINDS = ("living", "dining", "lounge")
@@ -504,9 +505,247 @@ def _score(boxes, target_m2, filled, perim, bbox_area):
     return score
 
 
+@dataclasses.dataclass
+class Site:
+    """Where the house has to go. Plan coordinates have north at the top.
+
+    width_m / depth_m: the buildable area (the plot minus its setbacks), east-west by north-south.
+    road: the compass side ("N", "E", "S", "W") the plot faces; the front door goes on it.
+    vastu: prefer layouts that follow Vastu."""
+    width_m: float
+    depth_m: float
+    road: str = "S"
+    vastu: bool = False
+
+
+def _variants(boxes):
+    """The candidate turned to each of its 8 orientations (4 rotations, each optionally mirrored)."""
+    out, cur = [], boxes
+    for _ in range(4):
+        out.append(cur)
+        out.append([[r, -(x + w), y, w, h] for r, x, y, w, h in cur])
+        cur = [[r, -(y + h), x, h, w] for r, x, y, w, h in cur]
+    return out
+
+
+def _bbox(boxes):
+    return (min(b[1] for b in boxes), min(b[2] for b in boxes),
+            max(b[1] + b[3] for b in boxes), max(b[2] + b[4] for b in boxes))
+
+
+def _site_fit(boxes, site: Site):
+    """The best orientation of a candidate for the site, as (boxes, cost), or None if none fits.
+    cost: 3 if the living room has no wall on the road side, plus the Vastu penalty when asked."""
+    W, D = site.width_m / 0.5, site.depth_m / 0.5
+    best = None
+    for v in _variants(boxes):
+        x0, y0, x1, y1 = _bbox(v)
+        if x1 - x0 > W or y1 - y0 > D:
+            continue
+        living = next(b for b in v if b[0].kind == "living")
+        _, lx, ly, lw, lh = living
+        on_road = {"N": ly == y0, "S": ly + lh == y1, "W": lx == x0, "E": lx + lw == x1}[site.road]
+        cost = 0.0 if on_road else 3.0
+        if site.vastu:
+            rooms = [{"kind": b[0].kind, "name": b[0].name, "x0": b[1], "y0": b[2], "x1": b[1] + b[3], "y1": b[2] + b[4]}
+                     for b in v if b[0].kind != "hallway"]
+            cost += vastu.evaluate(rooms, entrance_side=site.road if on_road else None)["penalty"]
+        if best is None or cost < best[1]:
+            best = (v, cost)
+    return best
+
+
+# --------------------------------------------------------------------------
+# Compact plans for tight plots: the buildable rectangle cut into bands from the road back
+#   front   living room (and on bigger plots a front bedroom or study)
+#   middle  dining, kitchen, utility, a common bathroom
+#   back    bedrooms and their bathrooms, along a hallway when they don't all reach the dining room
+# --------------------------------------------------------------------------
+def _columns(rooms, width, depth, rng):
+    """Widths (cells) for rooms side by side in a band, summing exactly to width; None if they can't."""
+    if not rooms:
+        return []
+    ws = [max(_min_w(r, depth), round(_cells(r, 1.0) / depth)) for r in rooms]
+    flex = [i for i, r in enumerate(rooms) if r.kind not in ("bathroom", "utility")] or list(range(len(rooms)))
+    while sum(ws) < width:
+        ws[rng.choice(flex)] += 1
+    while sum(ws) > width:
+        shrink = [i for i in flex if ws[i] > _min_w(rooms[i], depth)]
+        if not shrink:
+            return None
+        ws[max(shrink, key=lambda i: ws[i])] -= 1
+    return ws
+
+
+def _min_w(r, depth=7):
+    """Narrowest a room can be in a band `depth` cells deep: its shortest side, room for a door, and
+    for bedrooms enough width to reach their minimum floor area."""
+    w = max(MIN_SIDE[r.kind], DOOR_SIDE if r.kind != "bathroom" else 4)
+    if r.kind in ("bedroom", "master_bedroom"):
+        w = max(w, math.ceil(fb.KIND_SPEC[r.kind][1] / 0.25 / depth))
+    return w
+
+
+ROW_D = 8          # cells: rows of bedrooms along a passage are 4 m deep
+
+
+def _compact_candidate(program, rng, W, D):
+    """A compact house for a tight plot, built in bands from the road (y = 0) back; None if it won't fit.
+
+        front    living room (+ a bedroom, study or common bathroom beside it when there's width)
+        middle   dining, kitchen, utility (+ bathrooms)
+        back     bedrooms side by side when they fit across the plot, opening off the dining room;
+                 otherwise one bedroom per row along a side passage that starts at the dining room,
+                 each with its bathroom on the far side
+    Small homes without a dining room put the kitchen in the front band."""
+    by = lambda k: [r for r in program if r.kind == k]  # noqa: E731
+    living, dining, kitchen, utility = by("living"), by("dining"), by("kitchen"), by("utility")
+    master = by("master_bedroom")
+    ensuite = [r for r in program if r.kind == "bathroom" and r.ensuite]
+    beds, study = by("bedroom"), by("study")
+    baths = [r for r in program if r.kind == "bathroom" and not r.ensuite]
+    rng.shuffle(beds)
+    rng.shuffle(baths)
+    width = W if rng.random() < 0.7 else W - 1
+    wsum = lambda rooms, depth=7: sum(_min_w(r, depth) for r in rooms)  # noqa: E731
+    front = list(living) + ([] if dining else kitchen + utility)
+    middle = (dining + kitchen + utility) if dining else []
+    units = ([master + ensuite] if master else []) + [[b] for b in beds] + [[st] for st in study]
+    rng.shuffle(units)
+    # a bedroom or study beside the living room, sometimes
+    if len(units) >= 2 and rng.random() < 0.5 and units[-1][0].kind != "master_bedroom" \
+            and wsum(front + units[-1]) <= width:
+        front += units.pop()
+    # common bathrooms near the day rooms when they fit there, else attached to a bedroom
+    loose = []
+    for b in baths:
+        spots = [band for band in ((middle, front) if middle else (front,)) if wsum(band + [b]) <= width]
+        if spots and rng.random() < 0.7:
+            rng.choice(spots).append(b)
+        else:
+            loose.append(b)
+    for b in loose:
+        target = next((u for u in units if len(u) == 1 and u[0].kind == "bedroom"), None)
+        if target is not None:
+            target.append(b)
+            continue
+        spots = [band for band in ((middle, front) if middle else (front,)) if wsum(band + [b]) <= width]
+        if not spots:
+            return None
+        spots[0].append(b)
+
+    hw = rng.choice((3, 3, 4))
+    passage = None                                      # None, or the passage's x (cells)
+    if wsum([r for u in units for r in u]) <= width:
+        rows = [[r for u in units for r in u]] if units else []
+    else:
+        if not middle:
+            return None
+        # bedrooms along a passage from the dining room, in rows 4 m deep: on both sides when they fit
+        # (the widest opposite the narrowest), else on one side
+        units.sort(key=lambda u: -wsum(u, ROW_D))
+        half = (len(units) + 1) // 2
+        left, right = units[:half], units[half:][::-1]
+        lw = max(wsum(u, ROW_D) for u in left)
+        rw = max((wsum(u, ROW_D) for u in right), default=0)
+        if right and lw + hw + rw <= width and rng.random() < 0.85:
+            lw += (width - hw - lw - rw) // 2
+            passage = lw
+            rows = [(lu, ru) for lu, ru in zip(left, right + [None] * (len(left) - len(right)))]
+            rng.shuffle(rows)
+        elif all(wsum(u, ROW_D) <= width - hw for u in units):
+            passage = 0 if rng.random() < 0.5 else width - hw
+            rows = [((u, None) if passage else (None, u)) for u in units]
+        else:
+            return None
+    bands = [b for b in (front, middle) if b] + rows
+    n_day = len(bands) - len(rows)
+    if any(wsum(b) > width for b in bands[:n_day]):
+        return None
+    flat = lambda b: [r for u in b if u for r in u] if passage is not None and isinstance(b, tuple) else b  # noqa: E731
+
+    # each band gets its minimum depth; what's left (of the plot, or of the program) is shared out
+    # in proportion to the rooms' area, so the bands add up instead of each rounding up
+    mins = [max([MIN_SIDE[r.kind] for r in flat(b)] + ([ROW_D] if passage is not None and bi >= n_day else []))
+            for bi, b in enumerate(bands)]
+    want = [sum(_cells(r, 1.0) for r in flat(b)) / (width - (hw if passage is not None and bi >= n_day else 0))
+            for bi, b in enumerate(bands)]
+    depth_total = min(D, max(sum(mins), round(sum(want) * rng.uniform(0.95, 1.08))))
+    if sum(mins) > depth_total:
+        return None
+    depths = list(mins)
+    for _ in range(depth_total - sum(mins)):
+        i = max(range(len(bands)), key=lambda j: want[j] - depths[j])
+        depths[i] += 1
+
+    def place(order, x0, w, y, d, reverse_baths=False):
+        """Rooms side by side in [x0, x0 + w); bathrooms kept beside their bedroom."""
+        ws = _columns(order, w, d, rng)
+        if ws is None:
+            return None
+        out, x = [], x0
+        for r, cw in zip(order, ws):
+            out.append([r, x, y, cw, d])
+            x += cw
+        return out
+
+    boxes, y = [], 0
+    for bi, band in enumerate(bands):
+        d = depths[bi]
+        if bi >= n_day and passage is not None:        # a row on the passage: units left and right of it
+            lu, ru = band
+            if lu:                                      # bedroom next to the passage, its bathroom outside
+                order = sorted(lu, key=lambda r: r.kind != "bathroom")
+                got = place(order, 0, passage, y, d)
+                if got is None:
+                    return None
+                boxes += got
+            if ru:
+                order = sorted(ru, key=lambda r: r.kind == "bathroom")
+                got = place(order, passage + hw, width - passage - hw, y, d)
+                if got is None:
+                    return None
+                boxes += got
+            y += d
+            continue
+        if bi >= n_day:                                 # bedrooms side by side: keep each with its bathroom
+            order = list(band)
+        else:
+            order = list(band)
+            rng.shuffle(order)
+            if kitchen and kitchen[0] in order:         # the kitchen at an end (an outside wall), dining beside it
+                order.remove(kitchen[0])
+                pair = [kitchen[0]]
+                if dining and dining[0] in order:
+                    order.remove(dining[0])
+                    pair = [dining[0], kitchen[0]]
+                order = (pair[::-1] + order) if rng.random() < 0.5 else (order + pair)
+        got = place(order, 0, width, y, d)
+        if got is None:
+            return None
+        boxes += got
+        y += d
+    if passage is not None:
+        top = sum(depths[:n_day])
+        boxes.append([_hall_room(0, hw, y - top), passage, top, hw, y - top])
+    return boxes
+
+
+def _orient(boxes, road, rng, mirror=None):
+    """Turn a compact plan (front at y = 0) so its front faces the road; mirrored if asked (else at random)."""
+    if mirror if mirror is not None else rng.random() < 0.5:
+        boxes = [[r, -(x + w), y, w, h] for r, x, y, w, h in boxes]
+    turns = {"N": 0, "E": 1, "S": 2, "W": 3}[road]
+    for _ in range(turns):          # each turn: rotate 90 degrees clockwise (front: N -> E -> S -> W)
+        boxes = [[r, -(y + h), x, h, w] for r, x, y, w, h in boxes]
+    return boxes
+
+
 def generate(program, rng: random.Random | None = None, open_kitchen: bool | None = None,
-             budget_s: float = 2.0, want: int = 60, max_tries: int = 20000):
-    """A varied, validated Layout for the program, or None if nothing sound turned up in time."""
+             budget_s: float = 2.0, want: int = 60, max_tries: int = 20000, site: Site | None = None):
+    """A varied, validated Layout for the program, or None if nothing sound turned up in time.
+    With a site, the house fits the buildable area, its front door faces the road, and (if asked)
+    layouts that follow Vastu are preferred."""
     rng = rng or random.Random()
     program = [r for r in program if r.kind in fb.KIND_SPEC]
     if not any(r.kind == "living" for r in program):
@@ -517,9 +756,34 @@ def generate(program, rng: random.Random | None = None, open_kitchen: bool | Non
     for _ in range(max_tries):
         if len(good) >= want or time.time() - start > budget_s:
             break
-        boxes = _candidate(program, rng)
-        if not boxes:
-            continue
+        site_cost = 0.0
+        if site and rng.random() < 0.6:
+            # the compact plan is drawn with its front at y = 0, then turned to the road: across it is the
+            # frontage (east-west for a north / south road, north-south for an east / west one)
+            ew, ns = int(site.width_m / 0.5), int(site.depth_m / 0.5)
+            front_w, back_d = (ew, ns) if site.road in ("N", "S") else (ns, ew)
+            boxes = _compact_candidate(program, rng, front_w, back_d)
+            if not boxes:
+                continue
+            if site.vastu:                 # the road fixes the front; left / right is free: take the better
+                options = []
+                for mirror in (False, True):
+                    v = _orient(boxes, site.road, rng, mirror)
+                    rooms_ = [{"kind": b[0].kind, "name": b[0].name, "x0": b[1], "y0": b[2], "x1": b[1] + b[3],
+                               "y1": b[2] + b[4]} for b in v if b[0].kind != "hallway"]
+                    options.append((vastu.evaluate(rooms_, entrance_side=site.road)["penalty"], v))
+                site_cost, boxes = min(options, key=lambda o: o[0])
+            else:
+                boxes = _orient(boxes, site.road, rng)
+        else:
+            boxes = _candidate(program, rng)
+            if not boxes:
+                continue
+            if site:
+                fit = _site_fit(boxes, site)
+                if fit is None:
+                    continue
+                boxes, site_cost = fit
         fp = _footprint(boxes)
         if isinstance(fp, str):
             continue
@@ -531,13 +795,20 @@ def generate(program, rng: random.Random | None = None, open_kitchen: bool | Non
             continue
         lay = GenLayout(rooms, False, preplaced=True)
         lay.open_kitchen = (rng.random() < 0.35) if open_kitchen is None else open_kitchen
+        if site:
+            lay.entrance_side = site.road
         try:
             lay.build()
         except fb.LayoutError:
             continue
-        if fb._post_fail(lay):
+        why = fb._post_fail(lay)
+        if why == "furniture:dining" and site:
+            site_cost += 1.0            # on a tight plot the dining area may double as the way through
+        elif why:
             continue
-        good.append((_score(boxes, target, filled, perim, bbox_area), lay))
+        if site and lay.entrance_side_used != site.road:
+            continue                    # the front door must face the road
+        good.append((_score(boxes, target, filled, perim, bbox_area) + site_cost, lay))
     if not good:
         return None
     good.sort(key=lambda g: g[0])

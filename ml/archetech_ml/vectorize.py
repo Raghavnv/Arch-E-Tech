@@ -36,6 +36,8 @@ ROOM_CLASSES = ("living", "bedroom", "kitchen", "bathroom", "balcony", "other_ro
 U = 20                  # app units per metre
 ORIGIN = 100            # app units: where the plan's top-left corner goes
 WALL_M = 0.23           # assumed wall thickness (a 9" brick wall) when nothing better is known
+TEXT_PRIORITY = ("living", "dining", "master_bedroom", "bedroom", "kitchen", "study", "bathroom", "balcony",
+                 "utility", "hallway")
 NAMES = {"living": "Living Room", "kitchen": "Kitchen", "bathroom": "Bathroom", "balcony": "Balcony",
          "dining": "Dining Room", "hallway": "Hallway", "utility": "Utility"}
 
@@ -338,7 +340,9 @@ def vectorize(mask: np.ndarray, px_per_m: float | None = None, wall_m: float = W
     typed = []
     for r in rooms:
         kind, x, y, w, hgt, area, comp = r
-        named = next((room_kind(tx["text"]) for tx in texts_by_room.get(comp, []) if room_kind(tx["text"])), None)
+        # an open-plan region can hold several names ("LIVING", "DINING", "KITCHEN"): the main room wins
+        kinds = {room_kind(tx["text"]) for tx in texts_by_room.get(comp, [])} - {None}
+        named = next((k for k in TEXT_PRIORITY if k in kinds), None)
         if named:
             app_kind = named
         elif kind == "other_room":

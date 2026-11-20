@@ -1,11 +1,20 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import ImportPlanModal from './ImportPlanModal';
+import { isImperial } from '../utils/units';
 import { ArrowLeft, ArrowRight, LayoutTemplate, ScanLine, PenTool, Magnet, Box, Sun, AlertTriangle, Calculator, MessageSquare, Image as ImageIcon, FileText, Check, Plus, Upload, Type, FileImage } from 'lucide-react';
 
 export default function NewProject() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState('');
+  const [importOpen, setImportOpen] = useState(false);
+  // the plot is optional: frontage (along the road) x depth, which side the road is on, and Vastu
+  const [plot, setPlot] = useState({ width: '', depth: '', facing: 'N', vastu: false });
+  const imperial = isImperial();
+  const toMetres = (v) => (imperial ? Number(v) * 0.3048 : Number(v));
+  const plotGiven = Number(plot.width) > 0 && Number(plot.depth) > 0;
   const [config, setConfig] = useState({
     name: '',
     locality: '',
@@ -166,16 +175,42 @@ export default function NewProject() {
                     value={config.prompt || ''}
                     onChange={(e) => setConfig({ ...config, prompt: e.target.value })}
                   />
+                  <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+                    <p className="text-sm font-medium text-zinc-300">Plot <span className="font-normal text-zinc-500">(optional)</span></p>
+                    <p className="mt-0.5 text-xs text-zinc-500">The house is fitted inside the plot after setbacks, with the front door on the road side.
+                      You can also write it in the prompt, e.g. "30x40 plot, east facing, vastu".</p>
+                    <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      <label className="text-xs text-zinc-400">Frontage ({imperial ? 'ft' : 'm'})
+                        <input type="number" min="0" value={plot.width} onChange={(e) => setPlot({ ...plot, width: e.target.value })}
+                          placeholder={imperial ? '30' : '9'} className="mt-1 w-full rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none" />
+                      </label>
+                      <label className="text-xs text-zinc-400">Depth ({imperial ? 'ft' : 'm'})
+                        <input type="number" min="0" value={plot.depth} onChange={(e) => setPlot({ ...plot, depth: e.target.value })}
+                          placeholder={imperial ? '40' : '12'} className="mt-1 w-full rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none" />
+                      </label>
+                      <label className="text-xs text-zinc-400">Road on the
+                        <select value={plot.facing} onChange={(e) => setPlot({ ...plot, facing: e.target.value })}
+                          className="mt-1 w-full rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none">
+                          <option value="N">North</option><option value="E">East</option>
+                          <option value="S">South</option><option value="W">West</option>
+                        </select>
+                      </label>
+                      <label className="flex cursor-pointer items-end gap-2 pb-2 text-sm text-zinc-300">
+                        <input type="checkbox" checked={plot.vastu} onChange={(e) => setPlot({ ...plot, vastu: e.target.checked })} className="accent-indigo-500" />
+                        Follow Vastu
+                      </label>
+                    </div>
+                  </div>
                 </div>
               )}
 
               {config.initMode === 'upload' && (
                 <div className="animate-in fade-in slide-in-from-top-4 duration-300">
-                  <div className="border-2 border-dashed border-zinc-800 hover:border-zinc-600 bg-zinc-900/50 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-colors text-center">
+                  <button type="button" onClick={() => setImportOpen(true)} className="w-full border-2 border-dashed border-zinc-800 hover:border-zinc-600 bg-zinc-900/50 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-colors text-center">
                     <FileImage className="w-8 h-8 text-zinc-500 mb-3" />
-                    <p className="text-sm font-medium text-zinc-300">Have a floor plan? Drop it here.</p>
-                    <p className="text-xs text-zinc-500 mt-1">PNG, JPG or PDF up to 10MB</p>
-                  </div>
+                    <p className="text-sm font-medium text-zinc-300">Have a floor plan? Upload it to trace it.</p>
+                    <p className="text-xs text-zinc-500 mt-1">PNG, JPEG, WebP or PDF up to 15 MB</p>
+                  </button>
                 </div>
               )}
 
@@ -183,8 +218,11 @@ export default function NewProject() {
                 <button 
                   disabled={isGenerating || !config.name.trim()}
                   onClick={async () => {
+                    if (config.initMode === 'upload') { setImportOpen(true); return; }
                     setIsGenerating(true);
+                    setError('');
                     let initialElements = [];
+                    let site = null;
                     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
                     const token = localStorage.getItem('token');
                     
@@ -193,18 +231,25 @@ export default function NewProject() {
                         const res = await fetch(`${API_URL}/api/ai/generate-plan`, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ prompt: config.prompt || "Default modern house" })
+                          body: JSON.stringify({
+                            prompt: config.prompt || 'Default modern house',
+                            ...(plotGiven ? { plot_width_m: toMetres(plot.width), plot_depth_m: toMetres(plot.depth), facing: plot.facing } : {}),
+                            ...(plot.vastu ? { vastu: true } : {}),
+                          }),
                         });
-                        const data = await res.json();
-                        if (data.elements) {
-                          initialElements = data.elements;
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok || !data.elements) throw new Error(data.detail || `the server answered ${res.status}`);
+                        initialElements = data.elements;
+                        if (data.site || data.vastu || data.notes) {
+                          site = { ...(data.site || {}), notes: data.notes || [], vastu_score: data.vastu?.score ?? null };
                         }
-                      }     catch (error) {
-                                console.error("Failed to generate plan:", error);
-                                alert("Backend Error: Check the console!");
-                                // DELETE OR COMMENT OUT THIS LINE: setElements(fallbackBlueprint) 
-                                // OR localStorage.setItem('draftElements', JSON.stringify(fallbackBlueprint))
-                            }}
+                      } catch (err) {
+                        console.error('Failed to generate plan:', err);
+                        setError(`Couldn't generate the plan (${err.message}). Please try again.`);
+                        setIsGenerating(false);
+                        return;
+                      }
+                    }
 
 
                     // Create the project in the DB
@@ -217,7 +262,8 @@ export default function NewProject() {
                         },
                         body: JSON.stringify({
                           name: config.name || "Untitled Project",
-                          elements_data: initialElements
+                          elements_data: initialElements,
+                          site,
                         })
                       });
                       if (createRes.status === 401) {
@@ -231,7 +277,7 @@ export default function NewProject() {
                     } catch (err) {
                       // never drop into an unsaved canvas silently: say so and let them retry
                       console.error("Failed to create project in DB", err);
-                      alert(`Couldn't save the new project (${err.message}). Please try again.`);
+                      setError(`Couldn't save the new project (${err.message}). Please try again.`);
                       setIsGenerating(false);
                     }
                   }}
@@ -245,15 +291,29 @@ export default function NewProject() {
                       Generating Layout...
                     </>
                   ) : (
-                    <>Launch Studio Engine <ArrowRight className="w-4 h-4" /></>
+                    <>{config.initMode === 'upload' ? 'Upload a plan' : 'Launch Studio Engine'} <ArrowRight className="w-4 h-4" /></>
                   )}
                 </button>
+                {error && <p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-200">{error}</p>}
               </div>
 
             </div>
           )}
         </div>
       </div>
+      {importOpen && <ImportPlanModal onClose={() => setImportOpen(false)} mode="new"
+        onAccept={async ({ elements, name }) => {
+          const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+          const res = await fetch(`${API_URL}/api/projects`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: config.name.trim() || name, elements_data: elements }),
+          });
+          if (res.status === 401) { localStorage.removeItem('token'); navigate('/auth'); throw new Error('Log in again.'); }
+          if (!res.ok) throw new Error(`Couldn't create the project (the server answered ${res.status}).`);
+          return (await res.json()).id;
+        }}
+        onFinished={(projectId) => navigate(`/studio?projectId=${projectId}`)} />}
     </div>
   );
 }
