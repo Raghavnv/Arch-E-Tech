@@ -608,7 +608,7 @@ const FLOOR_LOOK = {
   living: ['wood', '#b98a5b'], dining: ['wood', '#b98a5b'], lounge: ['wood', '#b98a5b'],
   master_bedroom: ['wood', '#c9a77c'], bedroom: ['wood', '#c9a77c'], study: ['wood', '#a9825a'],
   kitchen: ['tile', '#d8d4cf'], utility: ['tile', '#d8d4cf'], bathroom: ['tile', '#b9d3e0'],
-  balcony: ['tile', '#a39787'], patio: ['tile', '#a39787'],
+  balcony: ['tile', '#a39787'], patio: ['tile', '#a39787'], hallway: ['wood', '#b98a5b'],
 };
 const floorTextureCache = {};
 
@@ -738,7 +738,7 @@ function StoreySlab({ rooms, holes }) {
   ));
 }
 
-const LIT = new Set(['living', 'dining', 'lounge', 'kitchen', 'master_bedroom', 'bedroom', 'study', 'bathroom', 'utility', 'balcony']);
+const LIT = new Set(['living', 'dining', 'lounge', 'kitchen', 'master_bedroom', 'bedroom', 'study', 'bathroom', 'utility', 'balcony', 'hallway']);
 
 /** A ceiling over every room and a warm light in each: what makes the house feel lived in. */
 function CeilingsAndLights({ rooms, holes, isDay, withCeiling }) {

@@ -619,10 +619,16 @@ def edit_plan(req: PlanEditRequest):
         raise HTTPException(status_code=502, detail="The AI service didn't answer. Try again in a moment.")
 
 
-def _design_layout(prompt, program, style, rng, wishes, use_llm=True):
-    """One floor: the LLM designs it from reference houses; else a reshaped reference; else the zoned generator."""
+def _design_layout(prompt, program, style, rng, wishes, use_llm=True, budget_s=2.0, gen_program=None):
+    """One floor. The procedural generator comes first: it gives a different house almost every time.
+    If it finds nothing sound, the LLM designs one from reference houses; then a reshaped reference;
+    then the zoned generator."""
+    import layout_generator
     import plan_designer as pd
     from floorplan_builder import generate_layout
+    layout = layout_generator.generate(gen_program or program, rng, wishes.get("open_kitchen"), budget_s=budget_s)
+    if layout:
+        return layout, "+generated"
     layout = _ask_layout(prompt, program, style, rng, wishes) if use_llm else None
     if layout:
         return layout, "+designed"
@@ -647,6 +653,7 @@ def _multi_floor_plan(prompt, program, floors, wishes, style, rng, source):
     # draw the floors a few times and keep the version where the stairs fit and the upper floors
     # sit best over the ground floor (little or nothing overhanging)
     best = None
+    gen_failed = set()      # floors the procedural generator could not draw: don't keep paying for it
     for _attempt in range(12):
         layouts = []
         for f, prog in enumerate(programs):
@@ -657,7 +664,12 @@ def _multi_floor_plan(prompt, program, floors, wishes, style, rng, source):
             floor_wishes = dict(wishes, strict_baths=True, powder=wishes.get("powder") if f == 0 else 0,
                                 open_kitchen=wishes.get("open_kitchen") if f == 0 else False)
             # only the first try asks the LLM (seconds per floor); the redraws use the fast generators
-            layout, _ = _design_layout(floor_prompt, prog, style, rng, floor_wishes, use_llm=_attempt == 0)
+            # upstairs without a balcony needs no stand-in kitchen (it used to become a study nobody asked for)
+            gen_prog = [r for r in prog if r.kind != "kitchen"] if f > 0 and not balcony else None
+            layout, how = _design_layout(floor_prompt, prog, style, rng, floor_wishes, use_llm=_attempt == 0,
+                                         budget_s=0 if f in gen_failed else 0.5, gen_program=gen_prog)
+            if how != "+generated":
+                gen_failed.add(f)
             layouts.append(layout)
         elements, overhang = multi_floor.finish(layouts, master_floor, balcony)
         score = 2.0 if overhang is None else overhang

@@ -226,13 +226,17 @@ def build_program(llm_rooms, llm_total_sqm, prompt: str) -> list[Room]:
     target = p["area_sqm"] or (llm_total_sqm if llm_total_sqm and llm_total_sqm > 0 else None)
     if target:
         target = _clamp(target, 25, 600)
-        base = sum(a for _, a in wanted)
+        # bathrooms stay bathroom-sized in a big house; the other rooms take up the area
+        baths_m2 = [_clamp(a * (0.75 + target / 600), 4.5, 7.5) if kind == "bathroom" and a > 4 else a
+                    for kind, a in wanted]
+        fixed = sum(b for (kind, _), b in zip(wanted, baths_m2) if kind == "bathroom")
+        base = sum(a for kind, a in wanted if kind != "bathroom")
         # the area people quote is what they will see added up: the rooms, not the walls
-        s = _clamp((target * 0.97) / base, 0.55, 2.6)
+        s = _clamp((target * 0.97 - fixed) / base, 0.55, 2.6)
         scaled = []
-        for kind, a in wanted:
+        for (kind, a), b in zip(wanted, baths_m2):
             lo, _, hi = KIND_SPEC[kind][1:4]
-            scaled.append((kind, _clamp(a * s, lo * 0.9, hi * 1.25)))
+            scaled.append((kind, b if kind == "bathroom" else _clamp(a * s, lo * 0.9, hi * 1.25)))
         wanted = scaled
 
     rooms: list[Room] = []

@@ -12,7 +12,7 @@ import { formatArea, currencyCode, CURRENCY } from '../utils/units';
 const KINDS = [
   ['living', 'Living room'], ['dining', 'Dining room'], ['kitchen', 'Kitchen'], ['master_bedroom', 'Master bedroom'],
   ['bedroom', 'Bedroom'], ['bathroom', 'Bathroom'], ['study', 'Study'], ['utility', 'Utility'], ['lounge', 'Lounge'],
-  ['balcony', 'Balcony'], ['patio', 'Patio'],
+  ['hallway', 'Hallway'], ['balcony', 'Balcony'], ['patio', 'Patio'],
 ];
 const KIND_NAME = Object.fromEntries(KINDS);
 const STYLE_IDS = ['modern', 'japandi', 'scandinavian', 'industrial', 'contemporary', 'indian'];
