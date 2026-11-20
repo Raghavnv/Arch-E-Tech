@@ -16,3 +16,7 @@ services:
         sync: false
       - key: CLOUDFLARE_API_TOKEN
         sync: false
+      - key: PLAN_READER_URL
+        sync: false
+      - key: PLAN_READER_TOKEN
+        sync: false

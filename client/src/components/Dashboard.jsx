@@ -6,9 +6,10 @@ import {
   Layout, Building, Trash2, Copy, FileText, Share2, Edit2, Eye, 
   Key, Globe, User, CheckCircle, Sparkles, X, Download, AlertCircle,
   Calculator, Check, ArrowRight, ShieldCheck, Sun, Search, Compass,
-  Activity, Layers, ArrowUpRight, Images, Play
+  Activity, Layers, ArrowUpRight, Images, Play, FileUp
 } from 'lucide-react';
 import PhotoGallery from './PhotoGallery';
+import ImportPlanModal from './ImportPlanModal';
 import Mark from './Mark';
 import { formatArea, formatMoney, CURRENCY } from '../utils/units';
 
@@ -101,6 +102,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   
   const [projects, setProjects] = useState([]);
+  const [importOpen, setImportOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('projects'); // 'projects', 'reports', 'photos', 'settings'
   const [searchQuery, setSearchQuery] = useState('');
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -497,9 +499,14 @@ export default function Dashboard() {
                 <p className="font-mono text-[11px] tracking-[0.25em] text-zinc-500">PROJECTS</p>
                 <h1 className="mt-2 text-3xl font-semibold tracking-[-0.025em] text-zinc-100">Your homes</h1>
               </div>
-              <Link to="/new-project" className="relative flex items-center gap-2 rounded-sm bg-zinc-200 px-5 py-2.5 text-sm font-semibold text-zinc-950 shadow-[0_0_24px_-6px_rgba(200,121,74,0.55)] transition-colors hover:bg-white">
-                <Plus className="h-4 w-4" /> New project
-              </Link>
+              <div className="relative flex items-center gap-2">
+                <button onClick={() => setImportOpen(true)} className="flex items-center gap-2 rounded-sm border border-zinc-700 px-4 py-2.5 text-sm text-zinc-200 transition-colors hover:bg-zinc-900">
+                  <FileUp className="h-4 w-4" /> Import plan
+                </button>
+                <Link to="/new-project" className="flex items-center gap-2 rounded-sm bg-zinc-200 px-5 py-2.5 text-sm font-semibold text-zinc-950 shadow-[0_0_24px_-6px_rgba(200,121,74,0.55)] transition-colors hover:bg-white">
+                  <Plus className="h-4 w-4" /> New project
+                </Link>
+              </div>
             </header>
 
             {/* the numbers, laid out like a drawing's title block, each saying what it counts */}
@@ -1102,6 +1109,18 @@ export default function Dashboard() {
         </div>
       )}
 
+      {importOpen && <ImportPlanModal onClose={() => setImportOpen(false)} mode="new"
+        onAccept={async ({ elements, name }) => {
+          const res = await fetch(`${API_URL}/api/projects`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, elements_data: elements }),
+          });
+          if (res.status === 401) { localStorage.removeItem('token'); navigate('/auth'); throw new Error('Log in again.'); }
+          if (!res.ok) throw new Error(`Couldn't create the project (the server answered ${res.status}).`);
+          return (await res.json()).id;
+        }}
+        onFinished={(projectId) => navigate(`/studio?projectId=${projectId}`)} />}
     </div>
   );
 }

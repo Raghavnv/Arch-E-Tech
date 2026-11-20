@@ -5,12 +5,13 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Menu, MousePointer2, Box, Home, PenTool, LayoutTemplate, 
   Settings, Save, FileText, ChevronRight, Calculator, CheckCircle, 
-  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen 
+  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen, FileUp 
 } from 'lucide-react';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
 import { AutoDetectPanel, AiLayoutPanel, ConceptVizPanel, EditPanel, RoomsPanel, BudgetPanel } from './StudioTools';
 import FeatureDock from './FeatureDock';
+import ImportPlanModal from './ImportPlanModal';
 import InfoTip from './InfoTip';
 import Mark from './Mark';
 import { ARCHITECTURAL_TEXTURES } from '../utils/textureLibrary';
@@ -49,6 +50,7 @@ export default function Studio() {
   const pref = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : v === '1'; } catch { return d; } };
   const [leftOpen, setLeftOpen] = useState(() => pref('studio_left_open', true));
   const [dockOpen, setDockOpen] = useState(() => pref('studio_dock_open', true));
+  const [importOpen, setImportOpen] = useState(false);
   useEffect(() => {
     try { localStorage.setItem('studio_left_open', leftOpen ? '1' : '0'); localStorage.setItem('studio_dock_open', dockOpen ? '1' : '0'); } catch { /* private mode */ }
     // the 2D canvas sizes itself on window resize; the panel moving changes its room
@@ -650,6 +652,8 @@ export default function Studio() {
               onClick: () => flushSave(`/overview?projectId=${projectId}`) },
           ] },
           { title: 'AI', items: [
+            { id: 'import', icon: FileUp, label: 'Import plan', desc: 'Trace a drawing into this floor',
+              onClick: () => setImportOpen(true) },
             { id: 'render', icon: Sparkles, label: isCapturingForRender ? 'Opening…' : 'Photo Render', desc: 'Every room as a photo', info: 'render', accent: true,
               onClick: handleOpenRenderStudio },
             { id: 'concept', icon: ImageIcon, label: 'Concept Viz', desc: '3D cutaway or exterior image', info: 'concept', active: toolPanel === 'concept',
@@ -1112,6 +1116,14 @@ export default function Studio() {
           </div>
         </div>
       )}
+      {importOpen && <ImportPlanModal onClose={() => setImportOpen(false)} mode="replace"
+        floorLabel={activeFloor === 1 ? 'the ground floor' : `floor ${activeFloor}`}
+        onAccept={async ({ elements }) => {
+          setFloorElements(cleanElements(elements));     // one undo step, like any other edit
+          setActiveTab('2D');
+          return projectId;
+        }}
+        onFinished={() => setImportOpen(false)} />}
     </div>
   );
 }

@@ -253,6 +253,10 @@ def _owned_project(project_id: int, db: Session, user: models.User) -> models.Pr
     return project
 
 
+import plan_import  # noqa: E402  (needs the helpers above)
+app.include_router(plan_import.make_router(get_db, get_current_user, _owned_project))
+
+
 def _render_out(r: models.RoomRender) -> dict:
     return {"room_key": r.room_key, "room_name": r.room_name, "kind": r.kind, "style": r.style,
             "empty_image": r.empty_image, "furnished_image": r.furnished_image, "prompt": r.prompt}

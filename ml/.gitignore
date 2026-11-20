@@ -1,0 +1,7 @@
+data/
+.venv/
+runs/
+*.pt
+__pycache__/
+*.out
+model/

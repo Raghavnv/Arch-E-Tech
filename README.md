@@ -88,6 +88,18 @@ A panel that slides in from the right edge of the Studio and collapses to a slim
 3. You can also upload your own photo of a room to furnish it.
 4. Keep any photo in Saved Photos.
 
+### Import a floor plan
+Dashboard → **Import plan** (new project) or Studio feature dock → **Import plan** (replaces the current floor, undoable).
+1. Upload a photo, scan or PDF (first page) of a floor plan, up to 15 MB.
+2. The plan reader (`ml/`, a U-Net trained on ResPlan and generated plans, plus OCR) finds walls, doors, windows and rooms,
+   reads room names ("M. BEDROOM", "TOI.", "SIT OUT") and room sizes ("12'0\" x 10'6\"").
+3. Review the traced plan over the faded drawing. The scale comes from the written room sizes when there are any,
+   otherwise from wall thickness; **Measure a known length** sets it exactly.
+4. Accept, then edit as usual.
+
+Sharing is opt-in: only when the owner ticks the box are the drawing and the accepted plan kept, to retrain the reader
+(`backend/export_plan_imports.py`, then `ml/archetech_ml/user_data.py`). See [`ml/README.md`](ml/README.md).
+
 ### Budget Advisor
 1. Enter a budget, or tap 20 L, 30 L, 50 L or 1 Cr. It is remembered per project.
 2. A bar compares the current estimate with the budget.
@@ -135,6 +147,9 @@ Arch-E-Tech/
 │   ├── plan_editor.py           AI Edit: sentence → validated update/delete/add operations
 │   ├── budget_advisor.py        Budget Advisor (Groq + rule fallback)
 │   ├── render_ai.py             Cloudflare Workers AI prompts and image calls
+│   ├── layout_generator.py      Procedural layouts: a different house for almost every brief
+│   ├── plan_import.py           Plan import routes (forwards drawings to the plan reader service)
+│   ├── export_plan_imports.py   Exports shared (consented) imports for retraining the reader
 │   └── requirements.txt
 ├── client/                      React + Vite app (Vercel)
 │   ├── src/
@@ -151,6 +166,7 @@ Arch-E-Tech/
 │   │   │   ├── ImmersiveView.jsx  House on a plot in a neighbourhood
 │   │   │   ├── RenderStudio.jsx   Photo Render
 │   │   │   ├── Overview.jsx       Presentation slideshow
+│   │   │   ├── ImportPlanModal.jsx Upload a drawing, review the traced plan, set the scale
 │   │   │   └── InfoTip.jsx        (i) explanations
 │   │   └── utils/
 │   │       ├── costs.js           Cost takeoff
@@ -158,6 +174,7 @@ Arch-E-Tech/
 │   │       ├── detectRooms.js     Room detection from walls
 │   │       ├── planSymbols.js, textureLibrary.js, wallTexture.js
 │   └── vite.config.js
+├── ml/                          Plan reader: training data, model training, OCR, plan_reader service (see ml/README.md)
 ├── render.yaml                  Render blueprint for the backend
 └── vercel.json                  SPA rewrites for the frontend
 ```
@@ -222,6 +239,8 @@ Everything still runs:
 | `CLOUDFLARE_API_TOKEN` | For photos | A token created from the "Workers AI" template. |
 | `LAYOUT_MODEL` | Optional | Groq model, default `openai/gpt-oss-120b`. |
 | `CF_IMAGE_MODEL` | Optional | Image model, default `@cf/black-forest-labs/flux-2-klein-4b`. |
+| `PLAN_READER_URL` | For plan import | URL of the plan reader service (`ml/serve.py`), e.g. `https://…hf.space`. Without it, Import plan says it isn't set up. |
+| `PLAN_READER_TOKEN` | With the reader | Shared secret; set the same value on the reader service. |
 
 On Render, the backend **refuses to start without `DATABASE_URL`**. Render's disk is wiped on every deploy, so falling back to SQLite there would silently delete every account and project.
 
@@ -283,6 +302,9 @@ All project, photo and AI endpoints except health take `Authorization: Bearer <t
 | POST | `/api/projects/{id}/concept` | Concept image (cutaway or exterior) |
 | GET / POST | `/api/photos` | List or save photos |
 | GET / PUT / DELETE | `/api/photos/{id}` | Read, rename or delete a saved photo |
+| GET | `/api/plan-imports/status` | Whether plan import is configured |
+| POST | `/api/plan-imports` | Upload a plan drawing (multipart `file`, `consent`) → traced plan elements |
+| POST | `/api/plan-imports/{id}/accept` | Record the accepted plan for an import |
 | GET | `/api/health` | Health and database check |
 
 Interactive docs: `/docs` on the backend.

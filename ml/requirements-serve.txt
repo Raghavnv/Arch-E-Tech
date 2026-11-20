@@ -1,0 +1,15 @@
+# plan reader service (serve.py). For CPU-only hosts install torch from the CPU index:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+torch
+torchvision
+segmentation-models-pytorch
+numpy
+pillow
+shapely
+opencv-python-headless
+rapidocr
+onnxruntime
+pypdfium2
+fastapi
+uvicorn
+python-multipart

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, JSON, Text
+from sqlalchemy import Boolean, Column, Integer, String, Float, DateTime, ForeignKey, JSON, LargeBinary, Text
 from sqlalchemy.orm import relationship
 import datetime
 from database import Base
@@ -64,4 +64,25 @@ class SavedPhoto(Base):
     prompt = Column(Text, nullable=True)
     image = Column(Text)                           # full-size JPEG data URL
     thumb = Column(Text)                           # ~480 px JPEG data URL for the gallery grid
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class PlanImport(Base):
+    """A floor plan drawing the owner uploaded to turn into an editable plan.
+
+    The drawing itself and the plan they accepted are kept only when they agreed to share them
+    (consent) for improving the plan reader; otherwise only the reader's summary is kept."""
+    __tablename__ = "plan_imports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True)
+    file_name = Column(String, nullable=True)
+    content_type = Column(String)
+    consent = Column(Boolean, default=False)
+    image = Column(LargeBinary, nullable=True)        # the uploaded file, only with consent
+    predicted = Column(JSON, nullable=True)           # elements as read, only with consent
+    accepted = Column(JSON, nullable=True)            # elements the owner accepted, only with consent
+    info = Column(JSON, nullable=True)                # reader summary: scale, counts, model version
+    status = Column(String, default="read")           # read | accepted
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
