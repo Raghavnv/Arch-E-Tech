@@ -46,6 +46,9 @@ class RoomRender(Base):
     kind = Column(String)
     style = Column(String)
     empty_image = Column(Text, nullable=True)      # data URL (JPEG)
+    # where the base picture came from: ai | upload | model (the room captured from the 3D house) |
+    # model_furnished (captured with the owner's own furniture from the Room Designer)
+    empty_source = Column(String, nullable=True)
     furnished_image = Column(Text, nullable=True)  # data URL (JPEG)
     prompt = Column(Text, nullable=True)           # what the user asked for when furnishing
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)

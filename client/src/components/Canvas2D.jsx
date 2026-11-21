@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { fabric } from 'fabric';
 import { Ruler, Maximize2, Compass, Layers, Check, X, ShieldAlert } from 'lucide-react';
 import { installSymbol, drawRoomLabel } from '../utils/planSymbols';
+import { catalogItem } from '../utils/furnitureCatalog';
 
 /**
  * Metric to Imperial formatter (e.g. 4.5m -> 14' 9")
@@ -18,6 +19,10 @@ function formatMetersToFeet(meters) {
  */
 function get3DSpecs(type, lengthMeters) {
   const len = Math.max(0.1, lengthMeters);
+  const item = catalogItem(type);
+  if (item && !item.builtin) {
+    return { label: item.name, icon: '🪑', height3D: `${item.h.toFixed(2)} m`, desc: `3D: ${item.w.toFixed(2)} × ${item.d.toFixed(2)} × ${item.h.toFixed(2)} m` };
+  }
   switch (type) {
     case 'wall':
       return {
@@ -764,7 +769,8 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
       const canvas = fabricRef.current;
       if (!canvas) return;
 
-      const size = FURNITURE_SIZE[type];
+      const item = catalogItem(type);
+      const size = FURNITURE_SIZE[type] || (item ? [Math.round(item.w * 20), Math.round(item.d * 20), '#d6d3d1'] : null);
       if (!size) return;
       const [width, height, fill] = size;
       // drop it in the middle of what is on screen, whatever the pan and zoom; when that is

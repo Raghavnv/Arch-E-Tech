@@ -5,7 +5,7 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Menu, MousePointer2, Box, Home, PenTool, LayoutTemplate, 
   Settings, Save, FileText, ChevronRight, Calculator, CheckCircle, 
-  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen, FileUp, Compass, Ruler, PenLine, ShieldCheck, Share2, Zap 
+  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen, FileUp, Compass, Ruler, PenLine, ShieldCheck, Share2, Zap, Sofa 
 } from 'lucide-react';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
@@ -690,6 +690,8 @@ export default function Studio() {
               onClick: () => { setActiveTab('3D'); setWalkthroughMode(true); } },
             { id: 'immersive', icon: Trees, label: 'Immersive View', desc: 'The house on its street', info: 'immersive',
               onClick: () => flushSave(projectId ? `/immersive?projectId=${projectId}` : '/immersive') },
+            { id: 'designer', icon: Sofa, label: 'Room Designer', desc: 'Furnish a room yourself', disabled: !projectId,
+              onClick: () => flushSave(`/room-designer?projectId=${projectId}`) },
             { id: 'overview', icon: Play, label: 'Overview', desc: 'A presentation of the whole house', info: 'overview', disabled: !projectId,
               onClick: () => flushSave(`/overview?projectId=${projectId}`) },
           ] },

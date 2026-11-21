@@ -5,6 +5,7 @@ import { OrbitControls, Grid, Environment, PointerLockControls } from '@react-th
 import * as SunCalc from 'suncalc';
 import { Eye, Layers, Compass, Maximize2, X } from 'lucide-react';
 import { useWallMaterial } from '../utils/wallTexture';
+import { catalogItem, partsOf } from '../utils/furnitureCatalog';
 
 const SCALE = 0.05; // 1 unit in 2D (px) = 0.05m in 3D (e.g. 100px = 5m)
 const WALL_HEIGHT = 3.0; // 3 meters
@@ -423,7 +424,39 @@ function StandaloneOpening({ el }) {
 // 5. PROCEDURAL 3D FURNITURE & FIXTURES
 // =================================================================
 
+/** Any catalogue piece, built from its parts (boxes and cylinders) at the element's real size. */
+function CatalogFurniture({ el, item }) {
+  const w = (el.width || item.w * 20) * 0.05;
+  const d = (el.height || item.d * 20) * 0.05;
+  const h = el.h3d || item.h;
+  const rad = ((el.angle || 0) * Math.PI) / 180;
+  const cx = (el.left || 0) * 0.05 + (w / 2) * Math.cos(rad);
+  const cz = (el.top || 0) * 0.05 + (w / 2) * Math.sin(rad);
+  return (
+    <group position={[cx, 0, cz]} rotation={[0, -rad, 0]}>
+      {partsOf(item, w, d, h).map((p, i) => {
+        const mat = p.glass
+          ? <meshStandardMaterial color={el.color && i === 0 ? el.color : p.c} transparent opacity={0.35} roughness={0.05} metalness={0.1} />
+          : <meshStandardMaterial color={el.color && i === 0 ? el.color : p.c} roughness={0.7} />;
+        if (p.s === 'c') {
+          const r = Math.max(0.005, Math.min(p.sw, p.sd) / 2);
+          if (p.axis === 'z') {        // a disc facing forward (a washing-machine door)
+            return <mesh key={i} position={[p.cx, p.y0 + p.sh / 2, p.cz]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+              <cylinderGeometry args={[Math.min(p.sw, p.sh) / 2, Math.min(p.sw, p.sh) / 2, Math.max(0.01, p.sd), 24]} />{mat}</mesh>;
+          }
+          return <mesh key={i} position={[p.cx, p.y0 + p.sh / 2, p.cz]} castShadow receiveShadow>
+            <cylinderGeometry args={[r, r, Math.max(0.005, p.sh), 24]} />{mat}</mesh>;
+        }
+        return <mesh key={i} position={[p.cx, p.y0 + p.sh / 2, p.cz]} castShadow={!p.glass} receiveShadow>
+          <boxGeometry args={[Math.max(0.005, p.sw), Math.max(0.005, p.sh), Math.max(0.005, p.sd)]} />{mat}</mesh>;
+      })}
+    </group>
+  );
+}
+
 function ProceduralFurniture({ el }) {
+  const catalogue = catalogItem(el?.type);
+  if (catalogue && !catalogue.builtin) return <CatalogFurniture el={el} item={catalogue} />;
   const w = (el?.width || 80) * 0.05;
   const d = (el?.height || 50) * 0.05;
   const rotY = -((el?.angle || 0) * Math.PI) / 180;

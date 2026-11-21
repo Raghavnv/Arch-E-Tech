@@ -246,7 +246,8 @@ class RoomShot(BaseModel):
     windows: int = 0
 
 class RoomUpload(RoomShot):
-    image: str          # data URL of the user's own photo of the empty room
+    image: str          # data URL: the owner's own photo, or the room captured from the 3D house
+    source: Literal["upload", "model", "model_furnished"] = "upload"
 
 class RoomFurnish(BaseModel):
     room_key: str
@@ -270,7 +271,8 @@ app.include_router(sharing.make_router(get_db, get_current_user, _owned_project)
 
 def _render_out(r: models.RoomRender) -> dict:
     return {"room_key": r.room_key, "room_name": r.room_name, "kind": r.kind, "style": r.style,
-            "empty_image": r.empty_image, "furnished_image": r.furnished_image, "prompt": r.prompt}
+            "empty_image": r.empty_image, "furnished_image": r.furnished_image, "prompt": r.prompt,
+            "empty_source": r.empty_source}
 
 
 def _render_row(db: Session, project_id: int, shot: RoomShot) -> models.RoomRender:
@@ -321,6 +323,7 @@ def render_empty_room(project_id: int, shot: RoomShot, db: Session = Depends(get
     image = _render_call(render_ai.generate, prompt, refs)
     row = _render_row(db, project_id, shot)
     row.empty_image, row.furnished_image = image, None    # a new empty room makes the old furnished one stale
+    row.empty_source = "ai"
     db.commit()
     return _render_out(row)
 
@@ -328,7 +331,7 @@ def render_empty_room(project_id: int, shot: RoomShot, db: Session = Depends(get
 @app.post("/api/projects/{project_id}/renders/upload")
 def upload_empty_room(project_id: int, shot: RoomUpload, db: Session = Depends(get_db),
                       current_user: models.User = Depends(get_current_user)):
-    """Use the owner's own photo of the empty room instead of a generated one."""
+    """Use the owner's own photo, or the room captured from the 3D house, as the room's base picture."""
     import render_ai
     _owned_project(project_id, db, current_user)
     try:
@@ -336,7 +339,7 @@ def upload_empty_room(project_id: int, shot: RoomUpload, db: Session = Depends(g
     except Exception:
         raise HTTPException(status_code=400, detail="That file isn't an image we can read. Use a JPG or PNG.")
     row = _render_row(db, project_id, shot)
-    row.empty_image, row.furnished_image = image, None
+    row.empty_image, row.furnished_image, row.empty_source = image, None, shot.source
     db.commit()
     return _render_out(row)
 
@@ -465,7 +468,7 @@ def render_furnished_room(project_id: int, req: RoomFurnish, db: Session = Depen
                                              models.RoomRender.room_key == req.room_key).first()
     if not row or not row.empty_image:
         raise HTTPException(status_code=400, detail="Make the empty room photo first.")
-    prompt = render_ai.furnish_prompt(req.style, row.kind, req.prompt)
+    prompt = render_ai.furnish_prompt(req.style, row.kind, req.prompt, row.empty_source)
     row.furnished_image = _render_call(render_ai.generate, prompt, [row.empty_image])
     row.prompt = req.prompt      # row.style stays the house style the empty rooms were made in
     db.commit()

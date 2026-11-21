@@ -156,9 +156,30 @@ def empty_prompt(project_id: int, style: str, kind: str, width_m=None, depth_m=N
             f"room, photorealistic, sharp, natural colours.")
 
 
-def furnish_prompt(style: str, kind: str, user_prompt: str | None) -> str:
+def furnish_prompt(style: str, kind: str, user_prompt: str | None, source: str | None = None) -> str:
+    """How to furnish from the room's base picture.
+
+    source "model": the base is a plain 3D render of the actual room, captured from the house model;
+    the result must be a realistic photo of that same room (same walls, openings and camera), furnished.
+    source "model_furnished": the 3D render already holds the owner's furniture as simple shapes;
+    keep each piece where it is and make it real.
+    Otherwise the base is a photo (generated or the owner's own) and only furniture is added."""
     st = STYLES.get(style, STYLES["modern"])
     extra = f" The owner wants: {user_prompt.strip()}." if user_prompt and user_prompt.strip() else ""
+    finish = ("Realistic scale, realistic materials, soft natural daylight from the windows, photorealistic interior "
+              "design photograph.")
+    if source == "model":
+        return (f"The reference image is a plain 3D model render of an empty {kind.replace('_', ' ')} in a real house. "
+                f"Turn it into a photorealistic photograph of the same room, furnished. Keep the camera position and "
+                f"angle, and keep every wall, door opening and window exactly where it is in the reference, with the "
+                f"same proportions; give the walls, floor and ceiling real finishes in {st['shell']}. Add "
+                f"{FURNISH.get(kind, 'suitable furniture')}, styled as {st['furnish']}.{extra} {finish}")
+    if source == "model_furnished":
+        return (f"The reference image is a 3D model render of a {kind.replace('_', ' ')} in a real house, with the "
+                f"owner's furniture shown as simple shapes. Turn it into a photorealistic photograph of the same room: "
+                f"keep the camera position and angle, every wall, door and window, and keep each piece of furniture in "
+                f"exactly the same place, size and type, but make it real, detailed furniture styled as {st['furnish']}, "
+                f"with {st['shell']}. Add only small decor (cushions, lamps, plants, art).{extra} {finish}")
     return (f"Furnish the room in the reference photo. Keep the room exactly the same: the same walls, floor, "
             f"ceiling, windows, doors, camera angle and lighting; only add furniture and decor. Add "
             f"{FURNISH.get(kind, 'suitable furniture')}, styled as {st['furnish']}.{extra} Realistic scale, "

@@ -2,16 +2,19 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, Sparkles, Download, Upload, RefreshCw, ImageOff, Columns, Split, AlertTriangle, Check, Loader2,
-  Bookmark, Pencil,
+  Bookmark, Pencil, Camera, Sofa,
 } from 'lucide-react';
 import InfoTip from './InfoTip';
+import RoomCapture from './RoomCapture';
 import PhotoGallery from './PhotoGallery';
 import { formatArea, formatSize } from '../utils/units';
 
 /*
- * Photo Render: every room of the plan photographed twice by the AI. First the empty room, in one
- * shared look so all rooms belong to the same house; then that same room furnished the way the owner
- * describes. Images are made and stored by the backend (Cloudflare Workers AI).
+ * Photo Render: every room of the plan pictured twice. First the room itself, captured inside the 3D
+ * house from its best corner (so it is the actual room: its size, windows and doors), or the owner's
+ * own photo; then that same room furnished by the AI the way the owner describes, or with the
+ * furniture they placed in the Room Designer made real. Images are stored by the backend; the AI
+ * furnishing runs on Cloudflare Workers AI.
  */
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -38,6 +41,7 @@ const PX_PER_M = 20;
 function roomsFromPlan(all) {
   const elements = (all || []).filter(e => e && typeof e === 'object');
   const windows = elements.filter(e => e.type === 'window');
+  const furniture = elements.filter(e => typeof e.type === 'string' && e.type.startsWith('furniture_'));
   return elements
     .filter(e => e.type === 'room' && e.kind && e.kind !== 'hallway')
     .map((r, i) => {
@@ -52,6 +56,8 @@ function roomsFromPlan(all) {
         depth_m: Math.round((r.height / PX_PER_M) * 10) / 10,
         area: r.area || Math.round((r.width * r.height) / (PX_PER_M * PX_PER_M)),
         windows: windows.filter(near).length,
+        furnished: furniture.some(f => (f.floor || 1) === (r.floor || 1) && f.left >= x0 && f.left <= x1 && f.top >= y0 && f.top <= y1),
+        el: r,
       };
     })
     .sort((a, b) => a.floor - b.floor || KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || a.name.localeCompare(b.name));
@@ -155,6 +161,7 @@ export default function RenderStudio() {
   const [galleryKey, setGalleryKey] = useState(0);
   const [renaming, setRenaming] = useState(null);      // the room name being edited
   const fileRef = useRef(null);
+  const [captureJob, setCaptureJob] = useState(null);  // { room, withFurniture, resolve, reject } while capturing
 
   const call = async (path, body) => {
     const res = await fetch(`${API_URL}${path}`, {
@@ -236,14 +243,21 @@ export default function RenderStudio() {
 
   const roomBody = (r) => ({ room_key: r.key, room_name: r.name, kind: r.kind, style, width_m: r.width_m, depth_m: r.depth_m, windows: r.windows });
 
-  const makeEmpty = (r) => run(r, 'empty', `Photographing the empty ${r.name.toLowerCase()}…`,
-    () => call(`/api/projects/${projectId}/renders/empty`, roomBody(r)));
+  // the room pictured inside the 3D house (off screen), then stored as its base picture
+  const capture = (r, withFurniture) => new Promise((resolve, reject) =>
+    setCaptureJob({ room: r.el, withFurniture, resolve, reject }));
+  const makeEmpty = (r, withFurniture = false) => run(r, 'empty',
+    withFurniture ? `Capturing the ${r.name.toLowerCase()} with your furniture…` : `Capturing the ${r.name.toLowerCase()} from your 3D house…`,
+    async () => {
+      const image = await capture(r, withFurniture);
+      return call(`/api/projects/${projectId}/renders/upload`, { ...roomBody(r), image, source: withFurniture ? 'model_furnished' : 'model' });
+    });
 
   const furnish = (r) => run(r, 'furnished', `Furnishing the ${r.name.toLowerCase()}…`,
     () => call(`/api/projects/${projectId}/renders/furnish`, { room_key: r.key, style, prompt: prompts[r.key] || '' }));
 
   const makeAllEmpty = async () => {
-    // one at a time: each new room uses the ones already made as references, so the house stays consistent
+    // one at a time: there is one off-screen 3D view
     for (const r of rooms.filter(x => !renders[x.key]?.empty_image)) {
       setSelected(r.key);
       if (!(await makeEmpty(r))) break;
@@ -261,7 +275,8 @@ export default function RenderStudio() {
   };
 
   const missingEmpty = rooms.filter(r => !renders[r.key]?.empty_image).length;
-  const styleChanged = Object.values(renders).some(r => r.empty_image && r.style !== style);
+  // only AI-made base pictures carry a style; captures and the owner's photos are the house as it is
+  const styleChanged = Object.values(renders).some(r => r.empty_image && r.empty_source === 'ai' && r.style !== style);
 
   const savePhoto = async (r, kind, image) => {
     await call('/api/photos', {
@@ -304,6 +319,11 @@ export default function RenderStudio() {
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-950 text-zinc-100 lg:h-screen lg:flex-row lg:overflow-hidden">
+      {captureJob && (
+        <RoomCapture elements={project?.elements_data || []} room={captureJob.room} withFurniture={captureJob.withFurniture}
+          onDone={(url) => { captureJob.resolve(url); setCaptureJob(null); }}
+          onError={(e) => { captureJob.reject(e); setCaptureJob(null); }} />
+      )}
 
       {/* left: house style and the rooms of the plan */}
       <aside className="flex shrink-0 flex-col border-b border-zinc-800 lg:w-80 lg:border-b-0 lg:border-r">
@@ -341,13 +361,13 @@ export default function RenderStudio() {
 
         <div className="flex items-center justify-between px-5 pt-4 pb-2">
           <p className="text-xs font-medium text-zinc-400">Rooms ({rooms.length})</p>
-          {missingEmpty > 0 && enabled && (
+          {missingEmpty > 0 && (
             <button
               onClick={makeAllEmpty}
               disabled={Object.keys(busy).length > 0}
               className="text-xs font-medium text-indigo-300 hover:text-indigo-200 disabled:opacity-40"
             >
-              Photograph all empty rooms
+              Capture all rooms
             </button>
           )}
         </div>
@@ -370,7 +390,7 @@ export default function RenderStudio() {
                     <p className="truncate text-sm text-zinc-100">{r.name}</p>
                     <p className="text-[11px] text-zinc-500">
                       {r.area ? `${formatArea(r.area)} · ` : ''}
-                      {s?.furnished_image ? <span className="text-emerald-400">Furnished</span> : s?.empty_image ? 'Empty photo ready' : 'Not photographed'}
+                      {s?.furnished_image ? <span className="text-emerald-400">Furnished</span> : s?.empty_image ? 'Room captured' : 'Not captured yet'}
                     </p>
                   </div>
                 </button>
@@ -406,7 +426,7 @@ export default function RenderStudio() {
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
               <p>AI photos aren't switched on yet. Add <code className="font-mono text-xs">CLOUDFLARE_ACCOUNT_ID</code> and{' '}
                 <code className="font-mono text-xs">CLOUDFLARE_API_TOKEN</code> to the backend's environment on Render, then reload this page.
-                You can still upload your own photo of an empty room.</p>
+                You can still capture rooms from the 3D house, upload your own photos, and design rooms yourself.</p>
             </div>
           )}
           {tab === 'rooms' && loadError && <p className="mb-5 rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">{loadError}</p>}
@@ -453,18 +473,27 @@ export default function RenderStudio() {
                 <Compare before={shot.empty_image} after={shot.furnished_image} />
               ) : (
                 <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                  <Panel title="1 · Empty room" image={shot?.empty_image} busy={roomBusy?.which === 'empty' ? roomBusy : null}
+                  <Panel title={`1 · ${{ model: 'The room, from your 3D house', model_furnished: 'Your furniture, from your 3D house', upload: 'Your photo of the room' }[shot?.empty_source] || 'The room'}`}
+                    image={shot?.empty_image} busy={roomBusy?.which === 'empty' ? roomBusy : null}
                     action={<SaveButton saved={savedImages.has(shot?.empty_image)} onSave={() => savePhoto(room, 'empty', shot.empty_image)} />}>
                     <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
                       <ImageOff className="h-6 w-6 text-zinc-600" />
-                      <p className="max-w-xs text-sm text-zinc-400">See this room as a bare shell, in the same style as the rest of the house.</p>
+                      <p className="max-w-xs text-sm text-zinc-400">
+                        Capture this room inside your 3D house: an eye-level picture from its best corner, with its real size, windows and doors.
+                      </p>
                       <button
                         onClick={() => makeEmpty(room)}
-                        disabled={!enabled || !!roomBusy}
-                        className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-zinc-200 disabled:opacity-40"
+                        disabled={!!roomBusy}
+                        className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-zinc-200 disabled:opacity-40"
                       >
-                        Photograph empty room
+                        <Camera className="h-4 w-4" /> Capture from 3D house
                       </button>
+                      {room.furnished && (
+                        <button onClick={() => makeEmpty(room, true)} disabled={!!roomBusy}
+                          className="text-xs text-indigo-300 hover:text-indigo-200 disabled:opacity-40">
+                          or capture it with the furniture you placed
+                        </button>
+                      )}
                     </div>
                   </Panel>
                   <Panel title="2 · Furnished" image={shot?.furnished_image} busy={roomBusy?.which === 'furnished' ? roomBusy : null}
@@ -472,7 +501,7 @@ export default function RenderStudio() {
                     <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
                       <Sparkles className="h-6 w-6 text-zinc-600" />
                       <p className="max-w-xs text-sm text-zinc-400">
-                        {shot?.empty_image ? 'Describe how you want it below, then furnish the room.' : 'Photograph the empty room first; it is furnished from that photo.'}
+                        {shot?.empty_image ? 'Describe how you want it below, then furnish the room.' : 'Capture the room first; it is furnished from that picture.'}
                       </p>
                     </div>
                   </Panel>
@@ -505,13 +534,24 @@ export default function RenderStudio() {
                   {shot?.empty_image && (
                     <button
                       onClick={() => makeEmpty(room)}
-                      disabled={!enabled || !!roomBusy}
+                      disabled={!!roomBusy}
                       className="flex items-center gap-2 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800 disabled:opacity-40"
-                      title="Makes a new empty photo; the furnished one is cleared because it would no longer match"
+                      title="Captures the room again from the 3D house; the furnished picture is cleared because it would no longer match"
                     >
-                      <RefreshCw className="h-4 w-4" /> New empty photo
+                      <RefreshCw className="h-4 w-4" /> Capture again
                     </button>
                   )}
+                  {room.furnished && shot?.empty_source !== 'model_furnished' && (
+                    <button onClick={() => makeEmpty(room, true)} disabled={!!roomBusy}
+                      className="flex items-center gap-2 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800 disabled:opacity-40"
+                      title="Captures the room with the furniture you placed, so the AI makes your own arrangement real">
+                      <Camera className="h-4 w-4" /> Capture with my furniture
+                    </button>
+                  )}
+                  <Link to={`/room-designer?projectId=${projectId}&room=${encodeURIComponent(room.key)}`}
+                    className="flex items-center gap-2 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800">
+                    <Sofa className="h-4 w-4" /> Design it myself
+                  </Link>
                   <button
                     onClick={() => fileRef.current?.click()}
                     disabled={!!roomBusy}

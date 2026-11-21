@@ -1,4 +1,5 @@
 import { formatArea } from './units';
+import { CATALOG, catalogItem, partsOf, tint } from './furnitureCatalog';
 /**
  * Architectural plan symbols for the 2D canvas.
  *
@@ -18,6 +19,7 @@ const SYMBOL_TYPES = new Set([
   'room', 'door', 'window', 'stairs', 'railing',
   'furniture_bed', 'furniture_sofa', 'furniture_table', 'furniture_armchair',
   'furniture_bathtub', 'furniture_vanity', 'furniture_kitchen',
+  ...CATALOG.map(it => it.type),
 ]);
 
 const WALL_T = 8;
@@ -322,6 +324,25 @@ const FURNITURE = {
   furniture_kitchen: drawKitchen,
 };
 
+/** A catalogue piece seen from above: each part's footprint, lowest first, so tall parts sit on top. */
+export function drawCatalogPiece(ctx, item, w, h) {
+  const parts = partsOf(item, w, h, 1).sort((a, b) => (a.y0 + a.sh) - (b.y0 + b.sh));
+  for (const pt of parts) {
+    const fill = pt.glass ? 'rgba(191, 219, 254, 0.35)' : tint(pt.c, 0.25);
+    const stroke = 'rgba(24, 24, 27, 0.55)';
+    if (pt.s === 'c' && pt.axis !== 'z') {
+      ctx.beginPath();
+      ctx.ellipse(pt.cx, pt.cz, Math.max(0.3, pt.sw / 2), Math.max(0.3, pt.sd / 2), 0, 0, Math.PI * 2);
+      ctx.fillStyle = fill; ctx.fill();
+      ctx.lineWidth = 0.6; ctx.strokeStyle = stroke; ctx.stroke();
+    } else {
+      roundRect(ctx, pt.cx - pt.sw / 2, pt.cz - pt.sd / 2, Math.max(0.6, pt.sw), Math.max(0.6, pt.sd), Math.min(1.5, pt.sw / 4, pt.sd / 4));
+      ctx.fillStyle = fill; ctx.fill();
+      ctx.lineWidth = 0.6; ctx.strokeStyle = stroke; ctx.stroke();
+    }
+  }
+}
+
 export function drawSymbol(type, ctx, w, h, opts = {}) {
   ctx.save();
   ctx.lineJoin = 'round';
@@ -333,6 +354,7 @@ export function drawSymbol(type, ctx, w, h, opts = {}) {
     else if (type === 'stairs') drawStairs(ctx, w, h, opts);
     else if (type === 'railing') drawRailing(ctx, w, h, opts);
     else if (FURNITURE[type]) FURNITURE[type](ctx, w, h);
+    else if (catalogItem(type)?.parts) drawCatalogPiece(ctx, catalogItem(type), w, h);
   } catch (e) {
     console.warn(`Could not draw ${type} (${w} x ${h})`, e);
   }

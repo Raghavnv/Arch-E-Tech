@@ -1,4 +1,5 @@
 import { currencyRate, measurement } from './units';
+import { catalogItem } from './furnitureCatalog';
 
 // rough build-cost rates in US dollars (converted to the chosen currency): walls and railings per
 // metre of length, everything else per item
@@ -31,7 +32,7 @@ export function computeCosts(elements) {
       cost = m * RATES[type] * k;
     } else {
       c.count += 1;
-      cost = (RATES[type] || 300) * k;
+      cost = (RATES[type] || catalogItem(type)?.price || 300) * k;
     }
     c.cost += cost;
     total += cost;
@@ -39,7 +40,7 @@ export function computeCosts(elements) {
   const breakdown = Object.entries(counts).map(([key, c]) => ({
     key,
     type: key.replace('furniture_', '').toUpperCase(),
-    label: LABEL[key] || key,
+    label: LABEL[key] || catalogItem(key)?.name || key,
     qty: BY_LENGTH.has(key)
       ? `${(imperial ? c.length * 3.28084 : c.length).toFixed(1)}${imperial ? 'ft' : 'm'}`
       : c.count,

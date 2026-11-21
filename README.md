@@ -110,6 +110,7 @@ A panel that slides in from the right edge of the Studio and collapses to a slim
 |---------|----------------|--------------|
 | View    | Walkthrough    | First-person walk through the rooms at eye level (WASD + mouse) |
 | View    | Immersive View | The house on a landscaped plot in a neighbourhood, with time of day, weather and roof options |
+| View    | Room Designer  | Furnish a room yourself from a catalogue of 60+ pieces, in plan and 3D |
 | View    | Overview       | A presentation: floor plans, 3D model, every room, photos and the cost takeoff |
 | AI      | Photo Render   | A photo of every room, empty and then furnished, all in the same house style |
 | AI      | Concept Viz    | A 3D cutaway or exterior concept image of the whole house |
@@ -123,10 +124,17 @@ A panel that slides in from the right edge of the Studio and collapses to a slim
 - Camera distance adapts to the size of the house.
 
 ### Photo Render
-1. Each room is first photographed **empty**, from one shared "house identity" (floors, walls, ceiling, window frames, light, the view outside). Rooms already photographed are passed in as reference images, so the whole house looks consistent.
-2. That empty photo is then used as the reference for the **furnished** version, so you get the same room furnished the way your prompt describes.
-3. You can also upload your own photo of a room to furnish it.
-4. Keep any photo in Saved Photos.
+1. Each room's base picture is **taken inside your 3D house**: the camera stands at eye level in the corner that sees the most of the room (its windows and doors), so the picture is the actual room, with its real size, walls, windows and doors. "Capture all rooms" does every room at once. This needs no AI.
+2. The AI then furnishes that picture: it turns the plain 3D view into a photo, keeping the camera, walls, windows and doors where they are, and adds furniture the way your prompt and the house style describe.
+3. Or capture the room **with the furniture you placed** (in the Studio or the Room Designer), and the AI makes that exact arrangement photorealistic.
+4. You can still have the AI imagine an empty room, or upload your own photo. Keep any photo in Saved Photos.
+
+### Room Designer
+Furnish one room yourself, without AI (Studio → feature dock → Room Designer, or "Design it myself" in Photo Render).
+- A catalogue of 60+ pieces for living, dining, bedroom, kids, study, kitchen, bathroom, utility and pooja, balcony and outdoor, and decor and lighting, each with real sizes and a price. Pieces suited to the room are shown first.
+- New pieces go to a free spot against a wall. Drag them anywhere (they snap to walls), turn, resize, recolour, duplicate and delete them, with undo and redo.
+- Warns about pieces that overlap, stick out of the room, or block a door swing, and shows the furniture cost and how much floor is covered.
+- A 3D view of the room. Saving writes the furniture into the plan, where the Studio, the 3D house, the drawings and the costs all see it; "Make it a photo" goes on to Photo Render.
 
 ### Import a floor plan
 Dashboard → **Import plan** (new project) or Studio feature dock → **Import plan** (replaces the current floor, undoable).
@@ -210,6 +218,8 @@ Arch-E-Tech/
 │   │   │   ├── FeatureDock.jsx    Right-hand feature dock
 │   │   │   ├── ImmersiveView.jsx  House on a plot in a neighbourhood
 │   │   │   ├── RenderStudio.jsx   Photo Render
+│   │   │   ├── RoomCapture.jsx    Takes a room's picture inside the 3D house
+│   │   │   ├── RoomDesigner.jsx   Furnish a room yourself
 │   │   │   ├── Overview.jsx       Presentation slideshow
 │   │   │   ├── ImportPlanModal.jsx Upload a drawing, review the traced plan, set the scale
 │   │   │   ├── SharedProject.jsx  The page behind a share link: view, comment, approve
@@ -218,6 +228,8 @@ Arch-E-Tech/
 │   │       ├── costs.js           Cost takeoff
 │   │       ├── units.js           sq ft / m², ₹ / $ / € formatting
 │   │       ├── detectRooms.js     Room detection from walls
+│   │       ├── furnitureCatalog.js 60+ furniture pieces: sizes, prices, 3D parts
+│   │       ├── roomCamera.js      Where to stand to photograph a room
 │   │       ├── planSymbols.js, textureLibrary.js, wallTexture.js
 │   └── vite.config.js
 ├── ml/                          Plan reader: training data, model training, OCR, plan_reader service (see ml/README.md)
@@ -268,7 +280,7 @@ Everything still runs:
 - Plans come from the reference library instead of the LLM.
 - AI Edit says it needs `GROQ_API_KEY`; the drawing tools still work.
 - The Budget Advisor uses its rules.
-- Photo Render and Concept Viz report that image generation isn't configured.
+- Photo Render still captures every room from the 3D house, and the Room Designer works fully; furnishing with AI and Concept Viz report that image generation isn't configured.
 
 ---
 
