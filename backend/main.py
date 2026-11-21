@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, Depends, HTTPException, status
+from fastapi import FastAPI, File, UploadFile, Depends, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
@@ -31,6 +31,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"],     # so downloads keep their file names
 )
 
 # Auth Configuration
@@ -262,7 +263,9 @@ def _owned_project(project_id: int, db: Session, user: models.User) -> models.Pr
 
 
 import plan_import  # noqa: E402  (needs the helpers above)
+import sharing  # noqa: E402
 app.include_router(plan_import.make_router(get_db, get_current_user, _owned_project))
+app.include_router(sharing.make_router(get_db, get_current_user, _owned_project))
 
 
 def _render_out(r: models.RoomRender) -> dict:
@@ -721,6 +724,56 @@ def budget_advice(req: BudgetRequest):
         raise HTTPException(status_code=400, detail="Enter your budget first.")
     return budget_advisor.advise(req.budget, req.currency_symbol, req.total, req.breakdown, req.rooms,
                                  req.floors, req.area_sqft, os.getenv("GROQ_API_KEY"))
+
+
+class ExportRequest(BaseModel):
+    elements: list
+    floor: int = 1
+    name: str = "Plan"
+    imperial: bool = False
+
+
+@app.post("/api/export/dxf")
+def export_dxf(req: ExportRequest):
+    """One floor of the plan as a DXF drawing (AutoCAD R12, metres) to download."""
+    import re
+    import export_cad
+    try:
+        dxf = export_cad.to_dxf(req.elements, req.floor, req.name[:80] or "Plan", req.imperial)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    base = re.sub(r"[^A-Za-z0-9_-]+", "-", req.name).strip("-")[:60] or "plan"
+    fname = f"{base}-{'ground' if req.floor == 1 else f'floor-{req.floor}'}.dxf"
+    return Response(content=dxf, media_type="application/dxf",
+                    headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
+
+class BuildingCheck(BaseModel):
+    elements: list
+    site: dict | None = None        # the project's plot, or one entered in the panel
+    limits: dict | None = None      # coverage_pct, far, max_floors
+
+
+@app.post("/api/ai/building-check")
+def building_check(req: BuildingCheck):
+    """Room sizes (National Building Code of India 2016), light and air, and the plot's limits."""
+    import building_rules
+    if not any(isinstance(e, dict) and e.get("type") == "room" for e in req.elements):
+        raise HTTPException(status_code=400, detail="The plan has no rooms to check. Label rooms first (Rooms panel).")
+    return building_rules.check(req.elements, req.site, req.limits)
+
+
+class ServicesRequest(BaseModel):
+    elements: list
+
+
+@app.post("/api/ai/services-layout")
+def services_layout_api(req: ServicesRequest):
+    """A first electrical and plumbing layout (points, counts) worked out from the plan's rooms."""
+    import services_layout
+    if not any(isinstance(e, dict) and e.get("type") == "room" for e in req.elements):
+        raise HTTPException(status_code=400, detail="The plan has no rooms yet. Label rooms first (Rooms panel).")
+    return services_layout.layout(req.elements)
 
 
 class VastuCheck(BaseModel):

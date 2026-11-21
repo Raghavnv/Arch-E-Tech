@@ -44,6 +44,14 @@ def _cells(room, s):
     return max(lo, room.area * s) / 0.25
 
 
+HABITABLE = ("living", "master_bedroom", "bedroom", "study")
+
+
+def _min_cells(room):
+    """Fewest grid cells a habitable room may cover: its minimum area, rounded up to the grid."""
+    return math.ceil(fb.KIND_SPEC[room.kind][1] / 0.25) if room.kind in HABITABLE else 0
+
+
 def _dims(room, rng, s, along_min=0):
     """(along, depth) in cells; along runs beside the hallway / room it opens off."""
     a = _cells(room, s)
@@ -56,14 +64,17 @@ def _dims(room, rng, s, along_min=0):
     short = max(lo, round(math.sqrt(a / ratio)))
     long_ = max(lo, round(a / short))
     along, depth = (short, long_) if rng.random() < 0.5 else (long_, short)
-    return max(along, along_min), depth
+    along = max(along, along_min)
+    while along * depth < _min_cells(room):          # rounding to the grid must not take it under the minimum
+        depth += 1
+    return along, depth
 
 
 def _dims_at_depth(room, depth, s, along_min=0):
     """(along, depth) with the depth given, so rooms in a row line up; None if that misshapes the room."""
     a = _cells(room, s)
     lo = MIN_SIDE[room.kind]
-    along = max(along_min, lo, round(a / depth))
+    along = max(along_min, lo, round(a / depth), math.ceil(_min_cells(room) / depth))
     lim = 2.6 if room.kind in ("bathroom", "utility") else 1.8
     if depth < lo or max(along, depth) / min(along, depth) > lim:
         return None
@@ -581,8 +592,8 @@ def _min_w(r, depth=7):
     """Narrowest a room can be in a band `depth` cells deep: its shortest side, room for a door, and
     for bedrooms enough width to reach their minimum floor area."""
     w = max(MIN_SIDE[r.kind], DOOR_SIDE if r.kind != "bathroom" else 4)
-    if r.kind in ("bedroom", "master_bedroom"):
-        w = max(w, math.ceil(fb.KIND_SPEC[r.kind][1] / 0.25 / depth))
+    if r.kind in HABITABLE:
+        w = max(w, math.ceil(_min_cells(r) / depth))
     return w
 
 

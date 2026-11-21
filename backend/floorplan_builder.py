@@ -57,7 +57,7 @@ KIND_SPEC = {
     "lounge":         ("Lounge",         10, 16, 40, 3.0, "public"),   # open family space, never walled off
     "master_bedroom": ("Master Bedroom", 15, 18, 32, 3.4, "private"),
     "bedroom":        ("Bedroom",        11, 13, 22, 3.0, "private"),
-    "study":          ("Study",           6,  9, 16, 2.6, "private"),
+    "study":          ("Study",         9.5, 10, 16, 2.6, "private"),   # NBC 2016: habitable room >= 9.5 m2
     "bathroom":       ("Bathroom",      3.5,  6,  9, 2.4, "private"),
 }
 PUB_ORDER = {"living": 0, "dining": 1, "kitchen": 2, "utility": 3}

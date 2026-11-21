@@ -88,3 +88,46 @@ class PlanImport(Base):
     info = Column(JSON, nullable=True)                # reader summary: scale, counts, model version
     status = Column(String, default="read")           # read | accepted
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class ProjectShare(Base):
+    """A view-only link to a project for a client or family; anyone with the token can see the plan,
+    comment on it and approve it, until the owner turns the link off."""
+    __tablename__ = "project_shares"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    token = Column(String, unique=True, index=True)
+    label = Column(String, nullable=True)                 # who it was sent to, for the owner
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class ShareComment(Base):
+    """A comment left through a share link, on the whole plan or on one room."""
+    __tablename__ = "share_comments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    share_id = Column(Integer, ForeignKey("project_shares.id", ondelete="CASCADE"), index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    author = Column(String)
+    body = Column(Text)
+    room_id = Column(String, nullable=True)               # the room element's id
+    room_name = Column(String, nullable=True)
+    resolved = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class ShareDecision(Base):
+    """A client's approval (or request for changes) of the plan as it was at that moment."""
+    __tablename__ = "share_decisions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    share_id = Column(Integer, ForeignKey("project_shares.id", ondelete="CASCADE"), index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    author = Column(String)
+    decision = Column(String)                              # approved | changes_requested
+    note = Column(Text, nullable=True)
+    plan_version = Column(String)                          # hash of the plan that was decided on
+    elements = Column(JSON)                                # that plan, kept so the owner can see what was approved
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)

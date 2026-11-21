@@ -58,6 +58,34 @@ The planner picks similar reference houses, asks the LLM to design a new layout,
   north-east, open centre, north / east entrance, ...). **Studio → Vastu check** scores any plan and explains each rule;
   set which way north points on the drawing.
 
+### Drawings to build from
+Studio → REPORTS:
+- **Plan sheet (PDF):** A3, one page per floor, drawn as vectors at a standard scale (1:50 to 1:500): solid walls,
+  door swings, windows, room names with sizes and areas, wall-by-wall and overall dimensions, north arrow, scale
+  bar, title block and room schedule.
+- **CAD drawing (DXF):** the floor as an AutoCAD R12 drawing in metres, on layers A-WALL, A-DOOR, A-GLAZ, A-AREA,
+  A-STRS, A-FURN and A-ANNO-*, so it opens in AutoCAD, LibreCAD, DraftSight and most CAD apps.
+
+### Building rules
+Studio → **Building rules** checks every room against the National Building Code of India 2016 minimums (habitable
+room 9.5 m² and 2.4 m wide, kitchen 5.0 m² / 1.8 m, bathroom 1.8 m² / 1.2 m, separate WC 1.1 m² / 0.9 m), that
+habitable rooms and kitchens have windows (and, as many bye-laws ask, at least a tenth of the floor area), and the
+plot's ground coverage, FAR / FSI, number of floors and setbacks against limits you set for your city
+(defaults: 75%, 1.75, 3 floors). Guidance only: local bye-laws can differ.
+
+### Electrical and plumbing
+Studio → **Electrical & plumbing** lays out a first set of points from the plan: lights, fans, switchboards by the
+doors, 6 A sockets along free walls, 16 A points for the kitchen and utility, AC points by windows, geyser and
+exhaust points, the distribution board inside the front door; water supply points, floor traps and soil stacks on
+outside walls. It shows them over the plan with counts and a rough wiring / piping cost, and downloads the plan
+sheet with a services page per floor. A starting point for the electrician and plumber, not a design.
+
+### Sharing with clients
+Studio → **Share with client** makes a view-only link (`/shared/<token>`). Anyone with it can see the plan without an
+account, comment on the plan or on a room, and approve it or ask for changes. An approval records the exact version
+of the plan; the owner sees comments (and can mark them done), approvals, and whether the plan has changed since.
+Links can be turned off at any time.
+
 ### Multi-floor houses
 - Rooms are split across floors, with stairs placed to line up on both levels.
 - Balconies and patios get railings automatically.
@@ -161,6 +189,10 @@ Arch-E-Tech/
 │   ├── render_ai.py             Cloudflare Workers AI prompts and image calls
 │   ├── layout_generator.py      Procedural layouts: a different house for almost every brief; fits plots
 │   ├── vastu.py                 Vastu checks and score for any plan
+│   ├── building_rules.py        NBC 2016 room sizes, windows, plot coverage / FAR / setbacks
+│   ├── services_layout.py       Electrical and plumbing points from the plan
+│   ├── export_cad.py            DXF (AutoCAD R12) export
+│   ├── sharing.py               Share links, client comments and approvals
 │   ├── plan_import.py           Plan import routes (forwards drawings to the plan reader service)
 │   ├── export_plan_imports.py   Exports shared (consented) imports for retraining the reader
 │   └── requirements.txt
@@ -180,6 +212,7 @@ Arch-E-Tech/
 │   │   │   ├── RenderStudio.jsx   Photo Render
 │   │   │   ├── Overview.jsx       Presentation slideshow
 │   │   │   ├── ImportPlanModal.jsx Upload a drawing, review the traced plan, set the scale
+│   │   │   ├── SharedProject.jsx  The page behind a share link: view, comment, approve
 │   │   │   └── InfoTip.jsx        (i) explanations
 │   │   └── utils/
 │   │       ├── costs.js           Cost takeoff
@@ -304,6 +337,15 @@ All project, photo and AI endpoints except health take `Authorization: Bearer <t
 | POST | `/api/ai/generate-plan` | Prompt (+ optional `plot_width_m`, `plot_depth_m`, `facing`, `vastu`) → plan elements, plus `site`, `vastu` and `notes` when a plot is given |
 | POST | `/api/ai/edit-plan` | Instruction + elements → edited elements |
 | POST | `/api/ai/vastu-check` | Elements + which way north points → Vastu score and checklist |
+| POST | `/api/ai/building-check` | Elements + plot + limits → room-size, window and plot checks |
+| POST | `/api/ai/services-layout` | Elements → electrical and plumbing points with counts |
+| POST | `/api/export/dxf` | Elements + floor → DXF drawing (download) |
+| POST / GET | `/api/projects/{id}/shares` | Make a share link / list links, comments and approvals |
+| DELETE | `/api/projects/{id}/shares/{share_id}` | Turn a share link off |
+| POST | `/api/projects/{id}/comments/{comment_id}` | Mark a client comment done or open |
+| GET | `/api/shared/{token}` | The shared plan, comments and approvals (no login) |
+| POST | `/api/shared/{token}/comments` | Comment through a share link (no login) |
+| POST | `/api/shared/{token}/decision` | Approve or ask for changes through a share link (no login) |
 | POST | `/api/ai/budget-advice` | Budget + takeoff + rooms → ranked cuts |
 | POST | `/api/ai/report-narrative` | Written summary for the PDF report |
 | POST | `/api/ai/compliance` | Basic code-compliance notes on a plan |

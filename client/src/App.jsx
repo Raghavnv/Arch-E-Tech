@@ -10,6 +10,7 @@ import RenderStudio from './components/RenderStudio';
 import Overview from './components/Overview';
 import WarRoom from './components/WarRoom';
 import ImmersiveView from './components/ImmersiveView';
+import SharedProject from './components/SharedProject';
 import BackgroundPattern from './components/BackgroundPattern';
 import ErrorBoundary from './components/ErrorBoundary';
 import { useLocation } from 'react-router-dom';
@@ -38,6 +39,7 @@ function App() {
           <Route path="/overview" element={<Overview />} />
           <Route path="/war-room" element={<WarRoom />} />
           <Route path="/immersive" element={<ImmersiveView />} />
+          <Route path="/shared/:token" element={<SharedProject />} />
         </Routes>
         </RoutedBoundary>
       </div>

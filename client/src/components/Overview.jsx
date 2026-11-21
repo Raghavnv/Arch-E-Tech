@@ -31,7 +31,7 @@ function lineOf(e) {
   return [e.left, e.top, e.left + e.width * Math.cos(a), e.top + e.width * Math.sin(a)];
 }
 
-function PlanDrawing({ elements, highlight = null, animate = true, labels = true }) {
+export function PlanDrawing({ elements, highlight = null, animate = true, labels = true, onRoomClick = null, children = null }) {
   const rooms = elements.filter(e => e.type === 'room');
   if (!rooms.length) return null;
   const x0 = Math.min(...rooms.map(r => r.left)), y0 = Math.min(...rooms.map(r => r.top - r.height / 2));
@@ -44,7 +44,8 @@ function PlanDrawing({ elements, highlight = null, animate = true, labels = true
       {rooms.map((r, i) => (
         <rect key={`r${i}`} x={r.left} y={r.top - r.height / 2} width={r.width} height={r.height}
           fill={highlight === r.id ? 'rgba(200,121,74,0.32)' : OPEN.has(r.kind) ? 'rgba(200,121,74,0.08)' : 'rgba(231,226,217,0.035)'}
-          style={{ transition: 'fill .6s ease' }} />
+          style={{ transition: 'fill .6s ease', cursor: onRoomClick ? 'pointer' : undefined }}
+          onClick={onRoomClick ? () => onRoomClick(r) : undefined} />
       ))}
       {walls.map((w, i) => {
         const [ax, ay, bx, by] = lineOf(w);
@@ -77,12 +78,13 @@ function PlanDrawing({ elements, highlight = null, animate = true, labels = true
         // each label fits its own room: long names in small rooms get smaller type
         const fs = Math.min(sw * 6, (r.width * 0.86) / Math.max(4, (r.name || '').length * 0.56), r.height * 0.22);
         return (
-          <g key={`t${i}`} className="rise-in" style={{ animationDelay: animate ? '1.3s' : '0s' }} textAnchor="middle">
+          <g key={`t${i}`} className="rise-in" style={{ animationDelay: animate ? '1.3s' : '0s' }} textAnchor="middle" pointerEvents="none">
             <text x={r.left + r.width / 2} y={r.top - fs * 0.25} fontSize={fs} fill="#f3f1ed" fontFamily="Inter, sans-serif" fontWeight="500">{r.name}</text>
             <text x={r.left + r.width / 2} y={r.top + fs * 1.05} fontSize={fs * 0.78} fill="#a8a29a" fontFamily="'JetBrains Mono', monospace">{formatArea(r.area, { short: true })}</text>
           </g>
         );
       })}
+      {children}
     </svg>
   );
 }

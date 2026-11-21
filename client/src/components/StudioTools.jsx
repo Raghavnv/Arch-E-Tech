@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { X, Loader2, AlertTriangle, Download, ScanLine, LayoutTemplate, Image as ImageIcon, Wand2 as Wand, Home, Bookmark, Check, Wallet } from 'lucide-react';
 import { detectRooms } from '../utils/detectRooms';
 import InfoTip from './InfoTip';
-import { formatArea, currencyCode, CURRENCY } from '../utils/units';
+import { formatArea, formatMoney, currencyCode, CURRENCY } from '../utils/units';
+import { downloadPlanSheet } from '../utils/planSheet';
 
 /*
  * The Studio's tool panels: Auto Detect (label the rooms your walls enclose), AI Layout (a new plan
@@ -635,7 +636,10 @@ export function VastuPanel({ elements, site, projectId, apiUrl, onClose }) {
   };
 
   // check when the panel opens; the owner re-checks after editing
-  useEffect(() => { check(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const t = setTimeout(check, 0);           // the fetch starts after this render
+    return () => clearTimeout(t);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pickNorth = (dir) => {
     setNorth(dir);
@@ -683,5 +687,309 @@ export function VastuPanel({ elements, site, projectId, apiUrl, onClose }) {
         </>
       )}
     </Panel>
+  );
+}
+
+// ------------------------------------------------------------------------------------------------
+// Building rules: room sizes (NBC 2016), light and air, and the plot's limits
+// ------------------------------------------------------------------------------------------------
+const LIMIT_FIELDS = [['coverage_pct', 'Ground coverage %', 75], ['far', 'FAR / FSI', 1.75], ['max_floors', 'Max floors', 3]];
+
+export function RulesPanel({ elements, site, projectId, apiUrl, onClose }) {
+  const key = `rules_limits_${projectId || 'draft'}`;
+  const [limits, setLimits] = useState(() => {
+    try { return { ...Object.fromEntries(LIMIT_FIELDS.map(([k, , d]) => [k, d])), ...JSON.parse(localStorage.getItem(key) || '{}') }; }
+    catch { return Object.fromEntries(LIMIT_FIELDS.map(([k, , d]) => [k, d])); }
+  });
+  // a plot typed here when the project has none (metres)
+  const [plot, setPlot] = useState({ w: '', d: '' });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [report, setReport] = useState(null);
+  const plotSite = site?.plot_m ? site : (Number(plot.w) > 0 && Number(plot.d) > 0 ? { plot_m: [Number(plot.w), Number(plot.d)] } : null);
+
+  const check = async () => {
+    setBusy(true); setError(null);
+    try { localStorage.setItem(key, JSON.stringify(limits)); } catch { /* private mode */ }
+    try {
+      const res = await fetch(`${apiUrl}/api/ai/building-check`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ elements, site: plotSite, limits: Object.fromEntries(Object.entries(limits).map(([k, v]) => [k, Number(v)])) }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || `The server answered ${res.status}.`);
+      setReport(data);
+    } catch (e) {
+      setError(e.message);
+      setReport(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    const t = setTimeout(check, 0);           // the fetch starts after this render
+    return () => clearTimeout(t);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const groups = report ? [...new Set(report.checks.map(c => c.group))] : [];
+  const BADGE = { ...STATUS, info: ['bg-zinc-800 text-zinc-300', 'Info'] };
+  return (
+    <Panel icon={Check} title="Building rules" onClose={onClose}>
+      <p className="text-[11px] leading-snug text-zinc-500">
+        Room sizes follow the National Building Code of India 2016. Plot limits differ by city: set your local authority's.
+      </p>
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        {LIMIT_FIELDS.map(([k, label]) => (
+          <label key={k} className="text-[10px] text-zinc-400">{label}
+            <input type="number" min="0" step="0.05" value={limits[k]} onChange={(e) => setLimits(l => ({ ...l, [k]: e.target.value }))}
+              className="mt-1 w-full rounded bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+          </label>
+        ))}
+      </div>
+      {!site?.plot_m && (
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {[['w', 'Plot frontage (m)'], ['d', 'Plot depth (m)']].map(([k, label]) => (
+            <label key={k} className="text-[10px] text-zinc-400">{label}
+              <input type="number" min="0" step="0.1" value={plot[k]} onChange={(e) => setPlot(p => ({ ...p, [k]: e.target.value }))}
+                className="mt-1 w-full rounded bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+            </label>
+          ))}
+        </div>
+      )}
+      <button onClick={check} disabled={busy}
+        className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-100 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-white disabled:opacity-50">
+        {busy ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking…</> : 'Check the plan'}
+      </button>
+      {error && <ErrorLine>{error}</ErrorLine>}
+      {report && !busy && (
+        <>
+          <p className="mt-4 text-sm text-zinc-200">
+            {report.fails ? `${report.fails} problem${report.fails > 1 ? 's' : ''}` : 'No problems'}
+            {report.warnings ? `, ${report.warnings} warning${report.warnings > 1 ? 's' : ''}` : ''}
+          </p>
+          {groups.map(g => (
+            <div key={g} className="mt-3">
+              <p className="font-mono text-[10px] tracking-[0.2em] text-zinc-500">{g.toUpperCase()}</p>
+              <ul className="mt-1.5 space-y-2">
+                {report.checks.filter(c => c.group === g).map((c, i) => (
+                  <li key={i} className="rounded-lg border border-zinc-800 bg-zinc-900 p-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-medium text-zinc-100">{c.rule}</span>
+                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${BADGE[c.status][0]}`}>{BADGE[c.status][1]}</span>
+                    </div>
+                    <p className="mt-1 text-[11px] leading-snug text-zinc-400">{c.detail}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+          <p className="mt-3 text-[10px] leading-snug text-zinc-600">Guidance only: state and municipal bye-laws can differ. Confirm with your local authority before building.</p>
+        </>
+      )}
+    </Panel>
+  );
+}
+
+// ------------------------------------------------------------------------------------------------
+// Share with a client: view-only links, their comments and approval
+// ------------------------------------------------------------------------------------------------
+export function SharePanel({ projectId, apiUrl, onClose }) {
+  const [data, setData] = useState(null);
+  const [label, setLabel] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [copied, setCopied] = useState(null);
+
+  const call = async (path, opts = {}) => {
+    const res = await fetch(`${apiUrl}${path}`, { ...opts, headers: { ...authHeaders(), ...(opts.headers || {}) } });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.detail || `The server answered ${res.status}.`);
+    return body;
+  };
+  const load = () => call(`/api/projects/${projectId}/shares`).then(setData).catch(e => setError(e.message));
+
+  useEffect(() => {
+    if (!projectId) return undefined;
+    const t = setTimeout(load, 0);
+    return () => clearTimeout(t);
+  }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const linkOf = (token) => `${window.location.origin}/shared/${token}`;
+  const create = async () => {
+    setBusy(true); setError(null);
+    try {
+      const s = await call(`/api/projects/${projectId}/shares`, { method: 'POST', body: JSON.stringify({ label: label.trim() || null }) });
+      setLabel('');
+      await load();
+      copy(s.token);
+    } catch (e) { setError(e.message); } finally { setBusy(false); }
+  };
+  const copy = (token) => {
+    navigator.clipboard?.writeText(linkOf(token)).then(() => { setCopied(token); setTimeout(() => setCopied(null), 1500); }).catch(() => {});
+  };
+  const turnOff = async (id) => {
+    try { await call(`/api/projects/${projectId}/shares/${id}`, { method: 'DELETE' }); await load(); } catch (e) { setError(e.message); }
+  };
+  const resolve = async (c) => {
+    try {
+      await call(`/api/projects/${projectId}/comments/${c.id}`, { method: 'POST', body: JSON.stringify({ resolved: !c.resolved }) });
+      await load();
+    } catch (e) { setError(e.message); }
+  };
+
+  if (!projectId) {
+    return <Panel icon={Bookmark} title="Share with client" onClose={onClose}><p className="text-xs text-zinc-400">Save the project first to share it.</p></Panel>;
+  }
+  const latest = data?.decisions?.[0];
+  return (
+    <Panel icon={Bookmark} title="Share with client" onClose={onClose}>
+      <p className="text-[11px] leading-snug text-zinc-500">
+        A view-only link: anyone with it can see the plan, comment on rooms and approve it, without an account. Turn it off any time.
+      </p>
+      <div className="mt-3 flex gap-2">
+        <input value={label} onChange={(e) => setLabel(e.target.value)} onKeyDown={(e) => e.stopPropagation()} maxLength={80}
+          placeholder="Who is it for? (optional)" className="min-w-0 flex-1 rounded bg-zinc-900 px-2 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+        <button onClick={create} disabled={busy} className="rounded bg-zinc-100 px-3 text-xs font-semibold text-zinc-950 hover:bg-white disabled:opacity-50">
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'New link'}
+        </button>
+      </div>
+      {error && <ErrorLine>{error}</ErrorLine>}
+      {latest && (
+        <p className={`mt-3 rounded-lg px-3 py-2 text-xs ${latest.decision === 'approved' ? 'bg-emerald-500/10 text-emerald-200' : 'bg-amber-500/10 text-amber-100'}`}>
+          {latest.decision === 'approved' ? 'Approved' : 'Changes requested'} by {latest.author}
+          {latest.current ? ' (this version of the plan)' : ' (the plan has changed since)'}{latest.note ? `: "${latest.note}"` : ''}
+        </p>
+      )}
+      {data && (
+        <>
+          <p className="mt-4 font-mono text-[10px] tracking-[0.2em] text-zinc-500">LINKS</p>
+          {data.shares.length === 0 && <p className="mt-1 text-xs text-zinc-500">No links yet.</p>}
+          <ul className="mt-1.5 space-y-1.5">
+            {data.shares.map(s => (
+              <li key={s.id} className={`flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-2 ${s.active ? '' : 'opacity-50'}`}>
+                <span className="min-w-0 flex-1 truncate text-xs text-zinc-200">{s.label || 'Link'}{s.active ? '' : ' (off)'}</span>
+                {s.active && (
+                  <>
+                    <button onClick={() => copy(s.token)} className="text-[11px] text-indigo-300 hover:text-indigo-200">{copied === s.token ? 'Copied' : 'Copy'}</button>
+                    <a href={linkOf(s.token)} target="_blank" rel="noreferrer" className="text-[11px] text-zinc-400 hover:text-zinc-200">Open</a>
+                    <button onClick={() => turnOff(s.id)} className="text-[11px] text-rose-300 hover:text-rose-200">Turn off</button>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-4 font-mono text-[10px] tracking-[0.2em] text-zinc-500">COMMENTS</p>
+          {data.comments.length === 0 && <p className="mt-1 text-xs text-zinc-500">None yet.</p>}
+          <ul className="mt-1.5 space-y-1.5">
+            {data.comments.map(c => (
+              <li key={c.id} className={`rounded-lg border border-zinc-800 bg-zinc-900 p-2.5 ${c.resolved ? 'opacity-50' : ''}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-zinc-400"><span className="text-zinc-200">{c.author}</span>{c.room_name ? ` on ${c.room_name}` : ''}</span>
+                  <button onClick={() => resolve(c)} className="text-[10px] text-zinc-400 hover:text-white">{c.resolved ? 'Reopen' : 'Mark done'}</button>
+                </div>
+                <p className="mt-1 whitespace-pre-wrap text-xs text-zinc-300">{c.body}</p>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </Panel>
+  );
+}
+
+// ------------------------------------------------------------------------------------------------
+// Services: a first electrical and plumbing layout, its counts and a rough cost
+// ------------------------------------------------------------------------------------------------
+// rough installed cost per point in US dollars (shown in the chosen currency); wiring / piping only
+const POINT_RATE = { light: 16, fan: 16, switch: 25, socket: 18, power: 28, ac: 40, geyser: 30, exhaust: 16, db: 160,
+  supply: 40, drain: 30, stack: 150 };
+const PLUMB = new Set(['supply', 'drain', 'stack']);
+
+export function ServicesPanel({ elements, floor, projectName, site, north, apiUrl, onClose }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [data, setData] = useState(null);
+
+  const run = async () => {
+    setBusy(true); setError(null);
+    try {
+      const res = await fetch(`${apiUrl}/api/ai/services-layout`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ elements }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.detail || `The server answered ${res.status}.`);
+      setData(body);
+    } catch (e) { setError(e.message); setData(null); } finally { setBusy(false); }
+  };
+  useEffect(() => {
+    const t = setTimeout(run, 0);
+    return () => clearTimeout(t);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const here = data ? data.points.filter(p => p.floor === floor) : [];
+  const onFloor = elements.filter(e => (e.floor || 1) === floor);
+  const cost = (sys) => (data ? data.points.filter(p => (PLUMB.has(p.type) ? 'plumbing' : 'electrical') === sys)
+    .reduce((s, p) => s + (POINT_RATE[p.type] || 0), 0) : 0);
+  const download = () => {
+    try { downloadPlanSheet(elements, { project: projectName || 'Plan', north, site, services: data }); }
+    catch (e) { setError(e.message); }
+  };
+
+  return (
+    <Panel icon={Wand} title="Electrical & plumbing" wide onClose={onClose}>
+      {busy && <p className="flex items-center gap-2 text-xs text-zinc-400"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Laying out services…</p>}
+      {error && <ErrorLine>{error}</ErrorLine>}
+      {data && !busy && (
+        <div className="grid gap-4 md:grid-cols-[1fr_15rem]">
+          <div className="aspect-[4/3] rounded-lg border border-zinc-800 bg-zinc-900/60 p-2">
+            <ServicesPreview elements={onFloor} points={here} />
+          </div>
+          <div>
+            <p className="font-mono text-[10px] tracking-[0.2em] text-zinc-500">{floor === 1 ? 'GROUND FLOOR' : `FLOOR ${floor}`} · WHOLE HOUSE</p>
+            <ul className="mt-2 space-y-1">
+              {Object.entries(data.counts).map(([type, n]) => (
+                <li key={type} className="flex items-center justify-between text-xs">
+                  <span className={PLUMB.has(type) ? 'text-sky-300' : 'text-orange-300'}>{data.labels[type] || type}</span>
+                  <span className="text-zinc-300">{here.filter(p => p.type === type).length} · {n}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-3 rounded-lg bg-zinc-900 p-2.5 text-xs">
+              <div className="flex justify-between"><span className="text-zinc-400">Electrical points</span><span className="text-zinc-100">{formatMoney(cost('electrical'))}</span></div>
+              <div className="mt-1 flex justify-between"><span className="text-zinc-400">Plumbing points</span><span className="text-zinc-100">{formatMoney(cost('plumbing'))}</span></div>
+              <p className="mt-1.5 text-[10px] leading-snug text-zinc-500">Rough wiring and piping cost per point; fittings and fixtures extra.</p>
+            </div>
+            <button onClick={download} className="mt-3 w-full rounded-lg bg-zinc-100 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-white">
+              Download drawings (PDF)
+            </button>
+            <button onClick={run} className="mt-2 w-full rounded-lg border border-zinc-700 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800">Lay out again</button>
+            <p className="mt-2 text-[10px] leading-snug text-zinc-600">A starting point following common practice, for your electrician and plumber to confirm.</p>
+          </div>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function ServicesPreview({ elements, points }) {
+  const rooms = elements.filter(e => e.type === 'room');
+  if (!rooms.length) return null;
+  const x0 = Math.min(...rooms.map(r => r.left)), y0 = Math.min(...rooms.map(r => r.top - r.height / 2));
+  const x1 = Math.max(...rooms.map(r => r.left + r.width)), y1 = Math.max(...rooms.map(r => r.top + r.height / 2));
+  const pad = 20, r = Math.max(x1 - x0, y1 - y0) / 90;
+  const line = (e) => { const a = ((e.angle || 0) * Math.PI) / 180; return [e.left, e.top, e.left + e.width * Math.cos(a), e.top + e.width * Math.sin(a)]; };
+  const CODE = { light: 'L', fan: 'F', switch: 'SW', socket: 'S', power: 'P', ac: 'AC', geyser: 'G', exhaust: 'EX', db: 'DB', supply: 'W', drain: 'FT', stack: 'ST' };
+  return (
+    <svg viewBox={`${x0 - pad} ${y0 - pad} ${x1 - x0 + 2 * pad} ${y1 - y0 + 2 * pad}`} className="h-full w-full">
+      {rooms.map(rm => <rect key={rm.id} x={rm.left} y={rm.top - rm.height / 2} width={rm.width} height={rm.height} fill="rgba(231,226,217,0.04)" />)}
+      {elements.filter(e => e.type === 'wall').map((w, i) => { const [a, b, c, d] = line(w); return <line key={i} x1={a} y1={b} x2={c} y2={d} stroke="#e7e2d9" strokeWidth={r * 0.9} strokeLinecap="square" />; })}
+      {points.map((p, i) => (
+        <g key={i}>
+          <circle cx={p.x} cy={p.y} r={r} fill={PLUMB.has(p.type) ? '#0c4a6e' : '#7c2d12'} stroke={PLUMB.has(p.type) ? '#7dd3fc' : '#fdba74'} strokeWidth={r * 0.15} />
+          <text x={p.x} y={p.y + r * 0.35} fontSize={r * (CODE[p.type].length > 1 ? 0.8 : 1.05)} textAnchor="middle" fill="#fff" fontFamily="sans-serif">{CODE[p.type]}</text>
+        </g>
+      ))}
+    </svg>
   );
 }

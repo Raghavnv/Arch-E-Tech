@@ -5,11 +5,11 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Menu, MousePointer2, Box, Home, PenTool, LayoutTemplate, 
   Settings, Save, FileText, ChevronRight, Calculator, CheckCircle, 
-  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen, FileUp, Compass 
+  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen, FileUp, Compass, Ruler, PenLine, ShieldCheck, Share2, Zap 
 } from 'lucide-react';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
-import { AutoDetectPanel, AiLayoutPanel, ConceptVizPanel, EditPanel, RoomsPanel, BudgetPanel, VastuPanel } from './StudioTools';
+import { AutoDetectPanel, AiLayoutPanel, ConceptVizPanel, EditPanel, RoomsPanel, BudgetPanel, VastuPanel, RulesPanel, SharePanel, ServicesPanel } from './StudioTools';
 import FeatureDock from './FeatureDock';
 import ImportPlanModal from './ImportPlanModal';
 import InfoTip from './InfoTip';
@@ -17,6 +17,7 @@ import Mark from './Mark';
 import { ARCHITECTURAL_TEXTURES } from '../utils/textureLibrary';
 import { measurement, currencySymbol, currencyCode, CURRENCY, formatSize } from '../utils/units';
 import { computeCosts } from '../utils/costs';
+import { downloadPlanSheet } from '../utils/planSheet';
 
 const PLAIN_WALL = { id: 'mat_plain', name: 'Plain', color: '#f4f4f5' };
 
@@ -51,6 +52,7 @@ export default function Studio() {
   const [leftOpen, setLeftOpen] = useState(() => pref('studio_left_open', true));
   const [dockOpen, setDockOpen] = useState(() => pref('studio_dock_open', true));
   const [importOpen, setImportOpen] = useState(false);
+  const [exporting, setExporting] = useState(null);       // 'sheet' | 'dxf' while an export runs
   useEffect(() => {
     try { localStorage.setItem('studio_left_open', leftOpen ? '1' : '0'); localStorage.setItem('studio_dock_open', dockOpen ? '1' : '0'); } catch { /* private mode */ }
     // the 2D canvas sizes itself on window resize; the panel moving changes its room
@@ -253,6 +255,44 @@ export default function Studio() {
   const handlePaintAllWalls = () => {
     if (!selectedMaterial) return;
     setCanvasElements(prev => prev.map(el => (el.type === 'wall' ? { ...el, ...paintFor(selectedMaterial) } : el)));
+  };
+
+  // which way north points on the drawing (set in the Vastu check; generated plans have north up)
+  const northOf = () => { try { return localStorage.getItem(`vastu_north_${projectId || 'draft'}`) || projectSite?.north || 'up'; } catch { return 'up'; } };
+
+  const exportPlanSheet = () => {
+    setExporting('sheet');
+    try {
+      downloadPlanSheet(canvasElements, { project: projectName || 'Plan', north: northOf(), site: projectSite });
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const exportDxf = async () => {
+    setExporting('dxf');
+    try {
+      const res = await fetch(`${API_URL}/api/export/dxf`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ elements: canvasElements, floor: activeFloor, name: projectName || 'Plan', imperial: prefMeasurement !== 'metric' }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || `The server answered ${res.status}.`);
+      }
+      const blob = await res.blob();
+      const name = (res.headers.get('Content-Disposition') || '').match(/filename="([^"]+)"/)?.[1] || 'plan.dxf';
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) {
+      alert(`Couldn't export the drawing: ${e.message}`);
+    } finally {
+      setExporting(null);
+    }
   };
 
   const generatePDFReport = async () => {
@@ -660,6 +700,8 @@ export default function Studio() {
               onClick: handleOpenRenderStudio },
             { id: 'concept', icon: ImageIcon, label: 'Concept Viz', desc: '3D cutaway or exterior image', info: 'concept', active: toolPanel === 'concept',
               onClick: () => openTool('concept') },
+            { id: 'services', icon: Zap, label: 'Electrical & plumbing', desc: 'Light, power and water points', active: toolPanel === 'services',
+              onClick: () => setToolPanel(t => (t === 'services' ? null : 'services')) },
             { id: 'vastu', icon: Compass, label: 'Vastu check', desc: 'The plan against Vastu guidelines', active: toolPanel === 'vastu',
               onClick: () => setToolPanel(t => (t === 'vastu' ? null : 'vastu')) },
             { id: 'budget', icon: Wallet, label: 'Budget Advisor', desc: 'Find where to cut back', info: 'budget', accent: true, active: toolPanel === 'budget',
@@ -667,10 +709,27 @@ export default function Studio() {
           ] },
           { title: 'REPORTS', items: [
             { id: 'cost', icon: Calculator, label: 'Cost takeoff', desc: `${money(costData.total)} estimated`, onClick: () => setShowCostModal(true) },
+            { id: 'share', icon: Share2, label: 'Share with client', desc: 'View-only link, comments, approval', active: toolPanel === 'share',
+              onClick: () => setToolPanel(t => (t === 'share' ? null : 'share')) },
+            { id: 'rules', icon: ShieldCheck, label: 'Building rules', desc: 'Room sizes, light and plot limits', active: toolPanel === 'rules',
+              onClick: () => setToolPanel(t => (t === 'rules' ? null : 'rules')) },
+            { id: 'sheet', icon: Ruler, label: exporting === 'sheet' ? 'Drawing sheet…' : 'Plan sheet (PDF)',
+              desc: 'Dimensioned A3 drawing, every floor', disabled: !!exporting, onClick: exportPlanSheet },
+            { id: 'dxf', icon: PenLine, label: exporting === 'dxf' ? 'Exporting…' : 'CAD drawing (DXF)',
+              desc: `${activeFloor === 1 ? 'Ground floor' : `Floor ${activeFloor}`} for AutoCAD and other CAD apps`, disabled: !!exporting,
+              onClick: exportDxf },
             { id: 'pdf', icon: FileText, label: isGeneratingPDF ? 'Building PDF…' : 'PDF Report', desc: 'Plan, costs and notes', disabled: isGeneratingPDF,
               onClick: generatePDFReport },
           ] },
         ]} />
+        {toolPanel === 'services' && (
+          <ServicesPanel elements={canvasElements} floor={activeFloor} projectName={projectName} site={projectSite}
+            north={northOf()} apiUrl={API_URL} onClose={() => setToolPanel(null)} />
+        )}
+        {toolPanel === 'share' && <SharePanel projectId={projectId} apiUrl={API_URL} onClose={() => setToolPanel(null)} />}
+        {toolPanel === 'rules' && (
+          <RulesPanel elements={canvasElements} site={projectSite} projectId={projectId} apiUrl={API_URL} onClose={() => setToolPanel(null)} />
+        )}
         {toolPanel === 'vastu' && (
           <VastuPanel elements={canvasElements} site={projectSite} projectId={projectId} apiUrl={API_URL} onClose={() => setToolPanel(null)} />
         )}
