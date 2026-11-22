@@ -20,6 +20,10 @@ export const CEILING_STYLES = [
   { id: 'wood', name: 'Wooden slats', desc: 'Warm timber battens across the ceiling', rate: 160 },
   { id: 'pop', name: 'POP design, round', desc: 'A drop ceiling with a round lit recess over the centre', rate: 110 },
   { id: 'beams', name: 'Exposed beams', desc: 'Timber beams across the room', rate: 90 },
+  { id: 'peripheral', name: 'Peripheral with spots', desc: 'A wide gypsum band with downlights set in it and a cove glow', rate: 115 },
+  { id: 'backlit', name: 'Backlit panel', desc: 'A glowing translucent panel over the middle of the room', rate: 150 },
+  { id: 'wave', name: 'Wooden wave', desc: 'Timber battens that rise and fall like a wave', rate: 190 },
+  { id: 'coffered_wood', name: 'Wooden coffers', desc: 'Coffered grid in dark timber on a pale ceiling', rate: 175 },
 ];
 export const LIGHT_TYPES = [
   { id: 'flush', name: 'Flush light', desc: 'A simple round ceiling light', price: 40 },
@@ -28,6 +32,11 @@ export const LIGHT_TYPES = [
   { id: 'spots', name: 'Recessed spots', desc: 'Downlights in a grid', price: 160 },
   { id: 'fan', name: 'Fan with light', desc: 'A ceiling fan with a light kit', price: 180 },
   { id: 'ring', name: 'LED ring', desc: 'A modern floating ring of light', price: 220 },
+  { id: 'crystal', name: 'Crystal chandelier', desc: 'Three tiers of crystal drops', price: 900 },
+  { id: 'globes', name: 'Globe cluster', desc: 'Glass globes hung at different heights', price: 320 },
+  { id: 'linear', name: 'Linear pendant', desc: 'A long LED bar, over a dining table or island', price: 240 },
+  { id: 'track', name: 'Track lights', desc: 'Adjustable spots on a ceiling track', price: 200 },
+  { id: 'lantern', name: 'Lantern', desc: 'A brass lantern on a chain', price: 210 },
   { id: 'none', name: 'No ceiling light', desc: 'Lamps only', price: 0 },
 ];
 export const CEILING_COLOURS = [['White', '#f3f1ed'], ['Warm white', '#efe6d6'], ['Pale grey', '#dcdad6'], ['Sky', '#dde8f0'], ['Charcoal', '#3a3a3c']];
@@ -153,6 +162,57 @@ export function RoomCeiling({ rect, style = 'plain', color = '#f3f1ed', top, day
     }
     return <group>{base}{items}</group>;
   }
+  if (style === 'peripheral') {
+    const wide = Math.min(1.0, Math.min(w, d) * 0.26), drop = 0.3;
+    const spots = [];
+    const ring = (len, n, fn) => { for (let i = 0; i < n; i++) spots.push(fn((i + 0.5) / n * len)); };
+    const nx = Math.max(2, Math.round(w / 1.1)), nz = Math.max(1, Math.round(d / 1.1) - 1);
+    const sp = (px, pz, k) => (
+      <mesh key={k} position={[px, top - drop - 0.051, pz]} rotation-x={-Math.PI / 2}><circleGeometry args={[0.055, 20]} /><meshStandardMaterial {...glowMat(day, 1.8)} /></mesh>
+    );
+    ring(w, nx, (o) => sp(x + o, z + wide / 2, `n${o}`)); ring(w, nx, (o) => sp(x + o, z + d - wide / 2, `s${o}`));
+    ring(d - 2 * wide, nz, (o) => sp(x + wide / 2, z + wide + o, `w${o}`)); ring(d - 2 * wide, nz, (o) => sp(x + w - wide / 2, z + wide + o, `e${o}`));
+    return (
+      <group>
+        {base}
+        <Frame x={x} z={z} w={w} d={d} band={wide} y={top - drop} t={0.1} color={color} />
+        <GlowLoop x={x + wide - 0.03} z={z + wide - 0.03} w={w - 2 * wide + 0.06} d={d - 2 * wide + 0.06} y={top - drop + 0.06} day={day} />
+        {spots}
+      </group>
+    );
+  }
+  if (style === 'backlit') {
+    const pw = w * 0.55, pd = d * 0.55;
+    return (
+      <group>
+        {base}
+        <Frame x={x} z={z} w={w} d={d} band={Math.min(w, d) * 0.225} y={top - 0.22} t={0.1} color={color} />
+        <mesh position={[x + w / 2, top - 0.2, z + d / 2]} rotation-x={Math.PI / 2}>
+          <planeGeometry args={[pw, pd]} />
+          <meshStandardMaterial color="#fffaf0" emissive="#fff1d6" emissiveIntensity={day ? 0.55 : 1.4} toneMapped={false} side={THREE.DoubleSide} />
+        </mesh>
+      </group>
+    );
+  }
+  if (style === 'wave') {
+    const along = w >= d, span = along ? d : w, n = Math.floor(span / 0.12);
+    const slats = [];
+    for (let i = 0; i < n; i++) {
+      const o = 0.04 + i * 0.12, k = (o / span) * Math.PI * 2;
+      const drop = 0.08 + 0.18 * (0.5 + 0.5 * Math.sin(k * 1.5));
+      slats.push(along
+        ? <mesh key={i} position={[x + w / 2, top - drop / 2, z + o]}><boxGeometry args={[w - 0.04, drop, 0.05]} /><meshStandardMaterial color={WOOD} roughness={0.6} /></mesh>
+        : <mesh key={i} position={[x + o, top - drop / 2, z + d / 2]}><boxGeometry args={[0.05, drop, d - 0.04]} /><meshStandardMaterial color={WOOD} roughness={0.6} /></mesh>);
+    }
+    return <group><Slab x={x} z={z} w={w} d={d} y={top + 0.04} t={0.08} color="#2a2420" />{slats}</group>;
+  }
+  if (style === 'coffered_wood') {
+    const nx = Math.max(2, Math.round(w / 1.2)), nz = Math.max(2, Math.round(d / 1.2));
+    const beams = [];
+    for (let i = 0; i <= nx; i++) beams.push(<mesh key={`x${i}`} position={[x + (i * w) / nx, top - 0.11, z + d / 2]}><boxGeometry args={[0.18, 0.22, d]} /><meshStandardMaterial color={WOOD_DARK} roughness={0.6} /></mesh>);
+    for (let j = 0; j <= nz; j++) beams.push(<mesh key={`z${j}`} position={[x + w / 2, top - 0.11, z + (j * d) / nz]}><boxGeometry args={[w, 0.22, 0.18]} /><meshStandardMaterial color={WOOD_DARK} roughness={0.6} /></mesh>);
+    return <group>{base}{beams}</group>;
+  }
   return base;
 }
 
@@ -274,6 +334,95 @@ function Ring({ y, size, day }) {
   );
 }
 
+const BRASS = { color: '#b08d57', metalness: 0.85, roughness: 0.3 };
+
+function Crystal({ y, size, day }) {
+  const tiers = [[0.5, 10, -0.45], [0.36, 8, -0.7], [0.22, 6, -0.92]].map(([r, n, h]) => [Math.min(r, size * 0.15 + (r - 0.22) * 0.4), n, h]);
+  return (
+    <group position={[0, y, 0]}>
+      <mesh position={[0, -0.2, 0]}><cylinderGeometry args={[0.01, 0.01, 0.4, 6]} /><meshStandardMaterial {...BRASS} /></mesh>
+      {tiers.map(([r, n, h], t) => (
+        <group key={t} position={[0, h, 0]}>
+          <mesh rotation-x={Math.PI / 2}><torusGeometry args={[r, 0.012, 8, 48]} /><meshStandardMaterial {...BRASS} /></mesh>
+          {Array.from({ length: n }).map((_, i) => {
+            const a = (i / n) * Math.PI * 2;
+            return (
+              <group key={i} position={[Math.cos(a) * r, 0, Math.sin(a) * r]}>
+                <Bulb position={[0, 0.06, 0]} r={0.025} day={day} k={1.5} />
+                {[0.07, 0.14, 0.2].map(dy => (
+                  <mesh key={dy} position={[0, -dy, 0]}><octahedronGeometry args={[0.022]} /><meshPhysicalMaterial color="#ffffff" transmission={0.85} roughness={0.03} thickness={0.1} /></mesh>
+                ))}
+              </group>
+            );
+          })}
+        </group>
+      ))}
+      <mesh position={[0, -1.15, 0]}><octahedronGeometry args={[0.06]} /><meshPhysicalMaterial color="#ffffff" transmission={0.85} roughness={0.03} thickness={0.2} /></mesh>
+    </group>
+  );
+}
+
+function Globes({ y, day }) {
+  const spots = [[0, 0.7], [0.3, 0.95], [-0.28, 1.05], [0.12, 1.25], [-0.1, 0.85], [0.25, 0.6], [-0.3, 0.7]];
+  return (
+    <group position={[0, y, 0]}>
+      <mesh position={[0, -0.02, 0]}><cylinderGeometry args={[0.18, 0.18, 0.03, 24]} /><meshStandardMaterial {...BRASS} /></mesh>
+      {spots.map(([o, drop], i) => {
+        const a = i * 2.2, px = Math.cos(a) * o, pz = Math.sin(a) * o;
+        return (
+          <group key={i} position={[px, 0, pz]}>
+            <mesh position={[0, -drop / 2, 0]}><cylinderGeometry args={[0.003, 0.003, drop, 4]} /><meshStandardMaterial color="#222" /></mesh>
+            <mesh position={[0, -drop - 0.09, 0]}><sphereGeometry args={[0.09, 20, 14]} /><meshPhysicalMaterial color="#fff6e8" transmission={0.5} roughness={0.15} emissive={GLOW} emissiveIntensity={day ? 0.35 : 1.1} /></mesh>
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
+function Linear({ y, rect, day }) {
+  const along = rect.w >= rect.d, L = Math.min(2.2, (along ? rect.w : rect.d) * 0.55);
+  return (
+    <group position={[0, y, 0]} rotation-y={along ? 0 : Math.PI / 2}>
+      {[-L / 2 + 0.1, L / 2 - 0.1].map(x => <mesh key={x} position={[x, -0.4, 0]}><cylinderGeometry args={[0.003, 0.003, 0.8, 4]} /><meshStandardMaterial color="#222" /></mesh>)}
+      <mesh position={[0, -0.82, 0]}><boxGeometry args={[L, 0.05, 0.07]} /><meshStandardMaterial color="#1c1c1e" metalness={0.6} roughness={0.35} /></mesh>
+      <mesh position={[0, -0.846, 0]} rotation-x={Math.PI / 2}><planeGeometry args={[L - 0.04, 0.05]} /><meshStandardMaterial {...glowMat(day, 1.6)} side={THREE.DoubleSide} /></mesh>
+    </group>
+  );
+}
+
+function Track({ y, rect, day }) {
+  const along = rect.w >= rect.d, L = (along ? rect.w : rect.d) * 0.6;
+  return (
+    <group position={[0, y - 0.02, 0]} rotation-y={along ? 0 : Math.PI / 2}>
+      <mesh><boxGeometry args={[L, 0.03, 0.04]} /><meshStandardMaterial color="#1c1c1e" metalness={0.6} roughness={0.4} /></mesh>
+      {[-0.4, -0.13, 0.13, 0.4].map((k, i) => (
+        <group key={i} position={[k * L, -0.05, 0]} rotation-z={(i % 2 ? 1 : -1) * 0.35}>
+          <mesh rotation-x={Math.PI}><cylinderGeometry args={[0.035, 0.045, 0.12, 16]} /><meshStandardMaterial color="#1c1c1e" metalness={0.5} roughness={0.4} /></mesh>
+          <mesh position={[0, -0.061, 0]} rotation-x={-Math.PI / 2}><circleGeometry args={[0.035, 16]} /><meshStandardMaterial {...glowMat(day, 2)} /></mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+function Lantern({ y, day }) {
+  return (
+    <group position={[0, y, 0]}>
+      <mesh position={[0, -0.3, 0]}><cylinderGeometry args={[0.006, 0.006, 0.6, 6]} /><meshStandardMaterial {...BRASS} /></mesh>
+      <group position={[0, -0.82, 0]}>
+        <mesh position={[0, 0.24, 0]}><coneGeometry args={[0.2, 0.14, 4]} /><meshStandardMaterial {...BRASS} /></mesh>
+        {[[0.15, 0.15], [-0.15, 0.15], [0.15, -0.15], [-0.15, -0.15]].map(([a, b], i) => (
+          <mesh key={i} position={[a, 0, b]}><boxGeometry args={[0.02, 0.36, 0.02]} /><meshStandardMaterial {...BRASS} /></mesh>
+        ))}
+        <mesh><boxGeometry args={[0.28, 0.34, 0.28]} /><meshPhysicalMaterial color="#fff8ea" transmission={0.6} roughness={0.2} opacity={0.6} transparent /></mesh>
+        <Bulb position={[0, 0, 0]} r={0.05} day={day} k={1.6} />
+        <mesh position={[0, -0.19, 0]}><boxGeometry args={[0.32, 0.03, 0.32]} /><meshStandardMaterial {...BRASS} /></mesh>
+      </group>
+    </group>
+  );
+}
+
 function Flush({ y, day }) {
   return (
     <mesh position={[0, y - 0.03, 0]}>
@@ -288,7 +437,7 @@ export function RoomLight({ rect, light = 'flush', style = 'plain', top, day, wi
   const cx = rect.x + rect.w / 2, cz = rect.z + rect.d / 2;
   const size = Math.min(rect.w, rect.d);
   // fittings hang from the lowest part of the ceiling over the middle of the room
-  const y = style === 'pop' || style === 'tray' || style === 'cove' ? top - 0.02 : style === 'wood' ? top - 0.09 : top - 0.0;
+  const y = ['pop', 'tray', 'cove', 'peripheral'].includes(style) ? top - 0.02 : style === 'backlit' ? top - 0.21 : ['wood', 'wave'].includes(style) ? top - 0.09 : top;
   const power = day ? 0.9 : 3.2;
   return (
     <group position={[cx, 0, cz]}>
@@ -298,12 +447,17 @@ export function RoomLight({ rect, light = 'flush', style = 'plain', top, day, wi
       {light === 'spots' && <Spots y={y - 0.0} rect={{ w: rect.w * 0.8, d: rect.d * 0.8 }} day={day} />}
       {light === 'fan' && <Fan y={y} day={day} />}
       {light === 'ring' && <Ring y={y} size={size} day={day} />}
+      {light === 'crystal' && <Crystal y={y} size={size} day={day} />}
+      {light === 'globes' && <Globes y={y} day={day} />}
+      {light === 'linear' && <Linear y={y} rect={rect} day={day} />}
+      {light === 'track' && <Track y={y} rect={rect} day={day} />}
+      {light === 'lantern' && <Lantern y={y} day={day} />}
       {withLamp && light !== 'none' && (
-        <pointLight position={[0, top - (light === 'chandelier' ? 0.75 : light === 'pendant' ? 1.0 : 0.35), 0]}
-          intensity={power * (light === 'chandelier' ? 1.3 : 1)} distance={Math.max(rect.w, rect.d) * 1.6 + 2} decay={2} color="#ffd6a0" />
+        <pointLight position={[0, top - ({ chandelier: 0.75, crystal: 0.85, pendant: 1.0, linear: 0.9, globes: 1.0, lantern: 0.85 }[light] || 0.35), 0]}
+          intensity={power * (light === 'chandelier' || light === 'crystal' ? 1.3 : 1)} distance={Math.max(rect.w, rect.d) * 1.6 + 2} decay={2} color="#ffd6a0" />
       )}
       {/* a cove or tray glows too: a soft fill so the ceiling reads lit */}
-      {withLamp && (style === 'cove' || style === 'tray' || style === 'pop') && (
+      {withLamp && ['cove', 'tray', 'pop', 'peripheral', 'backlit'].includes(style) && (
         <pointLight position={[0, top - 0.4, 0]} intensity={power * 0.5} distance={Math.max(rect.w, rect.d) * 1.2 + 1} decay={2} color="#ffe2b8" />
       )}
     </group>

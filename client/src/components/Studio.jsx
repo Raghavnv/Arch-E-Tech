@@ -33,6 +33,7 @@ const cleanElements = (list) => (Array.isArray(list) ? list : [])
 const planSignature = (list) => JSON.stringify((list || []).map(el => [
   el.id, el.type, Math.round(el.left), Math.round(el.top), Math.round(el.width), Math.round(el.height),
   Math.round(el.angle || 0), el.material || null, el.kind || null, el.name || null,
+  el.sides || null, el.ceiling || null, el.flooring || null,
 ]));
 
 export default function Studio() {
@@ -242,14 +243,24 @@ export default function Studio() {
     ? { material: null, isColor: false }
     : { material: mat.url ? mat.id : mat.color, isColor: !mat.url };   // a finish is saved by its id, not its whole image
 
-  const handlePaintWall = (elementId) => {
+  // a finish for one face of a wall ('A' / 'B'), or null to clear that face
+  const sideFinish = (mat, extra = {}) => (mat.id === PLAIN_WALL.id ? null : { ...paintFor(mat), ...extra });
+  const withSide = (el, side, finish) => {
+    const sides = { ...(el.sides || {}) };
+    if (finish) sides[side] = finish; else delete sides[side];
+    return { ...el, sides: Object.keys(sides).length ? sides : undefined };
+  };
+
+  // clicking a wall paints the side that was clicked; a click on an end or the top paints the whole wall
+  const handlePaintWall = (elementId, side) => {
     if (!selectedMaterial) return;
     // the 3D view numbers walls that have no id by their position among the walls
     let wallIdx = -1;
     setCanvasElements(prev => prev.map(el => {
       if (el.type !== 'wall') return el;
       wallIdx += 1;
-      return (el.id || `wall_${wallIdx}`) === elementId ? { ...el, ...paintFor(selectedMaterial) } : el;
+      if ((el.id || `wall_${wallIdx}`) !== elementId) return el;
+      return side ? withSide(el, side, sideFinish(selectedMaterial)) : { ...el, ...paintFor(selectedMaterial), sides: undefined };
     }));
   };
 
@@ -269,7 +280,16 @@ export default function Studio() {
       if (vert && (Math.abs(ax - x0) < tol || Math.abs(ax - x1) < tol)) return overlap(ay, by, y0, y1);
       return false;
     };
-    setCanvasElements(prev => prev.map(el => (el.type === 'wall' && (el.floor || 1) === f && onEdge(el) ? { ...el, ...paintFor(selectedMaterial) } : el)));
+    // only the face looking into the room, and only along the room: an accent stops at the room's corner
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    const paintOne = (w) => {
+      const a = ((w.angle || 0) * Math.PI) / 180, ux = Math.cos(a), uy = Math.sin(a);
+      const side = (cx - w.left) * -uy + (cy - w.top) * ux > 0 ? 'A' : 'B';
+      const along = [[x0, y0], [x1, y0], [x0, y1], [x1, y1]].map(([px, py]) => ((px - w.left) * ux + (py - w.top) * uy) / 20);
+      const from = Math.max(0, Math.min(...along)), to = Math.min(w.width / 20, Math.max(...along));
+      return withSide(w, side, sideFinish(selectedMaterial, { from: Math.round(from * 100) / 100, to: Math.round(to * 100) / 100 }));
+    };
+    setCanvasElements(prev => prev.map(el => (el.type === 'wall' && (el.floor || 1) === f && onEdge(el) ? paintOne(el) : el)));
   };
 
   const handleSetFlooring = (ids, flooring) => {
@@ -282,7 +302,7 @@ export default function Studio() {
 
   const handlePaintAllWalls = () => {
     if (!selectedMaterial) return;
-    setCanvasElements(prev => prev.map(el => (el.type === 'wall' ? { ...el, ...paintFor(selectedMaterial) } : el)));
+    setCanvasElements(prev => prev.map(el => (el.type === 'wall' ? { ...el, ...paintFor(selectedMaterial), sides: undefined } : el)));
   };
 
   // which way north points on the drawing (set in the Vastu check; generated plans have north up)

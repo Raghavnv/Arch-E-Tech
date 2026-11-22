@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Check, Eye, Paintbrush, Lamp, Pipette, Grid3x3 } from 'lucide-react';
 import InfoTip from './InfoTip';
-import { ARCHITECTURAL_TEXTURES, WOOD_FINISHES, PAINT_COLOURS, PLAIN_WALL } from '../utils/textureLibrary';
+import { ARCHITECTURAL_TEXTURES, WOOD_FINISHES, PAINT_COLOURS, PLAIN_WALL, WALLPAPERS, CLADDING } from '../utils/textureLibrary';
 import { FLOOR_FINISHES, floorSwatch } from '../utils/floorFinishes';
 import { formatMoney } from '../utils/units';
 import { CEILING_STYLES, LIGHT_TYPES, CEILING_COLOURS, RoomCeiling, RoomLight } from './Ceilings';
@@ -181,6 +181,20 @@ export default function FinishesPanel({ elements, floor, brush, setBrush, onPain
                 ))}
               </div>
             </div>
+
+            {[['WALLPAPER', WALLPAPERS], ['STONE CLADDING', CLADDING]].map(([title, list]) => (
+              <div key={title}>
+                <p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">{title}</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {list.map(m => (
+                    <Swatch key={m.id} title={m.name} active={brush?.id === m.id} onClick={() => setBrush(brush?.id === m.id ? null : m)} style={{ background: m.color }}>
+                      <img src={m.url} alt="" className="pointer-events-none aspect-square w-full object-cover" />
+                      <span className="absolute inset-x-0 bottom-0 truncate bg-black/75 px-1 py-0.5 text-center text-[9px] text-white">{m.name}</span>
+                    </Swatch>
+                  ))}
+                </div>
+              </div>
+            ))}
 
             <div>
               <p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">STONE, TILE & PLASTER</p>

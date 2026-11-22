@@ -285,7 +285,40 @@ export const PAINT_COLOURS = [
   { group: 'Whites & neutrals', colours: [['Chalk white', '#f6f4ef'], ['Ivory', '#f1ead8'], ['Linen', '#e9e1d2'], ['Greige', '#cfc6b8'], ['Warm grey', '#b5aea4'], ['Charcoal', '#3b3b3d']] },
   { group: 'Warm', colours: [['Sand', '#e2cfae'], ['Peach', '#f2c6a5'], ['Terracotta', '#c46a45'], ['Mustard', '#d3a23a'], ['Blush pink', '#e8c3c0'], ['Brick red', '#9c3b2e']] },
   { group: 'Cool', colours: [['Sky blue', '#bcd4e6'], ['Dusty blue', '#7f98b0'], ['Navy', '#2a3b57'], ['Teal', '#2f6f73'], ['Lavender', '#c9bfdc'], ['Slate', '#5f6b76']] },
+  { group: 'Deep & bold', colours: [['Emerald', '#1f5a4a'], ['Burgundy', '#6b2131'], ['Midnight', '#1c2533'], ['Ochre', '#b8862b'], ['Plum', '#5a3550'], ['Rust', '#9a4a2a']] },
   { group: 'Greens', colours: [['Mint', '#cfe3d2'], ['Sage', '#a8b79c'], ['Olive', '#7d7f4f'], ['Forest', '#2f4a3a'], ['Pistachio', '#c4d39f'], ['Eucalyptus', '#7f9c8f']] },
 ];
 
 export const PLAIN_WALL = { id: 'mat_plain', name: 'Plain', color: '#f4f4f5' };
+
+// -------------------------------------------------------------------------------------------
+// Wallpapers and stone cladding
+// -------------------------------------------------------------------------------------------
+const svg = (w, h, body, bg) => encodeSvg(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect width="${w}" height="${h}" fill="${bg}"/>${body}</svg>`);
+const leaf = (x, y, r, c) => `<g transform="translate(${x} ${y}) rotate(${r})"><path d="M0 0 C 14 -10, 30 -6, 40 0 C 30 6, 14 10, 0 0 Z" fill="${c}"/><line x1="0" y1="0" x2="38" y2="0" stroke="rgba(0,0,0,0.15)" stroke-width="1"/></g>`;
+
+export const WALLPAPERS = [
+  { id: 'wp_botanical', name: 'Botanical leaves', color: '#dfe6da', tag: 'Wallpaper',
+    url: svg(200, 200, [[20, 40, -30], [90, 20, 25], [150, 70, -60], [40, 130, 40], [120, 150, -20], [170, 180, 60], [70, 90, 10]].map(([x, y, r], i) => leaf(x, y, r, ['#6f8f6a', '#89a582', '#56755a'][i % 3])).join(''), '#e3e8dc') },
+  { id: 'wp_diamond', name: 'Geometric diamonds', color: '#e8e2d6', tag: 'Wallpaper',
+    url: svg(120, 120, '<path d="M60 0 L120 60 L60 120 L0 60 Z" fill="none" stroke="#b39a6b" stroke-width="2"/><path d="M60 20 L100 60 L60 100 L20 60 Z" fill="none" stroke="#c9b48b" stroke-width="1"/>', '#ece6da') },
+  { id: 'wp_stripe', name: 'Pinstripe', color: '#d9dde3', tag: 'Wallpaper',
+    url: svg(80, 80, '<rect x="0" width="2" height="80" fill="#9aa5b4"/><rect x="40" width="10" height="80" fill="#c7ced8"/>', '#dde2e8') },
+  { id: 'wp_damask', name: 'Damask', color: '#5b2a36', tag: 'Wallpaper',
+    url: svg(120, 160, '<g fill="#7c3b4b"><ellipse cx="60" cy="80" rx="22" ry="40"/><ellipse cx="60" cy="80" rx="9" ry="18" fill="#5b2a36"/><path d="M60 20 C 80 40, 100 50, 110 80 C 100 110, 80 120, 60 140 C 40 120, 20 110, 10 80 C 20 50, 40 40, 60 20 Z" fill="none" stroke="#8a4657" stroke-width="3"/></g>', '#5b2a36') },
+  { id: 'wp_deco', name: 'Art deco fans', color: '#1f2d3a', tag: 'Wallpaper',
+    url: svg(120, 60, [0, 60].map(x => `<g transform="translate(${x + 30} 60)">${[30, 22, 14].map(r => `<path d="M${-r} 0 A ${r} ${r} 0 0 1 ${r} 0" fill="none" stroke="#c8a96a" stroke-width="1.6"/>`).join('')}</g>`).join('') + '<g transform="translate(0 30)">' + [0, 60, 120].map(x => `<g transform="translate(${x} 30)">${[30, 22, 14].map(r => `<path d="M${-r} 0 A ${r} ${r} 0 0 1 ${r} 0" fill="none" stroke="#c8a96a" stroke-width="1.6"/>`).join('')}</g>`).join('') + '</g>', '#1f2d3a') },
+  { id: 'wp_palm', name: 'Tropical palm', color: '#f1ece1', tag: 'Wallpaper',
+    url: svg(220, 220, [[40, 60, 20], [150, 40, -40], [100, 140, 70], [190, 170, 10], [30, 190, -60]].map(([x, y, r]) => `<g transform="translate(${x} ${y}) rotate(${r})">${[-50, -25, 0, 25, 50].map(a => leaf(0, 0, a, '#2f6b4f')).join('')}</g>`).join(''), '#f1ece1') },
+  { id: 'wp_grasscloth', name: 'Grasscloth', color: '#c9b894', tag: 'Wallpaper',
+    url: svg(160, 160, Array.from({ length: 40 }, (_, i) => `<rect x="0" y="${i * 4}" width="160" height="2" fill="${['#bfae8a', '#d2c29f', '#b8a581'][i % 3]}" opacity="0.8"/>`).join(''), '#cbb995') },
+];
+
+export const CLADDING = [
+  { id: 'clad_stacked', name: 'Stacked stone', color: '#8f8578', tag: 'Cladding',
+    url: svg(200, 100, Array.from({ length: 10 }, (_, r) => { let x = -(r * 37) % 60; const out = []; while (x < 200) { const w = 30 + ((x * 7 + r * 13) % 50); out.push(`<rect x="${x}" y="${r * 10}" width="${w - 2}" height="8" rx="1" fill="${['#8c8275', '#a0968a', '#7a7166', '#b0a798'][(x + r) % 4 < 0 ? 0 : (x + r) % 4]}"/>`); x += w; } return out.join(''); }).join(''), '#5f584f') },
+  { id: 'clad_whitebrick', name: 'Whitewashed brick', color: '#e9e5de', tag: 'Cladding',
+    url: svg(160, 80, '<g fill="#efebe4" stroke="#cfc8bd" stroke-width="2"><rect x="2" y="2" width="76" height="36"/><rect x="82" y="2" width="76" height="36"/><rect x="-38" y="42" width="76" height="36"/><rect x="42" y="42" width="76" height="36"/><rect x="122" y="42" width="76" height="36"/></g>', '#d8d2c8') },
+  { id: 'clad_marble_slab', name: 'Marble slab wall', color: '#ecebe8', tag: 'Cladding',
+    url: svg(200, 200, '<path d="M0 40 C 60 60, 90 20, 200 70" stroke="#a9a9b2" stroke-width="1.5" fill="none"/><path d="M0 150 C 70 120, 120 170, 200 130" stroke="#bdbdc5" stroke-width="1" fill="none"/><path d="M40 0 C 60 80, 30 140, 70 200" stroke="#c4c4cc" stroke-width="0.8" fill="none"/><rect x="0" y="99" width="200" height="2" fill="#d8d8dc"/>', '#efeeeb') },
+];

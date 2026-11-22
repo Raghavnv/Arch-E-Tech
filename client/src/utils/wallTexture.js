@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import * as THREE from 'three';
-import { ARCHITECTURAL_TEXTURES, WOOD_FINISHES } from './textureLibrary';
+import { ARCHITECTURAL_TEXTURES, WOOD_FINISHES, WALLPAPERS, CLADDING } from './textureLibrary';
+const ALL_FINISHES = () => [...ARCHITECTURAL_TEXTURES, ...WOOD_FINISHES, ...WALLPAPERS, ...CLADDING];
 
 /*
  * Wall textures for the 3D views.
@@ -44,7 +45,7 @@ function rasterize(url) {
 
 /** The base colour of a library texture, used before / instead of the image. */
 export function textureColor(url) {
-  return [...ARCHITECTURAL_TEXTURES, ...WOOD_FINISHES].find(t => t.url === url)?.color || null;
+  return ALL_FINISHES().find(t => t.url === url)?.color || null;
 }
 
 const isImage = m => typeof m === 'string' && (m.startsWith('data:image') || m.startsWith('http'));
@@ -56,7 +57,7 @@ const isImage = m => typeof m === 'string' && (m.startsWith('data:image') || m.s
 /** A saved finish id (e.g. 'wood_walnut_v') to its image; plans saved earlier hold the image itself. */
 export function resolveFinish(material) {
   if (!material || isImage(material)) return material;
-  return [...ARCHITECTURAL_TEXTURES, ...WOOD_FINISHES].find(t => t.id === material)?.url || material;
+  return ALL_FINISHES().find(t => t.id === material)?.url || material;
 }
 
 export function useWallMaterial(rawMaterial, isColor, length, height) {

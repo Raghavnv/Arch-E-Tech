@@ -76,6 +76,7 @@ function useProcessedArchitecture(elements) {
         nx, nz,
         material: w.material,
         isColor: w.isColor,
+        sides: w.sides || null,
         openings: []
       };
     });
@@ -205,6 +206,8 @@ function useProcessedArchitecture(elements) {
  * Renders a <meshStandardMaterial> from the props object returned by useWallMaterial.
  * This ensures each mesh gets its own material instance.
  */
+const TILE_PER_M = 1;          // face finishes get their texture per metre; UVs are in metres
+
 function WallMaterial({ matProps }) {
   const { key, ...props } = matProps;
   return <meshStandardMaterial key={key} {...props} />;
@@ -228,13 +231,52 @@ function WindowGlass({ w, h }) {
   );
 }
 
+/** Which face of a wall a click landed on: 'A' faces along the wall's normal (+n), 'B' the other way. */
+const faceSide = (e) => {
+  const z = e.face?.normal?.z ?? 0;
+  return z > 0.5 ? 'A' : z < -0.5 ? 'B' : null;
+};
+
+/** A finish laid on one face of a wall over [s0, s1] x [y0, y1] (metres along the wall / up it),
+ *  with UVs in metres so a pattern runs on unbroken from one piece of wall to the next. */
+function FaceFinish({ wall, side, s0, s1, y0, y1, matProps, onPaint }) {
+  const { x0, z0, ux, uz, nx, nz, depth, angle, id } = wall;
+  const w = s1 - s0, h = y1 - y0;
+  const geo = useMemo(() => {
+    const g = new THREE.PlaneGeometry(w, h);
+    const uv = g.attributes.uv;
+    for (let i = 0; i < uv.count; i++) {
+      const u = uv.getX(i), v = uv.getY(i);
+      // side B is seen mirrored, so its u runs the other way to keep patterns the right way round
+      uv.setXY(i, (side === 'A' ? s0 + u * w : -(s0 + (1 - u) * w)), y0 + v * h);
+    }
+    uv.needsUpdate = true;
+    return g;
+  }, [w, h, s0, y0, side]);
+  useEffect(() => () => geo.dispose(), [geo]);
+  const off = (depth / 2 + 0.004) * (side === 'A' ? 1 : -1);
+  const sc = (s0 + s1) / 2;
+  const rotY = -((angle || 0) * Math.PI) / 180 + (side === 'A' ? 0 : Math.PI);
+  return (
+    <mesh geometry={geo} position={[x0 + sc * ux + nx * off, (y0 + y1) / 2, z0 + sc * uz + nz * off]} rotation={[0, rotY, 0]}
+      receiveShadow onClick={(e) => { e.stopPropagation(); if (e.delta <= 4) onPaint?.(id, side); }}>
+      <WallMaterial matProps={matProps} />
+    </mesh>
+  );
+}
+
 function ArchitecturalWall({ wall, onPaint }) {
-  const { x0, z0, ux, uz, nx, nz, depth, length, angle, openings, id, material, isColor } = wall;
+  const { x0, z0, ux, uz, depth, length, angle, openings, id, material, isColor, sides } = wall;
   const matProps = useWallMaterial(material, isColor, length, WALL_HEIGHT);
+  // a finish on one face only (an accent wall), per metre so it tiles evenly on every piece
+  const fa = sides?.A, fb = sides?.B;
+  const matA = useWallMaterial(fa?.material, fa?.isColor, TILE_PER_M, TILE_PER_M);
+  const matB = useWallMaterial(fb?.material, fb?.isColor, TILE_PER_M, TILE_PER_M);
   const rotY = -((angle || 0) * Math.PI) / 180;
 
   // Build segments
   const segments = [];
+  const solid = [];             // [s0, s1, y0, y1] of every solid piece of wall, for the face finishes
   let currentPos = 0;
 
   openings.forEach((op, idx) => {
@@ -242,6 +284,7 @@ function ArchitecturalWall({ wall, onPaint }) {
     if (op.start > currentPos + 0.05) {
       const segLen = op.start - currentPos;
       const centerS = currentPos + segLen / 2;
+      solid.push([currentPos, op.start, 0, WALL_HEIGHT]);
       segments.push(
         <mesh
           key={`wall-seg-${idx}`}
@@ -249,7 +292,7 @@ function ArchitecturalWall({ wall, onPaint }) {
           rotation={[0, rotY, 0]}
           castShadow
           receiveShadow
-          onClick={(e) => { e.stopPropagation(); if (e.delta <= 4) onPaint?.(id); }}
+          onClick={(e) => { e.stopPropagation(); if (e.delta <= 4) onPaint?.(id, faceSide(e)); }}
         >
           <boxGeometry args={[segLen, WALL_HEIGHT, depth]} />
           <WallMaterial matProps={matProps} />
@@ -266,6 +309,7 @@ function ArchitecturalWall({ wall, onPaint }) {
       // DOORWAY OPENING:
       // A. Lintel/Header above the door (wall material)
       const lintelHeight = WALL_HEIGHT - DOOR_HEIGHT;
+      solid.push([op.start, op.end, DOOR_HEIGHT, WALL_HEIGHT]);
       segments.push(
         <mesh
           key={`door-lintel-${idx}`}
@@ -317,6 +361,7 @@ function ArchitecturalWall({ wall, onPaint }) {
     } else if (op.type === 'window') {
       // WINDOW OPENING:
       // A. Bottom Wall Sill (from y=0 to WINDOW_SILL_HEIGHT)
+      solid.push([op.start, op.end, 0, WINDOW_SILL_HEIGHT], [op.start, op.end, WINDOW_HEADER_HEIGHT, WALL_HEIGHT]);
       segments.push(
         <mesh
           key={`window-sill-${idx}`}
@@ -372,6 +417,7 @@ function ArchitecturalWall({ wall, onPaint }) {
   if (currentPos < length - 0.05) {
     const segLen = length - currentPos;
     const centerS = currentPos + segLen / 2;
+    solid.push([currentPos, length, 0, WALL_HEIGHT]);
     segments.push(
       <mesh
         key="wall-final-seg"
@@ -379,7 +425,7 @@ function ArchitecturalWall({ wall, onPaint }) {
         rotation={[0, rotY, 0]}
         castShadow
         receiveShadow
-        onClick={(e) => { e.stopPropagation(); if (e.delta <= 4) onPaint?.(id); }}
+        onClick={(e) => { e.stopPropagation(); if (e.delta <= 4) onPaint?.(id, faceSide(e)); }}
       >
         <boxGeometry args={[segLen, WALL_HEIGHT, depth]} />
         <WallMaterial matProps={matProps} />
@@ -387,7 +433,18 @@ function ArchitecturalWall({ wall, onPaint }) {
     );
   }
 
-  return <group>{segments}</group>;
+  // finishes on one face, over the stretch they were given (the room's length of the wall)
+  const faces = [];
+  [['A', fa, matA], ['B', fb, matB]].forEach(([side, f, mat]) => {
+    if (!f || !f.material) return;
+    const from = Math.max(0, f.from ?? 0), to = Math.min(length, f.to ?? length);
+    solid.forEach(([a, b, y0, y1], i) => {
+      const s0 = Math.max(a, from), s1 = Math.min(b, to);
+      if (s1 - s0 > 0.02) faces.push(<FaceFinish key={`${side}-${i}`} wall={wall} side={side} s0={s0} s1={s1} y0={y0} y1={y1} matProps={mat} onPaint={onPaint} />);
+    });
+  });
+
+  return <group>{segments}{faces}</group>;
 }
 
 // =================================================================
