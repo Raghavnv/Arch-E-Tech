@@ -15,6 +15,7 @@ export const DESIGN_STYLES = [
   {
     id: 'modern', name: 'Modern minimal', desc: 'Warm whites, oak, black accents, clean false ceilings',
     swatch: ['#f4f2ee', '#c8c3ba', '#b98a5b', '#222'],
+    windows: { frame: 'black', fabric: '#e9e2d4' },
     exterior: '#efede8',
     walls: { default: '#f4f2ee', bedroom: '#ece8e1', master_bedroom: '#e7e2da', kitchen: '#f6f4ef', bathroom: '#eef0f1' },
     feature: { living: fin('wood_oak_h', false), master_bedroom: fin('#3b3b3d') },
@@ -25,6 +26,7 @@ export const DESIGN_STYLES = [
   {
     id: 'japandi', name: 'Japandi', desc: 'Soft greige, pale wood, slatted ceilings, calm and natural',
     swatch: ['#e6e0d4', '#cbbfa8', '#c69c6d', '#4d5a4e'],
+    windows: { frame: 'wood', fabric: '#d8c4a2' },
     exterior: '#e9e4da',
     walls: { default: '#e9e3d7', bedroom: '#e2dccf', master_bedroom: '#ddd6c7', bathroom: '#e7e3dc' },
     feature: { living: fin('wood_pine_white', false), master_bedroom: fin('wood_oak_h', false), dining: fin('wp_grasscloth', false) },
@@ -35,6 +37,7 @@ export const DESIGN_STYLES = [
   {
     id: 'indian', name: 'Modern Indian', desc: 'Terracotta and teak, Athangudi tiles, brass lanterns',
     swatch: ['#f0e3cf', '#c46a45', '#9a6232', '#2f5d4a'],
+    windows: { frame: 'wood', fabric: '#9a4a2a' },
     exterior: '#efe1c8',
     walls: { default: '#f1e6d3', bedroom: '#efe0c9', master_bedroom: '#eadcc4', kitchen: '#f4ecdd', bathroom: '#eee7da' },
     feature: { living: fin('#c46a45'), dining: fin('wood_teak_h', false), master_bedroom: fin('#2f5d4a') },
@@ -45,6 +48,7 @@ export const DESIGN_STYLES = [
   {
     id: 'luxury', name: 'Luxury classic', desc: 'Marble, deep colours, coffers and crystal chandeliers',
     swatch: ['#efeeeb', '#1f1f22', '#6b2131', '#c8a96a'],
+    windows: { frame: 'bronze', fabric: '#6b2131' },
     exterior: '#ecebe7',
     walls: { default: '#f0eeea', bedroom: '#e9e4dc', master_bedroom: '#e4ddd2', bathroom: '#efeeeb' },
     feature: { living: fin('wp_damask', false), dining: fin('wp_deco', false), master_bedroom: fin('#6b2131') },
@@ -55,6 +59,7 @@ export const DESIGN_STYLES = [
   {
     id: 'scandi', name: 'Scandinavian', desc: 'Bright and airy, sage and dusty blue, light floors',
     swatch: ['#f6f4ef', '#a8b79c', '#7f98b0', '#e3dccf'],
+    windows: { frame: 'white', fabric: '#f3eee2' },
     exterior: '#f4f2ee',
     walls: { default: '#f6f4ef', bedroom: '#dfe8ec', master_bedroom: '#cfd9cf', study: '#e9eef0', bathroom: '#f1f2f0' },
     feature: { living: fin('#a8b79c'), master_bedroom: fin('#7f98b0') },
@@ -65,6 +70,7 @@ export const DESIGN_STYLES = [
   {
     id: 'industrial', name: 'Industrial loft', desc: 'Exposed brick and concrete, dark metal, track lights',
     swatch: ['#9b9995', '#9e2e20', '#3b3b3d', '#a59d92'],
+    windows: { frame: 'black', fabric: '#3f3f42' },
     exterior: '#bdbab4',
     walls: { default: '#d7d4ce', bedroom: '#cfcbc4', master_bedroom: '#c6c1b8', bathroom: '#dcdad5' },
     feature: { living: fin('mat_brick', false), dining: fin('mat_concrete', false), master_bedroom: fin('#3b3b3d') },
@@ -75,6 +81,7 @@ export const DESIGN_STYLES = [
   {
     id: 'tropical', name: 'Tropical boho', desc: 'Palm wallpaper, rattan tones, terrazzo, greenery everywhere',
     swatch: ['#f1ece1', '#2f6b4f', '#c9b894', '#b5653f'],
+    windows: { frame: 'wood', fabric: '#a8b79c' },
     exterior: '#f0eadc',
     walls: { default: '#f2ede2', bedroom: '#efe6d6', master_bedroom: '#e8dfcc', bathroom: '#edf0ea' },
     feature: { living: fin('wp_palm', false), master_bedroom: fin('wp_botanical', false), dining: fin('#2f6b4f') },
@@ -220,7 +227,19 @@ export function applyDesignStyle(elements, style, parts = { walls: true, floors:
       if (best) featureFor.set(r.id, best);
     }
   }
+  // windows: the style's frames everywhere, curtains in living and bedrooms, blinds in wet rooms and kitchens
+  const roomOfWindow = (w) => rooms.find(r => {
+    if ((r.floor || 1) !== (w.floor || 1)) return false;
+    const { ax, ay, ux, uy } = ends(w), mx = ax + (ux * w.width) / 2, my = ay + (uy * w.width) / 2, b = box(r);
+    return ((Math.abs(my - b.y0) < 8 || Math.abs(my - b.y1) < 8) && mx > b.x0 && mx < b.x1) || ((Math.abs(mx - b.x0) < 8 || Math.abs(mx - b.x1) < 8) && my > b.y0 && my < b.y1);
+  });
   let out = els.map(e => {
+    if (e.type === 'window' && parts.decor && style.windows) {
+      const r = roomOfWindow(e);
+      const kind = r?.kind;
+      const treatment = ['bathroom', 'utility', 'kitchen'].includes(kind) ? 'blinds' : ['study'].includes(kind) ? 'roman' : kind ? (style.id === 'scandi' || style.id === 'modern' ? 'sheer' : 'curtains') : 'none';
+      return { ...e, frame: style.windows.frame, treatment, fabric: ['blinds'].includes(treatment) ? '#e6e2da' : style.windows.fabric };
+    }
     if (e.type === 'room') {
       summary.rooms += 1;
       const next = { ...e };

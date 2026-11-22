@@ -232,6 +232,89 @@ function WindowGlass({ w, h }) {
   );
 }
 
+export const WINDOW_FRAMES = {
+  black: { name: 'Black aluminium', color: '#2a2724', mat: { color: '#2a2724', roughness: 0.4, metalness: 0.6 } },
+  white: { name: 'White UPVC', color: '#f1f1ef', mat: { color: '#f1f1ef', roughness: 0.5, metalness: 0.05 } },
+  wood: { name: 'Teak wood', color: '#7a4b2a', mat: { color: '#7a4b2a', roughness: 0.6, metalness: 0 } },
+  bronze: { name: 'Bronze anodised', color: '#6b5236', mat: { color: '#6b5236', roughness: 0.35, metalness: 0.7 } },
+  grey: { name: 'Grey aluminium', color: '#7c7f83', mat: { color: '#7c7f83', roughness: 0.35, metalness: 0.6 } },
+};
+export const WINDOW_TREATMENTS = [
+  { id: 'none', name: 'Nothing' }, { id: 'curtains', name: 'Curtains', price: 160 }, { id: 'sheer', name: 'Sheer curtains', price: 110 },
+  { id: 'blinds', name: 'Venetian blinds', price: 90 }, { id: 'roman', name: 'Roman blind', price: 120 }, { id: 'roller', name: 'Roller blind', price: 70 },
+];
+
+/** A fabric panel with soft vertical folds, w x h, hanging from its top edge at y = 0. */
+function FoldedPanel({ w, h, color, opacity = 1, folds = 6 }) {
+  const geo = useMemo(() => {
+    const g = new THREE.PlaneGeometry(w, h, Math.max(8, folds * 4), 1);
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) p.setZ(i, Math.sin((p.getX(i) / w) * Math.PI * 2 * folds) * 0.035);
+    g.computeVertexNormals();
+    g.translate(0, -h / 2, 0);
+    return g;
+  }, [w, h, folds]);
+  useEffect(() => () => geo.dispose(), [geo]);
+  return (
+    <mesh geometry={geo} castShadow={opacity === 1}>
+      <meshStandardMaterial color={color} roughness={0.95} side={THREE.DoubleSide} transparent={opacity < 1} opacity={opacity} />
+    </mesh>
+  );
+}
+
+/** Curtains or blinds for a window opening `w` wide; local +z points into the room. */
+function WindowTreatment({ kind, w, fabric }) {
+  const top = WINDOW_HEADER_HEIGHT, sill = WINDOW_SILL_HEIGHT, wh = top - sill;
+  if (kind === 'curtains' || kind === 'sheer') {
+    const rodY = Math.min(WALL_HEIGHT - 0.12, top + 0.25), len = rodY - 0.03, side = Math.max(0.35, w * 0.32);
+    return (
+      <group position={[0, 0, 0.06]}>
+        <mesh position={[0, rodY + 0.02, 0]} rotation-z={Math.PI / 2}><cylinderGeometry args={[0.012, 0.012, w + 0.7, 8]} /><meshStandardMaterial color="#3a3530" metalness={0.6} roughness={0.4} /></mesh>
+        {kind === 'sheer' && <group position={[0, rodY, 0.02]}><FoldedPanel w={w + 0.5} h={len} color="#f7f3ea" opacity={0.42} folds={10} /></group>}
+        {[-1, 1].map(s => (
+          <group key={s} position={[s * (w / 2 + 0.35 - side / 2), rodY, 0.04]}>
+            <FoldedPanel w={side} h={len} color={fabric} folds={4} />
+          </group>
+        ))}
+      </group>
+    );
+  }
+  if (kind === 'blinds') {
+    const n = Math.round(wh / 0.06);
+    return (
+      <group position={[0, 0, 0.03]}>
+        {Array.from({ length: n }).map((_, i) => (
+          <mesh key={i} position={[0, sill + 0.03 + i * (wh / n), 0]} rotation-x={-0.35}>
+            <boxGeometry args={[w - 0.04, 0.004, 0.05]} /><meshStandardMaterial color={fabric} roughness={0.6} />
+          </mesh>
+        ))}
+        <mesh position={[0, top + 0.03, 0]}><boxGeometry args={[w, 0.05, 0.06]} /><meshStandardMaterial color={fabric} roughness={0.6} /></mesh>
+      </group>
+    );
+  }
+  if (kind === 'roman') {
+    const drop = wh * 0.45, folds = 3;
+    return (
+      <group position={[0, top + 0.05, 0.04]}>
+        <mesh position={[0, -drop / 2, 0]}><boxGeometry args={[w, drop, 0.02]} /><meshStandardMaterial color={fabric} roughness={0.95} /></mesh>
+        {Array.from({ length: folds }).map((_, i) => (
+          <mesh key={i} position={[0, -drop * ((i + 1) / folds), 0.025]} rotation-z={Math.PI / 2}><cylinderGeometry args={[0.03, 0.03, w, 10]} /><meshStandardMaterial color={fabric} roughness={0.95} /></mesh>
+        ))}
+      </group>
+    );
+  }
+  if (kind === 'roller') {
+    const drop = wh * 0.55;
+    return (
+      <group position={[0, top + 0.05, 0.035]}>
+        <mesh rotation-z={Math.PI / 2}><cylinderGeometry args={[0.035, 0.035, w + 0.04, 12]} /><meshStandardMaterial color="#e6e2da" /></mesh>
+        <mesh position={[0, -drop / 2, 0.03]}><planeGeometry args={[w - 0.02, drop]} /><meshStandardMaterial color={fabric} roughness={0.9} side={THREE.DoubleSide} /></mesh>
+      </group>
+    );
+  }
+  return null;
+}
+
 /** Which face of a wall a click landed on: 'A' faces along the wall's normal (+n), 'B' the other way. */
 const faceSide = (e) => {
   const z = e.face?.normal?.z ?? 0;
@@ -267,8 +350,15 @@ function FaceFinish({ wall, side, s0, s1, y0, y1, finish, onPaint }) {
   );
 }
 
-function ArchitecturalWall({ wall, onPaint }) {
-  const { x0, z0, ux, uz, depth, length, angle, openings, id, material, isColor, sides } = wall;
+function ArchitecturalWall({ wall, onPaint, rooms = [] }) {
+  const { x0, z0, ux, uz, nx, nz, depth, length, angle, openings, id, material, isColor, sides } = wall;
+  // +1 when the room is on the +n side of the wall at this point, -1 on the other side, 0 if neither
+  const interiorSide = (px, pz) => {
+    const inR = (x, z) => rooms.some(q => x > q.x && x < q.x + q.w && z > q.z && z < q.z + q.d);
+    if (inR(px + nx * 0.5, pz + nz * 0.5)) return 1;
+    if (inR(px - nx * 0.5, pz - nz * 0.5)) return -1;
+    return 0;
+  };
   const matProps = useWallMaterial(material, isColor, length, WALL_HEIGHT);
   // finishes on one face only: one, or a list (a wall shared by several rooms, each its own colour)
   const listOf = (v) => (Array.isArray(v) ? v : v ? [v] : []);
@@ -402,12 +492,23 @@ function ArchitecturalWall({ wall, onPaint }) {
             [0, 0, 0.04, windowHeight]].map(([fx, fy, fw, fh], k) => (
             <mesh key={k} position={[fx, fy, 0]} castShadow>
               <boxGeometry args={[fw, fh, depth * 0.6]} />
-              <meshStandardMaterial color="#2a2724" roughness={0.4} metalness={0.6} />
+              <meshStandardMaterial {...(WINDOW_FRAMES[op.raw?.frame] || WINDOW_FRAMES.black).mat} />
             </mesh>
           ))}
           <WindowGlass w={opLen - 0.08} h={windowHeight - 0.08} />
         </group>
       );
+      // curtains or blinds on the room side of the window
+      const treat = op.raw?.treatment;
+      const inward = treat && treat !== 'none' ? interiorSide(opCenterX, opCenterZ) : 0;
+      if (inward) {
+        segments.push(
+          <group key={`window-treat-${idx}`} position={[opCenterX + nx * inward * (depth / 2 + 0.07), 0, opCenterZ + nz * inward * (depth / 2 + 0.07)]}
+            rotation={[0, rotY + (inward < 0 ? Math.PI : 0), 0]}>
+            <WindowTreatment kind={treat} w={opLen} fabric={op.raw?.fabric || '#e9e2d4'} />
+          </group>,
+        );
+      }
     }
 
     currentPos = Math.max(currentPos, op.end);
@@ -950,6 +1051,7 @@ function Roof({ rooms, style }) {
 /** One storey: everything drawn on that floor, lifted to its height. */
 function Storey({ elements, level, isTop, onPaint, roofStyle, isDay }) {
   const { wallData, standaloneOpenings, furniture, stairs, stairHoles, railings } = useProcessedArchitecture(elements);
+  const roomRects = useMemo(() => elements.filter(el => el && el.type === 'room' && el.kind !== 'balcony').map(roomRect), [elements]);
   const rooms = useMemo(() => elements.filter(el => el && el.type === 'room'), [elements]);
   // the slab above this storey is cut where the stairs from here come up
   const holesAbove = useMemo(() => stairs.map(stairRect), [stairs]);
@@ -960,7 +1062,7 @@ function Storey({ elements, level, isTop, onPaint, roofStyle, isDay }) {
     <group position={[0, (level - 1) * FLOOR_TO_FLOOR, 0]}>
       {level > 1 && <StoreySlab rooms={rooms} holes={holesHere} />}
       {rooms.map((room, i) => <RoomFloor key={room.id || i} room={room} holes={holesHere} />)}
-      {wallData.map(wall => <ArchitecturalWall key={wall.id} wall={wall} onPaint={onPaint} />)}
+      {wallData.map(wall => <ArchitecturalWall key={wall.id} wall={wall} onPaint={onPaint} rooms={roomRects} />)}
       {standaloneOpenings.map((op, i) => <StandaloneOpening key={op.id || i} el={op} />)}
       {furniture.map((item, i) => <ProceduralFurniture key={item.id || i} el={item} />)}
       {stairs.map((item, i) => <ProceduralStairs key={item.id || i} el={item} />)}

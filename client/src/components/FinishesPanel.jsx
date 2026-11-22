@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { Check, Eye, Paintbrush, Lamp, Pipette, Grid3x3 } from 'lucide-react';
+import { Check, Eye, Paintbrush, Lamp, Pipette, Grid3x3, AppWindow } from 'lucide-react';
+import { WINDOW_FRAMES, WINDOW_TREATMENTS } from './Canvas3D';
 import InfoTip from './InfoTip';
 import { ARCHITECTURAL_TEXTURES, WOOD_FINISHES, PAINT_COLOURS, PLAIN_WALL, WALLPAPERS, CLADDING } from '../utils/textureLibrary';
 import { FLOOR_FINISHES, floorSwatch } from '../utils/floorFinishes';
@@ -40,6 +41,66 @@ function Swatch({ active, onClick, title, children, style }) {
       className={`relative overflow-hidden rounded-lg border-2 transition-all ${active ? 'border-indigo-400 ring-2 ring-indigo-400/40' : 'border-zinc-800 hover:border-zinc-500'}`}>
       {children}
     </button>
+  );
+}
+
+const FABRICS = [['Linen', '#e9e2d4'], ['Ivory', '#f3eee2'], ['Sand', '#d8c4a2'], ['Grey', '#9ea0a3'], ['Charcoal', '#3f3f42'], ['Sage', '#a8b79c'], ['Navy', '#2a3b57'], ['Rust', '#9a4a2a'], ['Mustard', '#c9962e'], ['Blush', '#e3bdb8']];
+
+function WindowsTab({ rooms, onSetWindows }) {
+  const [picked, setPicked] = useState([]);
+  const [frame, setFrame] = useState('black');
+  const [treatment, setTreatment] = useState('curtains');
+  const [fabric, setFabric] = useState('#e9e2d4');
+  const [done, setDone] = useState('');
+  const apply = () => {
+    if (!picked.length) { setDone('Pick the rooms first.'); return; }
+    const n = onSetWindows(picked, { frame, treatment, fabric });
+    setDone(`${n} window${n === 1 ? '' : 's'} updated.`);
+  };
+  return (
+    <div className="custom-scrollbar space-y-3 overflow-y-auto p-3">
+      <div>
+        <p className="mb-1.5 flex items-center justify-between font-mono text-[10px] tracking-[0.15em] text-zinc-500">
+          ROOMS <button onClick={() => setPicked(picked.length === rooms.length ? [] : rooms.map(r => r.id))} className="font-sans text-[10px] normal-case tracking-normal text-indigo-300">{picked.length === rooms.length ? 'None' : 'All'}</button>
+        </p>
+        <div className="flex flex-wrap gap-1">
+          {rooms.map(r => (
+            <button key={r.id} onClick={() => setPicked(p => (p.includes(r.id) ? p.filter(x => x !== r.id) : [...p, r.id]))}
+              className={`rounded-full px-2 py-0.5 text-[10px] ${picked.includes(r.id) ? 'bg-zinc-100 text-zinc-950' : 'border border-zinc-800 text-zinc-400 hover:text-zinc-200'}`}>{r.name || r.kind}</button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">FRAMES</p>
+        <div className="grid grid-cols-2 gap-1.5">
+          {Object.entries(WINDOW_FRAMES).map(([id, f]) => (
+            <button key={id} onClick={() => setFrame(id)} className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 text-[11px] ${frame === id ? 'border-amber-400/60 bg-amber-500/10 text-white' : 'border-zinc-800 text-zinc-300'}`}>
+              <span className="h-3.5 w-3.5 rounded-sm border border-zinc-600" style={{ background: f.color }} /> {f.name}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">CURTAINS & BLINDS</p>
+        <div className="grid grid-cols-2 gap-1.5">
+          {WINDOW_TREATMENTS.map(t => (
+            <button key={t.id} onClick={() => setTreatment(t.id)} className={`rounded-lg border px-2 py-1.5 text-left text-[11px] ${treatment === t.id ? 'border-amber-400/60 bg-amber-500/10 text-white' : 'border-zinc-800 text-zinc-300'}`}>{t.name}</button>
+          ))}
+        </div>
+      </div>
+      {treatment !== 'none' && (
+        <div>
+          <p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">FABRIC</p>
+          <div className="flex flex-wrap gap-1.5">
+            {FABRICS.map(([name, hex]) => (
+              <button key={hex} title={name} onClick={() => setFabric(hex)} style={{ background: hex }} className={`h-6 w-6 rounded-full border-2 ${fabric === hex ? 'border-indigo-400' : 'border-zinc-700'}`} />
+            ))}
+          </div>
+        </div>
+      )}
+      <button onClick={apply} className="w-full rounded-lg bg-zinc-100 py-2 text-xs font-semibold text-zinc-950 hover:bg-white">Apply to the windows of {picked.length || 'the picked'} room{picked.length === 1 ? '' : 's'}</button>
+      {done && <p className="flex items-start gap-1.5 text-[11px] text-emerald-300"><Check className="mt-0.5 h-3 w-3 shrink-0" /> {done}</p>}
+    </div>
   );
 }
 
@@ -89,7 +150,7 @@ function FloorsTab({ rooms, onSetFlooring }) {
   );
 }
 
-export default function FinishesPanel({ elements, floor, brush, setBrush, onPaintAll, onPaintRoom, onSetCeiling, onSetFlooring, onWalk, roofOff }) {
+export default function FinishesPanel({ elements, floor, brush, setBrush, onPaintAll, onPaintRoom, onSetCeiling, onSetFlooring, onSetWindows, onWalk, roofOff }) {
   const [tab, setTab] = useState('walls');
   const [custom, setCustom] = useState('#8fa3b8');
   const rooms = useMemo(() => elements.filter(e => e.type === 'room' && (e.floor || 1) === floor && e.kind !== 'balcony'), [elements, floor]);
@@ -122,13 +183,16 @@ export default function FinishesPanel({ elements, floor, brush, setBrush, onPain
         <button onClick={() => { setTab('floors'); setBrush(null); }} className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs ${tab === 'floors' ? 'bg-zinc-100 font-semibold text-zinc-950' : 'text-zinc-400 hover:text-white'}`}>
           <Grid3x3 className="h-3.5 w-3.5" /> Floors
         </button>
+        <button onClick={() => { setTab('windows'); setBrush(null); }} title="Windows: frames, curtains and blinds" className={`flex items-center justify-center rounded-lg px-2 py-1.5 text-xs ${tab === 'windows' ? 'bg-zinc-100 font-semibold text-zinc-950' : 'text-zinc-400 hover:text-white'}`}>
+          <AppWindow className="h-3.5 w-3.5" />
+        </button>
         <button onClick={() => { setTab('ceilings'); setBrush(null); }} className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs ${tab === 'ceilings' ? 'bg-zinc-100 font-semibold text-zinc-950' : 'text-zinc-400 hover:text-white'}`}>
           <Lamp className="h-3.5 w-3.5" /> Ceilings
         </button>
         <InfoTip id="painter" align="right" />
       </div>
 
-      {tab === 'floors' ? <FloorsTab rooms={rooms} onSetFlooring={onSetFlooring} /> : tab === 'walls' ? (
+      {tab === 'windows' ? <WindowsTab rooms={rooms} onSetWindows={onSetWindows} /> : tab === 'floors' ? <FloorsTab rooms={rooms} onSetFlooring={onSetFlooring} /> : tab === 'walls' ? (
         <>
           <div className="border-b border-zinc-800 p-3">
             <p className="text-[11px] text-zinc-400">

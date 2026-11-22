@@ -35,7 +35,7 @@ const cleanElements = (list) => (Array.isArray(list) ? list : [])
 const planSignature = (list) => JSON.stringify((list || []).map(el => [
   el.id, el.type, Math.round(el.left), Math.round(el.top), Math.round(el.width), Math.round(el.height),
   Math.round(el.angle || 0), el.material || null, el.kind || null, el.name || null,
-  el.sides || null, el.ceiling || null, el.flooring || null,
+  el.sides || null, el.ceiling || null, el.flooring || null, el.frame || null, el.treatment || null, el.fabric || null,
 ]));
 
 export default function Studio() {
@@ -294,6 +294,20 @@ export default function Studio() {
       return setSideRange(w, side, sideFinish(selectedMaterial, range), range);   // Plain clears just this stretch
     };
     setCanvasElements(prev => prev.map(el => (el.type === 'wall' && (el.floor || 1) === f && onEdge(el) ? paintOne(el) : el)));
+  };
+
+  // windows on the edges of the picked rooms get a frame and curtains / blinds; returns how many
+  const handleSetWindows = (ids, props) => {
+    const rooms = canvasElements.filter(e => e.type === 'room' && ids.includes(e.id));
+    const onRoom = (w) => rooms.some(r => {
+      if ((r.floor || 1) !== (w.floor || 1)) return false;
+      const a = ((w.angle || 0) * Math.PI) / 180, mx = w.left + (w.width / 2) * Math.cos(a), my = w.top + (w.width / 2) * Math.sin(a);
+      const x0 = r.left, x1 = r.left + r.width, y0 = r.top - r.height / 2, y1 = r.top + r.height / 2;
+      return ((Math.abs(my - y0) < 8 || Math.abs(my - y1) < 8) && mx > x0 && mx < x1) || ((Math.abs(mx - x0) < 8 || Math.abs(mx - x1) < 8) && my > y0 && my < y1);
+    });
+    const n = canvasElements.filter(e => e.type === 'window' && onRoom(e)).length;
+    setCanvasElements(prev => prev.map(el => (el.type === 'window' && onRoom(el) ? { ...el, ...props } : el)));
+    return n;
   };
 
   const handleSetFlooring = (ids, flooring) => {
@@ -986,7 +1000,7 @@ export default function Studio() {
 
         {activeTab === '3D' && !walkthroughMode && (
           <FinishesPanel elements={canvasElements} floor={activeFloor} brush={selectedMaterial} setBrush={setSelectedMaterial}
-            onPaintAll={handlePaintAllWalls} onPaintRoom={handlePaintRoomWalls} onSetCeiling={handleSetCeiling} onSetFlooring={handleSetFlooring}
+            onPaintAll={handlePaintAllWalls} onPaintRoom={handlePaintRoomWalls} onSetCeiling={handleSetCeiling} onSetFlooring={handleSetFlooring} onSetWindows={handleSetWindows}
             roofOff={roofStyle === 'none'}
             onWalk={() => { if (roofStyle === 'none') setRoofStyle('flat'); setWalkthroughMode(true); }} />
         )}

@@ -3,6 +3,8 @@ import { catalogItem } from './furnitureCatalog';
 import { CEILING_STYLES, LIGHT_TYPES } from '../components/Ceilings';
 import { FLOOR_BY_ID } from './floorFinishes';
 
+const TREATMENT_PRICE = { curtains: ['Curtains', 160], sheer: ['Sheer curtains', 110], blinds: ['Venetian blinds', 90], roman: ['Roman blinds', 120], roller: ['Roller blinds', 70] };
+
 // rough build-cost rates in US dollars (converted to the chosen currency): walls and railings per
 // metre of length, everything else per item
 const RATES = {
@@ -25,6 +27,12 @@ export function computeCosts(elements) {
   let total = 0;
   const extra = {};          // ceiling designs (per m2) and light fittings, by kind
   (elements || []).forEach(el => {
+    if (el?.type === 'window' && TREATMENT_PRICE[el.treatment]) {
+      const [label, price] = TREATMENT_PRICE[el.treatment];
+      const c = extra[`window_${el.treatment}`] || (extra[`window_${el.treatment}`] = { label, area: 0, count: 0, cost: 0 });
+      c.count += 1; c.cost += price * k;
+      return;
+    }
     if (el?.type !== 'room') return;
     const fl = el.flooring && FLOOR_BY_ID[el.flooring];
     if (fl) {
@@ -73,7 +81,7 @@ export function computeCosts(elements) {
   Object.entries(extra).forEach(([key, c]) => {
     total += c.cost;
     breakdown.push({
-      key, type: key.startsWith('ceiling_') ? 'CEILING' : key.startsWith('floor_') ? 'FLOOR' : 'LIGHT', label: c.label,
+      key, type: key.startsWith('ceiling_') ? 'CEILING' : key.startsWith('floor_') ? 'FLOOR' : key.startsWith('window_') ? 'WINDOW' : 'LIGHT', label: c.label,
       qty: c.area ? (imperial ? `${Math.round(c.area * 10.764)}ft²` : `${c.area.toFixed(1)}m²`) : c.count,
       cost: Math.round(c.cost),
     });
