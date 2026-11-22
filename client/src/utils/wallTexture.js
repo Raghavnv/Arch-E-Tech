@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import * as THREE from 'three';
-import { ARCHITECTURAL_TEXTURES } from './textureLibrary';
+import { ARCHITECTURAL_TEXTURES, WOOD_FINISHES } from './textureLibrary';
 
 /*
  * Wall textures for the 3D views.
@@ -44,7 +44,7 @@ function rasterize(url) {
 
 /** The base colour of a library texture, used before / instead of the image. */
 export function textureColor(url) {
-  return ARCHITECTURAL_TEXTURES.find(t => t.url === url)?.color || null;
+  return [...ARCHITECTURAL_TEXTURES, ...WOOD_FINISHES].find(t => t.url === url)?.color || null;
 }
 
 const isImage = m => typeof m === 'string' && (m.startsWith('data:image') || m.startsWith('http'));
@@ -53,7 +53,14 @@ const isImage = m => typeof m === 'string' && (m.startsWith('data:image') || m.s
  * Material props for a wall of `length` x `height` metres painted with `material`
  * (an image URL, or a colour when `isColor`). Never returns a black surface.
  */
-export function useWallMaterial(material, isColor, length, height) {
+/** A saved finish id (e.g. 'wood_walnut_v') to its image; plans saved earlier hold the image itself. */
+export function resolveFinish(material) {
+  if (!material || isImage(material)) return material;
+  return [...ARCHITECTURAL_TEXTURES, ...WOOD_FINISHES].find(t => t.id === material)?.url || material;
+}
+
+export function useWallMaterial(rawMaterial, isColor, length, height) {
+  const material = isColor ? rawMaterial : resolveFinish(rawMaterial);
   const [texture, setTexture] = useState(null);
 
   useEffect(() => {

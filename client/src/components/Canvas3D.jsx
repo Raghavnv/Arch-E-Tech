@@ -7,6 +7,7 @@ import { Eye, Layers, Compass, Maximize2, X } from 'lucide-react';
 import { useWallMaterial } from '../utils/wallTexture';
 import { catalogItem, partsOf } from '../utils/furnitureCatalog';
 import { footprint, slabPieces, outline, roofRects } from '../utils/roofShape';
+import { RoomCeiling, RoomLight } from './Ceilings';
 
 const SCALE = 0.05; // 1 unit in 2D (px) = 0.05m in 3D (e.g. 100px = 5m)
 const WALL_HEIGHT = 3.0; // 3 meters
@@ -774,31 +775,27 @@ function StoreySlab({ rooms, holes }) {
 
 const LIT = new Set(['living', 'dining', 'lounge', 'kitchen', 'master_bedroom', 'bedroom', 'study', 'bathroom', 'utility', 'closet', 'balcony', 'hallway']);
 
-/** A ceiling over every room and a warm light in each: what makes the house feel lived in. */
+/** A ceiling over every room, in its chosen design, and its light fitting: what makes the house feel lived in.
+ *  A plain ceiling on the top floor is drawn only with the roof on (`withCeiling`); a designed one on
+ *  any floor, since it hangs under the slab. */
 function CeilingsAndLights({ rooms, holes, isDay, withCeiling }) {
-  const lightPower = isDay ? 0.9 : 3.2;
+  const lit = rooms.filter(r => LIT.has(r.kind) || r.ceiling?.light).slice(0, 18);
   return (
     <group>
-      {withCeiling && cutAll(rooms.filter(r => r.kind !== 'balcony').map(roomRect), holes).map((p, i) => (
+      {withCeiling && cutAll(rooms.filter(r => r.kind !== 'balcony' && !(r.ceiling?.style && r.ceiling.style !== 'plain')).map(roomRect), holes).map((p, i) => (
         <mesh key={`c-${i}`} position={[p.x + p.w / 2, WALL_HEIGHT + 0.04, p.z + p.d / 2]} receiveShadow>
           <boxGeometry args={[p.w, 0.08, p.d]} />
-          <meshStandardMaterial color="#f3f1ed" roughness={0.9} />
+          <meshStandardMaterial color={rooms.find(r => { const q = roomRect(r); return p.x >= q.x - 0.01 && p.z >= q.z - 0.01 && p.x + p.w <= q.x + q.w + 0.01 && p.z + p.d <= q.z + q.d + 0.01; })?.ceiling?.color || '#f3f1ed'} roughness={0.9} />
         </mesh>
       ))}
-      {rooms.filter(r => LIT.has(r.kind)).slice(0, 16).map((r, i) => {
-        const q = roomRect(r);
-        const cx = q.x + q.w / 2, cz = q.z + q.d / 2;
-        return (
-          <group key={`l-${i}`} position={[cx, WALL_HEIGHT - 0.18, cz]}>
-            {/* the fitting: a glowing disc under the ceiling */}
-            <mesh rotation={[Math.PI / 2, 0, 0]}>
-              <cylinderGeometry args={[0.22, 0.22, 0.05, 24]} />
-              <meshStandardMaterial color="#fff3df" emissive="#ffd9a8" emissiveIntensity={isDay ? 0.6 : 2.2} />
-            </mesh>
-            <pointLight intensity={lightPower} distance={Math.max(q.w, q.d) * 1.6 + 2} decay={2} color="#ffd6a0" />
-          </group>
-        );
-      })}
+      {rooms.filter(r => r.kind !== 'balcony' && r.ceiling?.style && r.ceiling.style !== 'plain').map((r, i) => (
+        <RoomCeiling key={`d-${r.id || i}`} rect={roomRect(r)} style={r.ceiling.style} color={r.ceiling.color || '#f3f1ed'}
+          top={WALL_HEIGHT} day={isDay} holes={holes} />
+      ))}
+      {lit.map((r, i) => (
+        <RoomLight key={`l-${r.id || i}`} rect={roomRect(r)} light={r.ceiling?.light || 'flush'} style={r.ceiling?.style || 'plain'}
+          top={WALL_HEIGHT} day={isDay} />
+      ))}
     </group>
   );
 }

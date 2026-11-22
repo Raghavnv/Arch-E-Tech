@@ -123,6 +123,11 @@ A panel on the right of the Studio with a **Start here** grid of the headline fe
 | Reports | Materials & schedule | Cement, steel, sand, bricks, tiles, paint… with costs, and a month-by-month build timeline |
 | Reports | PDF Report     | Plan, costs and notes as a PDF |
 
+### Walls, ceilings and lights
+In the 3D view the finishes panel has two tabs:
+- **Walls**: 24 paint colours in four families (whites and neutrals, warm, cool, greens) plus any colour you pick; six wood panelling finishes (light oak, walnut, teak, whitewashed pine, reclaimed timber, smoked oak; horizontal or vertical planks); stone, tile and plaster. Click walls to apply, apply to every wall, or to the walls of one room for an accent room.
+- **Ceilings & lights**: for any rooms, a ceiling design (plain, false ceiling with cove light, tray, coffered, wooden slats, round POP design, exposed beams), a light fitting (flush light, chandelier, pendants, recessed spots, fan with light, LED ring, none) and a ceiling colour, with a live preview. Ceilings show from inside (walkthrough, Photo Render captures, video tour), and their cost goes into the takeoff.
+
 ### 3D view
 - Walls with real window and door openings, glass, textured materials, furniture, ceilings and lights.
 - Flat or pitched roof, or no roof to look inside. Roofs follow the house's own outline: a flat roof's parapet runs along the outer walls, and an L- or T-shaped house gets hipped roofs over each wing meeting in valleys, with short eaves, never one big roof over the whole bounding box.
@@ -247,6 +252,8 @@ Arch-E-Tech/
 │   │   │   ├── RoomCapture.jsx    Takes a room's picture inside the 3D house
 │   │   │   ├── RoomDesigner.jsx   Furnish a room yourself
 │   │   │   ├── VideoTour.jsx      Records a film of the house
+│   │   │   ├── Ceilings.jsx       Ceiling designs and light fittings
+│   │   │   ├── FinishesPanel.jsx  Wall paint / wood and ceiling & light choices
 │   │   │   ├── ARView.jsx         The house in AR (WebXR, Quick Look)
 │   │   │   ├── Overview.jsx       Presentation slideshow
 │   │   │   ├── ImportPlanModal.jsx Upload a drawing, review the traced plan, set the scale

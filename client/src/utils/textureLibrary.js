@@ -230,3 +230,62 @@ export const ARCHITECTURAL_TEXTURES = [
     tag: 'Mediterranean'
   }
 ];
+
+// -------------------------------------------------------------------------------------------
+// Wood plank walls: drawn as SVG with staggered joints and grain, in several woods and directions
+// -------------------------------------------------------------------------------------------
+function woodPlanks({ tones, grain, joint, vertical = false, plank = 20, length = 160, seed = 1 }) {
+  // a small deterministic random, so the same wood always looks the same
+  let s = seed;
+  const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+  const W = 320, H = 160;
+  const parts = [];
+  const rows = H / plank;
+  for (let r = 0; r < rows; r++) {
+    const y = r * plank;
+    let x = -Math.floor(rnd() * length);
+    while (x < W) {
+      const len = length * (0.7 + rnd() * 0.6);
+      const tone = tones[Math.floor(rnd() * tones.length)];
+      parts.push(`<rect x="${x.toFixed(1)}" y="${y}" width="${len.toFixed(1)}" height="${plank}" fill="${tone}"/>`);
+      for (let g = 0; g < 3; g++) {             // grain: gentle curves along the plank
+        const gy = y + 3 + rnd() * (plank - 6);
+        const c1 = gy + (rnd() - 0.5) * 4, c2 = gy + (rnd() - 0.5) * 4;
+        parts.push(`<path d="M${x.toFixed(1)} ${gy.toFixed(1)} C ${(x + len / 3).toFixed(1)} ${c1.toFixed(1)}, ${(x + 2 * len / 3).toFixed(1)} ${c2.toFixed(1)}, ${(x + len).toFixed(1)} ${gy.toFixed(1)}" stroke="${grain}" stroke-width="0.8" fill="none" opacity="0.45"/>`);
+      }
+      parts.push(`<line x1="${(x + len).toFixed(1)}" y1="${y}" x2="${(x + len).toFixed(1)}" y2="${y + plank}" stroke="${joint}" stroke-width="1.2"/>`);
+      x += len;
+    }
+    parts.push(`<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="${joint}" stroke-width="1.4"/>`);
+  }
+  const body = parts.join('');
+  const svg = vertical
+    ? `<svg xmlns="http://www.w3.org/2000/svg" width="${H}" height="${W}" viewBox="0 0 ${H} ${W}"><g transform="translate(${H} 0) rotate(90)">${body}</g></svg>`
+    : `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${body}</svg>`;
+  return encodeSvg(svg);
+}
+
+export const WOOD_FINISHES = [
+  { id: 'wood_oak_h', name: 'Light oak planks', color: '#c69c6d', tag: 'Horizontal',
+    url: woodPlanks({ tones: ['#c99f70', '#c19566', '#d1a878', '#bb8f60'], grain: '#8a6136', joint: '#7a5530', seed: 3 }) },
+  { id: 'wood_walnut_v', name: 'Walnut panels', color: '#5c3f2b', tag: 'Vertical',
+    url: woodPlanks({ tones: ['#5d4030', '#664634', '#523827', '#6b4a35'], grain: '#2f1f15', joint: '#24170f', vertical: true, plank: 26, seed: 7 }) },
+  { id: 'wood_teak_h', name: 'Teak panelling', color: '#9a6232', tag: 'Wide planks',
+    url: woodPlanks({ tones: ['#a2683a', '#97602f', '#ab713f', '#8f5a2c'], grain: '#5e3816', joint: '#4f2f12', plank: 32, length: 220, seed: 11 }) },
+  { id: 'wood_pine_white', name: 'Whitewashed pine', color: '#e3dccf', tag: 'Vertical',
+    url: woodPlanks({ tones: ['#e6dfd2', '#ddd5c7', '#ebe5d9', '#d8cfbf'], grain: '#b9ad99', joint: '#a99c86', vertical: true, plank: 18, seed: 5 }) },
+  { id: 'wood_reclaimed', name: 'Reclaimed timber', color: '#8b6a4c', tag: 'Mixed tones',
+    url: woodPlanks({ tones: ['#8f6c4b', '#a07a55', '#6e523a', '#b08860', '#7b5c40'], grain: '#4a3524', joint: '#3a2919', plank: 18, length: 120, seed: 13 }) },
+  { id: 'wood_ebony_v', name: 'Smoked oak, vertical', color: '#3a2d24', tag: 'Dark accent',
+    url: woodPlanks({ tones: ['#3d3026', '#352a21', '#43352a', '#2f251d'], grain: '#1c150f', joint: '#130e0a', vertical: true, plank: 14, seed: 17 }) },
+];
+
+/** Paint colours, grouped the way paint shades are usually shown. */
+export const PAINT_COLOURS = [
+  { group: 'Whites & neutrals', colours: [['Chalk white', '#f6f4ef'], ['Ivory', '#f1ead8'], ['Linen', '#e9e1d2'], ['Greige', '#cfc6b8'], ['Warm grey', '#b5aea4'], ['Charcoal', '#3b3b3d']] },
+  { group: 'Warm', colours: [['Sand', '#e2cfae'], ['Peach', '#f2c6a5'], ['Terracotta', '#c46a45'], ['Mustard', '#d3a23a'], ['Blush pink', '#e8c3c0'], ['Brick red', '#9c3b2e']] },
+  { group: 'Cool', colours: [['Sky blue', '#bcd4e6'], ['Dusty blue', '#7f98b0'], ['Navy', '#2a3b57'], ['Teal', '#2f6f73'], ['Lavender', '#c9bfdc'], ['Slate', '#5f6b76']] },
+  { group: 'Greens', colours: [['Mint', '#cfe3d2'], ['Sage', '#a8b79c'], ['Olive', '#7d7f4f'], ['Forest', '#2f4a3a'], ['Pistachio', '#c4d39f'], ['Eucalyptus', '#7f9c8f']] },
+];
+
+export const PLAIN_WALL = { id: 'mat_plain', name: 'Plain', color: '#f4f4f5' };

@@ -174,14 +174,15 @@ def furnish_prompt(style: str, kind: str, user_prompt: str | None, source: str |
         return (f"The reference image is a plain 3D model render of an empty {kind.replace('_', ' ')} in a real house. "
                 f"Turn it into a photorealistic photograph of the same room, furnished. Keep the camera position and "
                 f"angle, and keep every wall, door opening and window exactly where it is in the reference, with the "
-                f"same proportions; give the walls, floor and ceiling real finishes in {st['shell']}. Add "
+                f"same proportions. Keep any wall colour, wood panelling, false ceiling design and light fittings that "
+                f"the render shows (made real); otherwise give the walls, floor and ceiling real finishes in {st['shell']}. Add "
                 f"{FURNISH.get(kind, 'suitable furniture')}, styled as {st['furnish']}.{extra} {finish}")
     if source == "model_furnished":
         return (f"The reference image is a 3D model render of a {kind.replace('_', ' ')} in a real house, with the "
                 f"owner's furniture shown as simple shapes. Turn it into a photorealistic photograph of the same room: "
                 f"keep the camera position and angle, every wall, door and window, and keep each piece of furniture in "
                 f"exactly the same place, size and type, but make it real, detailed furniture styled as {st['furnish']}, "
-                f"with {st['shell']}. Add only small decor (cushions, lamps, plants, art).{extra} {finish}")
+                f"with {st['shell']}; keep the wall colours, panelling, ceiling design and light fittings shown. Add only small decor (cushions, lamps, plants, art).{extra} {finish}")
     return (f"Furnish the room in the reference photo. Keep the room exactly the same: the same walls, floor, "
             f"ceiling, windows, doors, camera angle and lighting; only add furniture and decor. Add "
             f"{FURNISH.get(kind, 'suitable furniture')}, styled as {st['furnish']}.{extra} Realistic scale, "

@@ -1,5 +1,6 @@
 import { currencyRate, measurement } from './units';
 import { catalogItem } from './furnitureCatalog';
+import { CEILING_STYLES, LIGHT_TYPES } from '../components/Ceilings';
 
 // rough build-cost rates in US dollars (converted to the chosen currency): walls and railings per
 // metre of length, everything else per item
@@ -21,6 +22,21 @@ export function computeCosts(elements) {
   const imperial = measurement() !== 'metric';
   const counts = {};
   let total = 0;
+  const extra = {};          // ceiling designs (per m2) and light fittings, by kind
+  (elements || []).forEach(el => {
+    if (el?.type !== 'room' || !el.ceiling) return;
+    const style = CEILING_STYLES.find(st => st.id === el.ceiling.style);
+    const light = LIGHT_TYPES.find(l => l.id === el.ceiling.light);
+    const m2 = (el.width / 20) * (el.height / 20);
+    if (style?.rate) {
+      const c = extra[`ceiling_${style.id}`] || (extra[`ceiling_${style.id}`] = { label: style.name, area: 0, count: 0, cost: 0 });
+      c.area += m2; c.cost += m2 * style.rate * k;
+    }
+    if (light?.price) {
+      const c = extra[`light_${light.id}`] || (extra[`light_${light.id}`] = { label: light.name, area: 0, count: 0, cost: 0 });
+      c.count += 1; c.cost += light.price * k;
+    }
+  });
   (elements || []).forEach(el => {
     if (!el || el.isGrid || el.type === 'room' || el.arrival) return;   // an arrival only marks where stairs land
     const type = el.type || 'unknown';
@@ -45,6 +61,15 @@ export function computeCosts(elements) {
       ? `${(imperial ? c.length * 3.28084 : c.length).toFixed(1)}${imperial ? 'ft' : 'm'}`
       : c.count,
     cost: Math.round(c.cost),
-  })).sort((a, b) => b.cost - a.cost);
+  }));
+  Object.entries(extra).forEach(([key, c]) => {
+    total += c.cost;
+    breakdown.push({
+      key, type: key.startsWith('ceiling_') ? 'CEILING' : 'LIGHT', label: c.label,
+      qty: c.area ? (imperial ? `${Math.round(c.area * 10.764)}ft²` : `${c.area.toFixed(1)}m²`) : c.count,
+      cost: Math.round(c.cost),
+    });
+  });
+  breakdown.sort((a, b) => b.cost - a.cost);
   return { total: Math.round(total), breakdown };
 }

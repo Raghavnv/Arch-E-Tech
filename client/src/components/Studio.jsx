@@ -11,16 +11,16 @@ import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
 import { AutoDetectPanel, AiLayoutPanel, ConceptVizPanel, EditPanel, RoomsPanel, BudgetPanel, VastuPanel, RulesPanel, SharePanel, ServicesPanel, MaterialsPanel } from './StudioTools';
 import FeatureDock from './FeatureDock';
+import FinishesPanel from './FinishesPanel';
+import { PLAIN_WALL } from '../utils/textureLibrary';
 import VideoTour from './VideoTour';
 import ImportPlanModal from './ImportPlanModal';
 import InfoTip from './InfoTip';
 import Mark from './Mark';
-import { ARCHITECTURAL_TEXTURES } from '../utils/textureLibrary';
 import { measurement, currencySymbol, currencyCode, CURRENCY, formatSize } from '../utils/units';
 import { computeCosts } from '../utils/costs';
 import { downloadPlanSheet } from '../utils/planSheet';
 
-const PLAIN_WALL = { id: 'mat_plain', name: 'Plain', color: '#f4f4f5' };
 
 // saved plans can contain empty or broken entries (older versions, interrupted saves); one of them used to
 // crash the whole Studio on open, so only real elements get through
@@ -236,12 +236,11 @@ export default function Studio() {
 
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState(null);
-  const TEXTURE_LIBRARY = ARCHITECTURAL_TEXTURES;
 
   // what a wall stores for the active brush ("Plain" clears the paint)
   const paintFor = (mat) => mat.id === PLAIN_WALL.id
     ? { material: null, isColor: false }
-    : { material: mat.url || mat.color, isColor: !mat.url };
+    : { material: mat.url ? mat.id : mat.color, isColor: !mat.url };   // a finish is saved by its id, not its whole image
 
   const handlePaintWall = (elementId) => {
     if (!selectedMaterial) return;
@@ -252,6 +251,29 @@ export default function Studio() {
       wallIdx += 1;
       return (el.id || `wall_${wallIdx}`) === elementId ? { ...el, ...paintFor(selectedMaterial) } : el;
     }));
+  };
+
+  // an accent room: every wall piece that runs along one of the room's edges
+  const handlePaintRoomWalls = (roomId) => {
+    if (!selectedMaterial) return;
+    const room = canvasElements.find(e => e.id === roomId);
+    if (!room) return;
+    const x0 = room.left, x1 = room.left + room.width, y0 = room.top - room.height / 2, y1 = room.top + room.height / 2;
+    const f = room.floor || 1, tol = 6;
+    const onEdge = (w) => {
+      const a = ((w.angle || 0) * Math.PI) / 180;
+      const ax = w.left, ay = w.top, bx = w.left + w.width * Math.cos(a), by = w.top + w.width * Math.sin(a);
+      const horiz = Math.abs(ay - by) < 1, vert = Math.abs(ax - bx) < 1;
+      const overlap = (p0, p1, q0, q1) => Math.min(Math.max(p0, p1), q1) - Math.max(Math.min(p0, p1), q0) > 10;
+      if (horiz && (Math.abs(ay - y0) < tol || Math.abs(ay - y1) < tol)) return overlap(ax, bx, x0, x1);
+      if (vert && (Math.abs(ax - x0) < tol || Math.abs(ax - x1) < tol)) return overlap(ay, by, y0, y1);
+      return false;
+    };
+    setCanvasElements(prev => prev.map(el => (el.type === 'wall' && (el.floor || 1) === f && onEdge(el) ? { ...el, ...paintFor(selectedMaterial) } : el)));
+  };
+
+  const handleSetCeiling = (ids, ceiling) => {
+    setCanvasElements(prev => prev.map(el => (el.type === 'room' && ids.includes(el.id) ? { ...el, ceiling } : el)));
   };
 
   const handlePaintAllWalls = () => {
@@ -932,57 +954,11 @@ export default function Studio() {
           </div>
         )}
 
-        {activeTab === '3D' && (
-          <div className="absolute top-24 right-[var(--dock)] w-72 max-h-[calc(100%-8rem)] bg-zinc-950/90 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl flex flex-col z-20">
-            <div className="p-4 border-b border-zinc-800">
-              <h3 className="flex items-center gap-2 text-sm font-bold text-white">Material Painter <InfoTip id="painter" align="right" /></h3>
-              <p className="text-[11px] text-zinc-400 mt-1">
-                {selectedMaterial
-                  ? <>Painting with <span className="text-white">{selectedMaterial.name}</span>. Click walls to apply, or pick another material.</>
-                  : 'Pick a material, then click walls to paint them.'}
-              </p>
-              {selectedMaterial && (
-                <div className="mt-3 flex gap-2">
-                  <button
-                    onClick={handlePaintAllWalls}
-                    className="flex-1 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition-colors"
-                  >
-                    Apply to all walls
-                  </button>
-                  <button
-                    onClick={() => setSelectedMaterial(null)}
-                    className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] font-medium transition-colors"
-                  >
-                    Done
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div className="p-3 overflow-y-auto overscroll-contain custom-scrollbar">
-              <div className="grid grid-cols-3 gap-2">
-                {[PLAIN_WALL, ...TEXTURE_LIBRARY].map((mat) => {
-                  const active = selectedMaterial?.id === mat.id;
-                  return (
-                    <button
-                      key={mat.id}
-                      type="button"
-                      title={mat.name}
-                      // picking a different material switches the brush straight away; the active one toggles off
-                      onClick={() => setSelectedMaterial(active ? null : mat)}
-                      style={{ backgroundColor: mat.color || '#333' }}
-                      className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
-                        active ? 'border-indigo-400 ring-2 ring-indigo-400/40' : 'border-zinc-800 hover:border-zinc-500'
-                      }`}
-                    >
-                      {mat.url && <img src={mat.url} alt="" className="w-full h-full object-cover pointer-events-none" />}
-                      <span className="absolute inset-x-0 bottom-0 bg-black/75 px-1 py-0.5 text-[9px] font-medium text-white truncate text-center">{mat.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+        {activeTab === '3D' && !walkthroughMode && (
+          <FinishesPanel elements={canvasElements} floor={activeFloor} brush={selectedMaterial} setBrush={setSelectedMaterial}
+            onPaintAll={handlePaintAllWalls} onPaintRoom={handlePaintRoomWalls} onSetCeiling={handleSetCeiling}
+            roofOff={roofStyle === 'none'}
+            onWalk={() => { if (roofStyle === 'none') setRoofStyle('flat'); setWalkthroughMode(true); }} />
         )}
 
         {loadError && (

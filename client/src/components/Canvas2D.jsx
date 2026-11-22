@@ -654,9 +654,10 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
       elements.forEach(el => {
         const match = existingObjs.find(o => o.id === el.id);
         if (match) {
-          if (el.material && match.material !== el.material) {
-            match.material = el.material;
-            if (el.isColor) match.set('fill', el.material);
+          if ((el.material || null) !== (match.material || null) || !!el.isColor !== !!match.isColor) {
+            match.material = el.material || null;
+            match.isColor = !!el.isColor;
+            if (el.type === 'wall') match.set('fill', el.isColor && el.material ? el.material : '#e4e4e7');
             needsRerender = true;
           }
           // geometry changed outside the canvas (AI edit, undo/redo): move the object to match
