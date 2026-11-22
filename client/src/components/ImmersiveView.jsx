@@ -3,8 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as THREE from 'three';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Sky, Stars, Environment } from '@react-three/drei';
-import { ArrowLeft } from 'lucide-react';
-import { HouseModel, PLAN_SCALE } from './Canvas3D';
+import { ArrowLeft, Footprints } from 'lucide-react';
+import { HouseModel, PLAN_SCALE, FirstPersonPlayer, useProcessedArchitecture } from './Canvas3D';
+import { footprint, slabPieces } from '../utils/roofShape';
 import Mark from './Mark';
 
 /*
@@ -15,9 +16,9 @@ import Mark from './Mark';
  */
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-const PLINTH = 0.45;           // the house sits on a raised plinth, like most Indian homes
+export const PLINTH = 0.45;           // the house sits on a raised plinth, like most Indian homes
 
-const TIMES = {
+export const TIMES = {
   morning: { label: 'Morning', sun: [60, 25, 40], light: 1.5, sunColor: '#ffe2c0', hemi: 0.55, fog: '#d9dfe4', day: true },
   noon: { label: 'Noon', sun: [20, 90, 15], light: 2.0, sunColor: '#fff6e8', hemi: 0.7, fog: '#dfe6eb', day: true },
   evening: { label: 'Evening', sun: [-70, 9, 30], light: 1.3, sunColor: '#ffb27a', hemi: 0.4, fog: '#e2c3a8', day: true },
@@ -248,7 +249,7 @@ function Rain() {
 // ---------------------------------------------------------------------------------------------
 // The site: where the house sits, which side faces the street, and everything around it
 // ---------------------------------------------------------------------------------------------
-function useSite(elements) {
+export function useSite(elements) {
   return useMemo(() => {
     const ground = elements.filter(e => (e.floor || 1) === 1);
     const rooms = elements.filter(e => e.type === 'room');
@@ -262,16 +263,25 @@ function useSite(elements) {
     const x0 = Math.min(...bs.map(b => b[0])), y0 = Math.min(...bs.map(b => b[1]));
     const x1 = Math.max(...bs.map(b => b[2])), y1 = Math.max(...bs.map(b => b[3]));
 
-    // the entrance: the side of the ground floor with the most outside doors faces the street
-    const near = { bottom: 0, top: 0, left: 0, right: 0 };
-    let door = null;
+    // the entrance: outside doors are the ones with a room on one side and open ground on the other;
+    // the side with the most of them (the living room's counting extra) faces the street
+    const groundRooms = ground.filter(e => e.type === 'room');
+    const inRoom = (x, y) => groundRooms.find(r => x > r.left && x < r.left + r.width && y > r.top - r.height / 2 && y < r.top + r.height / 2);
+    const outside = [];
     ground.filter(e => e.type === 'door').forEach(d => {
-      const dists = { top: Math.abs(d.top - y0), bottom: Math.abs(d.top - y1), left: Math.abs(d.left - x0), right: Math.abs(d.left - x1) };
-      const [side, dist] = Object.entries(dists).sort((a, b) => a[1] - b[1])[0];
-      if (dist < 14) { near[side] += 1; door = door || { side, x: d.left, y: d.top }; }
+      const a = ((d.angle || 0) * Math.PI) / 180;
+      const mx = d.left + (d.width / 2) * Math.cos(a), my = d.top + (d.width / 2) * Math.sin(a);
+      const nx = -Math.sin(a), ny = Math.cos(a);
+      const r1 = inRoom(mx + nx * 15, my + ny * 15), r2 = inRoom(mx - nx * 15, my - ny * 15);
+      if (!!r1 === !!r2) return;
+      const [ox, oy] = r1 ? [-nx, -ny] : [nx, ny];                 // pointing out of the house
+      const side = Math.abs(oy) > Math.abs(ox) ? (oy > 0 ? 'bottom' : 'top') : (ox > 0 ? 'right' : 'left');
+      const room = r1 || r2;
+      outside.push({ side, x: mx, y: my, weight: ['living', 'lounge', 'hallway'].includes(room.kind) ? 3 : 1 });
     });
-    const front = Object.entries(near).sort((a, b) => b[1] - a[1])[0][1] > 0
-      ? Object.entries(near).sort((a, b) => b[1] - a[1])[0][0] : 'bottom';
+    const score = { bottom: 0.5, top: 0, left: 0, right: 0 };         // the plan's bottom edge wins ties
+    outside.forEach(o => { score[o.side] += o.weight; });
+    const front = Object.entries(score).sort((p, q) => q[1] - p[1])[0][0];
     const rotation = { bottom: 0, top: Math.PI, left: Math.PI / 2, right: -Math.PI / 2 }[front];
 
     const cx = ((x0 + x1) / 2) * PLAN_SCALE, cz = ((y0 + y1) / 2) * PLAN_SCALE;
@@ -279,22 +289,21 @@ function useSite(elements) {
     const turned = front === 'left' || front === 'right';
     const W = turned ? d : w, D = turned ? w : d;      // footprint once turned to face the street (+z)
 
-    // where the front door ends up along the street side, to line the path up with it
-    let doorX = 0;
-    const entry = ground.find(e => e.type === 'door' && (() => {
-      const dd = { top: Math.abs(e.top - y0), bottom: Math.abs(e.top - y1), left: Math.abs(e.left - x0), right: Math.abs(e.left - x1) };
-      return dd[front] < 14;
-    })());
+    // where the front door ends up once turned: across the street side, and how far forward it is
+    // (a recessed entrance sits behind the house's front line, and the steps go to it, not to the line)
+    let doorX = 0, doorZ = D / 2;
+    const entry = outside.filter(o => o.side === front).sort((p, q) => q.weight - p.weight)[0];
     if (entry) {
-      const ex = entry.left * PLAN_SCALE - cx, ez = entry.top * PLAN_SCALE - cz;
+      const ex = entry.x * PLAN_SCALE - cx, ez = entry.y * PLAN_SCALE - cz;
       doorX = ex * Math.cos(rotation) + ez * Math.sin(rotation);
+      doorZ = -ex * Math.sin(rotation) + ez * Math.cos(rotation);
     }
-    return { cx, cz, W, D, rotation, doorX };
+    return { cx, cz, W, D, rotation, doorX, doorZ };
   }, [elements]);
 }
 
-function Site({ site, setting, time, elements, roofStyle, camX }) {
-  const night = !TIMES[time].day;
+/** Where everything on the plot and the street goes; shared by the scene and the walkthrough's walls. */
+export function useSiteLayout(site, setting) {
   const { W, D } = site;
   const side = setting === 'garden' ? 6 : 3.2;          // side setbacks
   const plotW = W + side * 2;
@@ -327,6 +336,27 @@ function Site({ site, setting, time, elements, roofStyle, camX }) {
     return list;
   }, [plotW, farWalk, setting]);
 
+  return { side, plotW, frontYard, rear, fz, bz, walkW, roadW, roadZ, farWalk, gateW, gateX, driveX, neighbours };
+}
+
+const plinthRect = (r) => ({ x: r.left * PLAN_SCALE, z: (r.top - r.height / 2) * PLAN_SCALE, w: r.width * PLAN_SCALE, d: r.height * PLAN_SCALE });
+
+/** The plinth under the house: its ground-floor outline plus 0.3 m, in plan metres (before turning). */
+function usePlinth(elements, site) {
+  return useMemo(() => {
+    const rooms = elements.filter(e => e.type === 'room' && (e.floor || 1) === 1);
+    if (!rooms.length) return [{ x: site.cx - site.W / 2 - 0.3, z: site.cz - site.D / 2 - 0.3, w: site.W + 0.6, d: site.D + 0.6 }];
+    return slabPieces(footprint(rooms.map(plinthRect), 0.3));
+  }, [elements, site]);
+}
+
+export function Site({ site, setting, time, elements, roofStyle, camX }) {
+  const night = !TIMES[time].day;
+  const { D } = site;
+  const { plotW, fz, bz, walkW, roadW, roadZ, farWalk, gateW, gateX, driveX, neighbours } = useSiteLayout(site, setting);
+  const plinth = usePlinth(elements, site);
+  const stepsEnd = site.doorZ + 0.3 + 0.96;            // where the front steps reach the path
+
   // street furniture keeps clear of where the viewer stands
   const lamps = [-34, -20, -6, 8, 22, 36].filter(x => Math.abs(x - camX) > 7);
   const streetTrees = [-28, -18, -2, 14, 30].filter(x => Math.abs(x - camX) > 5);
@@ -339,7 +369,11 @@ function Site({ site, setting, time, elements, roofStyle, camX }) {
 
       {/* driveway and a stone path from the gate to the front door */}
       <Ground x={driveX + 1.5} z={(fz + D / 2) / 2} w={3} d={fz - D / 2} tex={pavingTex} y={0.02} color="#d6cbbb" />
-      <Ground x={gateX + gateW / 2} z={(fz + D / 2) / 2} w={1.4} d={fz - D / 2 + 0.6} tex={pavingTex} y={0.025} color="#e3d8c8" />
+      {/* the path runs from the gate up to the steps, then across to them if the door is off to one side */}
+      <Ground x={gateX + gateW / 2} z={(fz + stepsEnd) / 2} w={1.4} d={fz - stepsEnd} tex={pavingTex} y={0.025} color="#e3d8c8" />
+      {Math.abs(gateX + gateW / 2 - site.doorX) > 0.7 && (
+        <Ground x={(gateX + gateW / 2 + site.doorX) / 2} z={stepsEnd + 0.7} w={Math.abs(gateX + gateW / 2 - site.doorX) + 1.4} d={1.4} tex={pavingTex} y={0.026} color="#e3d8c8" />
+      )}
 
       {/* boundary: rendered wall on the street with a gate, walls down the sides, a hedge at the back */}
       <CompoundWall x0={-plotW / 2} x1={plotW / 2} z={fz} gateFrom={gateX} gateTo={gateX + gateW} />
@@ -365,10 +399,10 @@ function Site({ site, setting, time, elements, roofStyle, camX }) {
       {/* at night: a warm light over the door and low lights along the path */}
       {night && (
         <>
-          <mesh position={[site.doorX, PLINTH + 2.5, D / 2 + 0.08]}><boxGeometry args={[0.25, 0.25, 0.12]} /><meshStandardMaterial color="#fff3df" emissive="#ffcf8a" emissiveIntensity={3} /></mesh>
-          <pointLight position={[site.doorX, PLINTH + 2.3, D / 2 + 0.8]} intensity={6} distance={9} decay={2} color="#ffcf8a" />
+          <mesh position={[site.doorX, PLINTH + 2.5, site.doorZ + 0.08]}><boxGeometry args={[0.25, 0.25, 0.12]} /><meshStandardMaterial color="#fff3df" emissive="#ffcf8a" emissiveIntensity={3} /></mesh>
+          <pointLight position={[site.doorX, PLINTH + 2.3, site.doorZ + 0.8]} intensity={6} distance={9} decay={2} color="#ffcf8a" />
           {[0.25, 0.55, 0.85].map(f => {
-            const pz = D / 2 + 0.6 + (fz - D / 2 - 0.6) * f;
+            const pz = stepsEnd + (fz - stepsEnd) * f;
             return (
               <group key={f} position={[gateX + gateW / 2 + 1, 0, pz]}>
                 <mesh position={[0, 0.3, 0]}><cylinderGeometry args={[0.05, 0.05, 0.6, 8]} /><meshStandardMaterial color="#2f2b27" /></mesh>
@@ -379,15 +413,12 @@ function Site({ site, setting, time, elements, roofStyle, camX }) {
           })}
         </>
       )}
-      <Planter position={[site.doorX - 1.2, PLINTH, D / 2 + 0.9]} />
-      <Planter position={[site.doorX + 1.2, PLINTH, D / 2 + 0.9]} />
+      <Planter position={[site.doorX - 1.3, 0, site.doorZ + 0.9]} />
+      <Planter position={[site.doorX + 1.3, 0, site.doorZ + 0.9]} />
 
       {/* the plinth and front steps */}
-      <mesh position={[0, PLINTH / 2, 0]} receiveShadow castShadow>
-        <boxGeometry args={[W + 0.6, PLINTH, D + 0.6]} /><meshStandardMaterial color="#9c948a" roughness={0.9} />
-      </mesh>
       {[0, 1, 2].map(i => (
-        <mesh key={`st${i}`} position={[site.doorX, (PLINTH / 3) * (i + 0.5), D / 2 + 0.3 + (2 - i) * 0.32 + 0.16]} receiveShadow castShadow>
+        <mesh key={`st${i}`} position={[site.doorX, (PLINTH / 3) * (i + 0.5), site.doorZ + 0.3 + (2 - i) * 0.32 + 0.16]} receiveShadow castShadow>
           <boxGeometry args={[1.8, PLINTH / 3, 0.32]} /><meshStandardMaterial color="#b3aa9e" roughness={0.9} />
         </mesh>
       ))}
@@ -395,6 +426,12 @@ function Site({ site, setting, time, elements, roofStyle, camX }) {
       {/* the house itself, turned to face the street and lifted onto its plinth */}
       <group position={[0, PLINTH, 0]} rotation={[0, site.rotation, 0]}>
         <group position={[-site.cx, 0, -site.cz]}>
+          {/* the plinth follows the house's own outline, not a box around it */}
+          {plinth.map((p, i) => (
+            <mesh key={`pl${i}`} position={[p.x + p.w / 2, -PLINTH / 2, p.z + p.d / 2]} receiveShadow castShadow>
+              <boxGeometry args={[p.w, PLINTH, p.d]} /><meshStandardMaterial color="#9c948a" roughness={0.9} />
+            </mesh>
+          ))}
           <HouseModel elements={elements} roofStyle={roofStyle} isDay={!night} />
         </group>
       </group>
@@ -440,6 +477,52 @@ function Site({ site, setting, time, elements, roofStyle, camX }) {
 }
 
 // ---------------------------------------------------------------------------------------------
+/**
+ * Walking the street: start on the footpath outside the gate, walk up the path, climb the steps onto
+ * the plinth and go in through the front door. The house's ground-floor walls (with their door
+ * openings), the compound and side walls, the back hedge and the neighbours' houses all stop you.
+ */
+function StreetWalk({ site, setting, elements, onLockChange }) {
+  const L = useSiteLayout(site, setting);
+  const plinth = usePlinth(elements, site);
+  const ground = useMemo(() => elements.filter(e => (e.floor || 1) === 1), [elements]);
+  const { collisionSegments, bounds } = useProcessedArchitecture(ground);
+  const { segments, groundAt, start } = useMemo(() => {
+    const c = Math.cos(site.rotation), s = Math.sin(site.rotation);
+    const toWorld = (x, z) => { const lx = x - site.cx, lz = z - site.cz; return [lx * c + lz * s, -lx * s + lz * c]; };
+    const toLocal = (X, Z) => [X * c - Z * s + site.cx, X * s + Z * c + site.cz];
+    const seg = (x0, z0, x1, z1, depth = 0.25) => ({ x0, z0, x1, z1, depth });
+    const out = collisionSegments.map(g => {
+      const [x0, z0] = toWorld(g.x0, g.z0), [x1, z1] = toWorld(g.x1, g.z1);
+      return { x0, z0, x1, z1, depth: g.depth };
+    });
+    const { plotW, fz, bz, gateX, gateW, farWalk, neighbours } = L;
+    out.push(seg(-plotW / 2, fz, gateX, fz), seg(gateX + gateW, fz, plotW / 2, fz));
+    out.push(seg(plotW / 2, bz, plotW / 2, fz), seg(-plotW / 2 + (setting === 'corner' ? 0.4 : 0), bz, -plotW / 2 + (setting === 'corner' ? 0.4 : 0), fz));
+    out.push(seg(-plotW / 2, bz + 0.4, plotW / 2, bz + 0.4, 0.7));
+    for (const n of neighbours) {
+      const x0 = n.x - n.w / 2, x1 = n.x + n.w / 2, z0 = n.z - n.d / 2, z1 = n.z + n.d / 2;
+      out.push(seg(x0, z0, x1, z0), seg(x1, z0, x1, z1), seg(x1, z1, x0, z1), seg(x0, z1, x0, z0));
+    }
+    // the edge of the world: a block of the street either way
+    const X = 70, Z0 = bz - 25, Z1 = farWalk + 25;
+    out.push(seg(-X, Z0, X, Z0), seg(X, Z0, X, Z1), seg(X, Z1, -X, Z1), seg(-X, Z1, -X, Z0));
+
+    const stepsZ = site.doorZ + 0.3;           // the three front steps, from the plinth edge outwards
+    const groundAt = (X, Z) => {
+      const [lx, lz] = toLocal(X, Z);
+      if (plinth.some(p => lx >= p.x && lx <= p.x + p.w && lz >= p.z && lz <= p.z + p.d)) return PLINTH;
+      if (Math.abs(X - site.doorX) <= 0.9 && Z >= stepsZ && Z < stepsZ + 0.96) {
+        const k = Math.floor((Z - stepsZ) / 0.32);
+        return (PLINTH * (3 - k)) / 3;
+      }
+      return Math.abs(Z - (fz + L.walkW / 2)) < L.walkW / 2 || Math.abs(Z - (farWalk + L.walkW / 2)) < L.walkW / 2 ? 0.12 : 0;
+    };
+    return { segments: out, groundAt, start: { at: [gateX + gateW / 2, fz + L.walkW * 0.55], look: [site.doorX, 0] } };
+  }, [collisionSegments, site, L, plinth, setting]);
+  return <FirstPersonPlayer collisionSegments={segments} bounds={bounds} start={start} groundAt={groundAt} onLockChange={onLockChange} dragLook />;
+}
+
 export default function ImmersiveView() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -450,6 +533,8 @@ export default function ImmersiveView() {
   const [time, setTime] = useState('evening');
   const [weather, setWeather] = useState('clear');
   const [roofStyle, setRoofStyle] = useState('pitched');
+  const [walking, setWalking] = useState(false);
+  const [locked, setLocked] = useState(false);
 
   // the whole house (every floor) from the project; the last Studio state as a fallback
   useEffect(() => {
@@ -482,7 +567,7 @@ export default function ImmersiveView() {
         </div>
       ) : (
         // standing on the road, a little to one side, looking across at the house
-        <Canvas shadows camera={{ position: [Math.max(6, site.W * 0.5), 5 + site.W * 0.08, site.D / 2 + 12 + Math.max(site.W, site.D) * 0.45], fov: 50, near: 0.3, far: 600 }}>
+        <Canvas key={walking ? 'walk' : 'look'} shadows camera={{ position: [Math.max(6, site.W * 0.5), 5 + site.W * 0.08, site.D / 2 + 12 + Math.max(site.W, site.D) * 0.45], fov: walking ? 72 : 50, near: walking ? 0.05 : 0.3, far: 600 }}>
           <color attach="background" args={[t.day ? fogColor : '#0b1020']} />
           <fog attach="fog" args={[fogColor, overcast ? 35 : 55, overcast ? 140 : 210]} />
           {t.day && (
@@ -507,7 +592,9 @@ export default function ImmersiveView() {
 
           <Site site={site} setting={setting} time={time} elements={elements} roofStyle={roofStyle} camX={Math.max(6, site.W * 0.5)} />
 
-          <OrbitControls makeDefault target={[0, 3, 0]} maxPolarAngle={Math.PI / 2 - 0.06} minDistance={6} maxDistance={95} enableDamping dampingFactor={0.06} />
+          {walking
+            ? <StreetWalk site={site} setting={setting} elements={elements} onLockChange={setLocked} />
+            : <OrbitControls makeDefault target={[0, 3, 0]} maxPolarAngle={Math.PI / 2 - 0.06} minDistance={6} maxDistance={95} enableDamping dampingFactor={0.06} />}
         </Canvas>
       )}
 
@@ -516,6 +603,13 @@ export default function ImmersiveView() {
         <button onClick={back} className="pointer-events-auto flex items-center gap-2 rounded-full border border-white/10 bg-black/45 px-4 py-2 text-sm text-white backdrop-blur-md hover:bg-black/70">
           <ArrowLeft className="h-4 w-4" /> Back to Studio
         </button>
+        <div className="flex items-center gap-2">
+        {site && (
+          <button onClick={() => { setWalking(w => !w); setLocked(false); }}
+            className={`pointer-events-auto flex items-center gap-2 rounded-full border px-4 py-2 text-sm backdrop-blur-md ${walking ? 'border-emerald-400/60 bg-emerald-500/20 text-emerald-100' : 'border-white/10 bg-black/45 text-white hover:bg-black/70'}`}>
+            <Footprints className="h-4 w-4" /> {walking ? 'Stop walking' : 'Walk around'}
+          </button>
+        )}
         <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/45 px-4 py-2.5 backdrop-blur-md">
           <Mark className="h-6 w-6" />
           <div>
@@ -523,7 +617,23 @@ export default function ImmersiveView() {
             <p className="font-mono text-[10px] tracking-[0.2em] text-white/55">IMMERSIVE VIEW · {SETTINGS[setting].label.toUpperCase()}</p>
           </div>
         </div>
+        </div>
       </div>
+
+      {walking && (
+        <>
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div className="h-1 w-1 rounded-full bg-white/80" />
+          </div>
+          <div className="pointer-events-none absolute inset-x-0 bottom-32 flex justify-center">
+            <p className="rounded-full border border-white/10 bg-black/60 px-4 py-2 text-xs text-white/85 backdrop-blur-md">
+              {locked
+                ? <>Mouse to look · <b>W A S D</b> to walk · <b>Shift</b> to hurry · <b>Esc</b> to stop</>
+                : <>Click the scene to look with the mouse, or drag to look around · <b>W A S D</b> or arrows to walk</>}
+            </p>
+          </div>
+        </>
+      )}
 
       {/* scene controls */}
       <div className="absolute bottom-6 left-1/2 flex w-[min(980px,calc(100%-2rem))] -translate-x-1/2 flex-wrap items-center justify-center gap-x-6 gap-y-3 rounded-2xl border border-white/10 bg-black/55 px-5 py-3 backdrop-blur-xl">

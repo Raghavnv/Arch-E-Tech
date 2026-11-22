@@ -5,12 +5,13 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Menu, MousePointer2, Box, Home, PenTool, LayoutTemplate, 
   Settings, Save, FileText, ChevronRight, Calculator, CheckCircle, 
-  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen, FileUp, Compass, Ruler, PenLine, ShieldCheck, Share2, Zap, Sofa 
+  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen, FileUp, Compass, Ruler, PenLine, ShieldCheck, Share2, Zap, Sofa, HardHat, Clapperboard, Smartphone 
 } from 'lucide-react';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
-import { AutoDetectPanel, AiLayoutPanel, ConceptVizPanel, EditPanel, RoomsPanel, BudgetPanel, VastuPanel, RulesPanel, SharePanel, ServicesPanel } from './StudioTools';
+import { AutoDetectPanel, AiLayoutPanel, ConceptVizPanel, EditPanel, RoomsPanel, BudgetPanel, VastuPanel, RulesPanel, SharePanel, ServicesPanel, MaterialsPanel } from './StudioTools';
 import FeatureDock from './FeatureDock';
+import VideoTour from './VideoTour';
 import ImportPlanModal from './ImportPlanModal';
 import InfoTip from './InfoTip';
 import Mark from './Mark';
@@ -52,6 +53,7 @@ export default function Studio() {
   const [leftOpen, setLeftOpen] = useState(() => pref('studio_left_open', true));
   const [dockOpen, setDockOpen] = useState(() => pref('studio_dock_open', true));
   const [importOpen, setImportOpen] = useState(false);
+  const [videoOpen, setVideoOpen] = useState(false);
   const [exporting, setExporting] = useState(null);       // 'sheet' | 'dxf' while an export runs
   useEffect(() => {
     try { localStorage.setItem('studio_left_open', leftOpen ? '1' : '0'); localStorage.setItem('studio_dock_open', dockOpen ? '1' : '0'); } catch { /* private mode */ }
@@ -690,6 +692,10 @@ export default function Studio() {
               onClick: () => { setActiveTab('3D'); setWalkthroughMode(true); } },
             { id: 'immersive', icon: Trees, label: 'Immersive View', desc: 'The house on its street', info: 'immersive',
               onClick: () => flushSave(projectId ? `/immersive?projectId=${projectId}` : '/immersive') },
+            { id: 'ar', icon: Smartphone, label: 'View in AR', desc: 'The house on your phone camera, model or life size', disabled: !projectId,
+              onClick: () => flushSave(`/ar?projectId=${projectId}`) },
+            { id: 'video', icon: Clapperboard, label: 'Video tour', desc: 'A film of the house to send', disabled: !canvasElements.some(e => e.type === 'room'),
+              onClick: () => setVideoOpen(true) },
             { id: 'designer', icon: Sofa, label: 'Room Designer', desc: 'Furnish a room yourself', disabled: !projectId,
               onClick: () => flushSave(`/room-designer?projectId=${projectId}`) },
             { id: 'overview', icon: Play, label: 'Overview', desc: 'A presentation of the whole house', info: 'overview', disabled: !projectId,
@@ -711,6 +717,8 @@ export default function Studio() {
           ] },
           { title: 'REPORTS', items: [
             { id: 'cost', icon: Calculator, label: 'Cost takeoff', desc: `${money(costData.total)} estimated`, onClick: () => setShowCostModal(true) },
+            { id: 'materials', icon: HardHat, label: 'Materials & schedule', desc: 'Cement, steel, bricks… and a build timeline', active: toolPanel === 'materials',
+              onClick: () => setToolPanel(t => (t === 'materials' ? null : 'materials')) },
             { id: 'share', icon: Share2, label: 'Share with client', desc: 'View-only link, comments, approval', active: toolPanel === 'share',
               onClick: () => setToolPanel(t => (t === 'share' ? null : 'share')) },
             { id: 'rules', icon: ShieldCheck, label: 'Building rules', desc: 'Room sizes, light and plot limits', active: toolPanel === 'rules',
@@ -727,6 +735,9 @@ export default function Studio() {
         {toolPanel === 'services' && (
           <ServicesPanel elements={canvasElements} floor={activeFloor} projectName={projectName} site={projectSite}
             north={northOf()} apiUrl={API_URL} onClose={() => setToolPanel(null)} />
+        )}
+        {toolPanel === 'materials' && (
+          <MaterialsPanel elements={canvasElements} projectName={projectName} apiUrl={API_URL} onClose={() => setToolPanel(null)} />
         )}
         {toolPanel === 'share' && <SharePanel projectId={projectId} apiUrl={API_URL} onClose={() => setToolPanel(null)} />}
         {toolPanel === 'rules' && (
@@ -1184,6 +1195,7 @@ export default function Studio() {
           </div>
         </div>
       )}
+      {videoOpen && <VideoTour projectId={projectId} elements={canvasElements} projectName={projectName} onClose={() => setVideoOpen(false)} />}
       {importOpen && <ImportPlanModal onClose={() => setImportOpen(false)} mode="replace"
         floorLabel={activeFloor === 1 ? 'the ground floor' : `floor ${activeFloor}`}
         onAccept={async ({ elements }) => {

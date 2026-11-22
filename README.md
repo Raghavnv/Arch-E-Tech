@@ -109,19 +109,42 @@ A panel that slides in from the right edge of the Studio and collapses to a slim
 | Group   | Feature        | What it does |
 |---------|----------------|--------------|
 | View    | Walkthrough    | First-person walk through the rooms at eye level (WASD + mouse) |
-| View    | Immersive View | The house on a landscaped plot in a neighbourhood, with time of day, weather and roof options |
+| View    | Immersive View | The house on a landscaped plot in a neighbourhood, with time of day, weather and roof options; walk in from the street |
+| View    | View in AR     | The house through a phone camera: a 1:40 model on a table, or life size to walk into |
+| View    | Video tour     | A ~50-second film of the house (street, entrance, every room, photos) as MP4 to send |
 | View    | Room Designer  | Furnish a room yourself from a catalogue of 60+ pieces, in plan and 3D |
 | View    | Overview       | A presentation: floor plans, 3D model, every room, photos and the cost takeoff |
 | AI      | Photo Render   | A photo of every room, empty and then furnished, all in the same house style |
 | AI      | Concept Viz    | A 3D cutaway or exterior concept image of the whole house |
 | AI      | Budget Advisor | Enter your budget; get ranked suggestions on where to cut back |
 | Reports | Cost takeoff   | The live estimate, item by item |
+| Reports | Materials & schedule | Cement, steel, sand, bricks, tiles, paint… with costs, and a month-by-month build timeline |
 | Reports | PDF Report     | Plan, costs and notes as a PDF |
 
 ### 3D view
 - Walls with real window and door openings, glass, textured materials, furniture, ceilings and lights.
-- Flat or pitched roof, or no roof to look inside.
+- Flat or pitched roof, or no roof to look inside. Roofs follow the house's own outline: a flat roof's parapet runs along the outer walls, and an L- or T-shaped house gets hipped roofs over each wing meeting in valleys, with short eaves, never one big roof over the whole bounding box.
 - Camera distance adapts to the size of the house.
+
+### Immersive View and the street walk
+- The house on its plot in a street: lawn, compound wall and gate, a path to the front door, neighbours, time of day and weather. The front door is found from the plan (a door with a room on one side and open ground on the other), and the path, steps and porch light line up with it.
+- **Walk around**: start on the footpath, go through the gate, up the steps onto the plinth and in through the front door. Walls, the compound wall and the neighbours' houses stop you. Mouse-look with pointer lock, or drag to look on a trackpad or touch screen.
+
+### View in AR
+- **Model** (1:40) to set on a table or on the plot, or **Life size** to stand in the rooms. Roof on, or open to look inside.
+- Android (Chrome): runs in the browser with WebXR. Point at the floor, tap to place, then turn, resize or move it.
+- iPhone and iPad: a USDZ model of the house is made on the phone and opens in Apple's AR viewer.
+- On a computer: a 3D preview and a QR code to open the same view on a phone.
+
+### Video tour
+A short film made in the browser: it flies in over the street with the house's name and size, drifts across the front, walks up to the door, visits each main room at eye level with its name and area, shows the photo renders, and pulls back to finish. Recorded as MP4 (WebM where the browser can't do MP4), ready to download or share.
+
+### Materials & schedule
+Worked out from the drawing for an ordinary RCC-frame house with brick walls (230 mm outside, 115 mm inside):
+- Materials with quantities and cost: cement bags, steel, sand, aggregate, bricks, tiles, paint, primer, putty, waterproofing, doors, windows, wiring and pipes; plus labour and the cost per m² / sq ft. Enter your own local prices under **My prices**.
+- Quantities of work: excavation, PCC, RCC (footings, columns, beams, slabs), brickwork, plaster, flooring, painting.
+- A build schedule, phase by phase and floor by floor (foundation, frame and slab curing, walls, services, plaster, flooring, finishes, painting), with each phase's cost.
+- Download everything as CSV. It's an estimate for planning and budgeting; footings and steel must come from a structural engineer.
 
 ### Photo Render
 1. Each room's base picture is **taken inside your 3D house**: the camera stands at eye level in the corner that sees the most of the room (its windows and doors), so the picture is the actual room, with its real size, walls, windows and doors. "Capture all rooms" does every room at once. This needs no AI.
@@ -199,6 +222,7 @@ Arch-E-Tech/
 │   ├── vastu.py                 Vastu checks and score for any plan
 │   ├── building_rules.py        NBC 2016 room sizes, windows, plot coverage / FAR / setbacks
 │   ├── services_layout.py       Electrical and plumbing points from the plan
+│   ├── quantities.py            Material quantities, costs and build schedule
 │   ├── export_cad.py            DXF (AutoCAD R12) export
 │   ├── sharing.py               Share links, client comments and approvals
 │   ├── plan_import.py           Plan import routes (forwards drawings to the plan reader service)
@@ -220,6 +244,8 @@ Arch-E-Tech/
 │   │   │   ├── RenderStudio.jsx   Photo Render
 │   │   │   ├── RoomCapture.jsx    Takes a room's picture inside the 3D house
 │   │   │   ├── RoomDesigner.jsx   Furnish a room yourself
+│   │   │   ├── VideoTour.jsx      Records a film of the house
+│   │   │   ├── ARView.jsx         The house in AR (WebXR, Quick Look)
 │   │   │   ├── Overview.jsx       Presentation slideshow
 │   │   │   ├── ImportPlanModal.jsx Upload a drawing, review the traced plan, set the scale
 │   │   │   ├── SharedProject.jsx  The page behind a share link: view, comment, approve
@@ -230,6 +256,7 @@ Arch-E-Tech/
 │   │       ├── detectRooms.js     Room detection from walls
 │   │       ├── furnitureCatalog.js 60+ furniture pieces: sizes, prices, 3D parts
 │   │       ├── roomCamera.js      Where to stand to photograph a room
+│   │       ├── roofShape.js       The house outline for roofs and the plinth
 │   │       ├── planSymbols.js, textureLibrary.js, wallTexture.js
 │   └── vite.config.js
 ├── ml/                          Plan reader: training data, model training, OCR, plan_reader service (see ml/README.md)
@@ -351,6 +378,7 @@ All project, photo and AI endpoints except health take `Authorization: Bearer <t
 | POST | `/api/ai/vastu-check` | Elements + which way north points → Vastu score and checklist |
 | POST | `/api/ai/building-check` | Elements + plot + limits → room-size, window and plot checks |
 | POST | `/api/ai/services-layout` | Elements → electrical and plumbing points with counts |
+| POST | `/api/ai/quantities` | Elements (+ optional prices) → materials, quantities of work, cost and build schedule |
 | POST | `/api/export/dxf` | Elements + floor → DXF drawing (download) |
 | POST / GET | `/api/projects/{id}/shares` | Make a share link / list links, comments and approvals |
 | DELETE | `/api/projects/{id}/shares/{share_id}` | Turn a share link off |

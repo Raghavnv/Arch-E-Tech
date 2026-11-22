@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel
-from typing import Literal
+from typing import Literal, Optional
 import jwt
 import json
 import os
@@ -777,6 +777,21 @@ def services_layout_api(req: ServicesRequest):
     if not any(isinstance(e, dict) and e.get("type") == "room" for e in req.elements):
         raise HTTPException(status_code=400, detail="The plan has no rooms yet. Label rooms first (Rooms panel).")
     return services_layout.layout(req.elements)
+
+
+class QuantitiesRequest(BaseModel):
+    elements: list
+    rates: Optional[dict] = None
+
+
+@app.post("/api/ai/quantities")
+def quantities_api(req: QuantitiesRequest):
+    """Material quantities (cement, steel, sand, bricks, tiles, paint …), their cost and a build schedule."""
+    import quantities
+    try:
+        return quantities.estimate(req.elements, req.rates)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 class VastuCheck(BaseModel):

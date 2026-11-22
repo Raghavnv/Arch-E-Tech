@@ -993,3 +993,207 @@ function ServicesPreview({ elements, points }) {
     </svg>
   );
 }
+
+// ---------------------------------------------------------------------------------------------
+// Materials & schedule: what the house takes to build, what it costs and how long it takes
+// ---------------------------------------------------------------------------------------------
+const inr = (v) => formatMoney((Number(v) || 0) / CURRENCY.INR.rate);   // the estimate is priced in rupees
+const RATE_UNIT = {
+  cement: 'bag', steel: 'kg', sand: 'm³', aggregate: 'm³', bricks: 'brick', tiles: 'm²', paint: 'L', putty: 'kg',
+  primer: 'L', waterproofing: 'm²', doors: 'door', windows: 'm²', wiring: 'm', pipes: 'm',
+};
+
+export function MaterialsPanel({ elements, projectName, apiUrl, onClose }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [data, setData] = useState(null);
+  const [tab, setTab] = useState('materials');
+  const [rates, setRates] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('archetech_rates') || '{}'); } catch { return {}; }
+  });
+  const [editing, setEditing] = useState(false);
+
+  const run = async (r = rates) => {
+    setBusy(true); setError(null);
+    try {
+      const res = await fetch(`${apiUrl}/api/ai/quantities`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ elements, rates: r }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.detail || `The server answered ${res.status}.`);
+      setData(body);
+    } catch (e) { setError(e.message); setData(null); } finally { setBusy(false); }
+  };
+  useEffect(() => {
+    const t = setTimeout(run, 0);
+    return () => clearTimeout(t);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const setRate = (key, v) => {
+    const next = { ...rates, [key]: v === '' ? undefined : Number(v) };
+    setRates(next);
+    try { localStorage.setItem('archetech_rates', JSON.stringify(next)); } catch { /* private mode */ }
+  };
+  const applyRates = () => { setEditing(false); run(rates); };
+  const resetRates = () => {
+    setRates({});
+    try { localStorage.removeItem('archetech_rates'); } catch { /* private mode */ }
+    run({});
+  };
+
+  const csv = () => {
+    if (!data) return;
+    const q = (s) => `"${String(s).replace(/"/g, '""')}"`;
+    const lines = [['Item', 'Quantity', 'Unit', 'Rate (INR)', 'Cost (INR)', 'Note'].join(',')];
+    data.materials.forEach(m => lines.push([q(m.item), m.qty, m.unit, m.rate, m.cost, q(m.note)].join(',')));
+    lines.push(['Labour', '', '', '', data.summary.labour_cost, ''].join(','));
+    lines.push(['Total', '', '', '', data.total_cost, ''].join(','));
+    lines.push('', ['Phase', 'Starts (day)', 'Days', 'Cost (INR)'].join(','));
+    data.phases.forEach(p => lines.push([q(p.name), p.start_day, p.days, p.cost].join(',')));
+    lines.push('', ['Work', 'Quantity', 'Unit'].join(','));
+    data.works.forEach(w => lines.push([q(w.item), w.qty, w.unit].join(',')));
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${(projectName || 'house').replace(/[^\w-]+/g, '_')}_materials.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  };
+
+  const months = data ? data.total_days / 30.4 : 0;
+  return (
+    <Panel icon={Wallet} title="Materials & schedule" wide onClose={onClose}>
+      {busy && <p className="flex items-center gap-2 text-xs text-zinc-400"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Working out quantities…</p>}
+      {error && <ErrorLine>{error}</ErrorLine>}
+      {data && !busy && (
+        <div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[
+              ['Built-up area', formatArea(data.summary.built_up_m2)],
+              ['Materials', inr(data.summary.material_cost)],
+              ['With labour', inr(data.total_cost)],
+              ['Build time', `${months.toFixed(1)} months`],
+            ].map(([k, v]) => (
+              <div key={k} className="rounded-lg bg-zinc-900 px-3 py-2">
+                <p className="text-[10px] text-zinc-500">{k}</p>
+                <p className="mt-0.5 text-sm font-semibold text-zinc-100">{v}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[10px] text-zinc-500">
+            {inr(data.summary.cost_per_m2)} per m² ({inr(data.summary.cost_per_m2 / 10.764)} per sq ft) · {data.summary.floors} floor{data.summary.floors > 1 ? 's' : ''} · about {data.summary.columns} columns
+          </p>
+
+          <div className="mt-3 flex items-center gap-1 border-b border-zinc-800 text-xs">
+            {[['materials', 'Materials'], ['schedule', 'Schedule'], ['works', 'Quantities of work']].map(([id, label]) => (
+              <button key={id} onClick={() => setTab(id)} className={`-mb-px border-b-2 px-3 py-1.5 ${tab === id ? 'border-zinc-100 text-white' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}>{label}</button>
+            ))}
+            <span className="ml-auto flex gap-1.5 pb-1">
+              <button onClick={() => setEditing(e => !e)} className="rounded-md border border-zinc-700 px-2 py-1 text-[11px] text-zinc-200 hover:bg-zinc-800">{editing ? 'Close prices' : 'My prices'}</button>
+              <button onClick={csv} className="flex items-center gap-1 rounded-md bg-zinc-100 px-2 py-1 text-[11px] font-semibold text-zinc-950 hover:bg-white"><Download className="h-3 w-3" /> CSV</button>
+            </span>
+          </div>
+
+          {editing && (
+            <div className="mt-3 rounded-lg border border-zinc-800 p-3">
+              <p className="text-[11px] text-zinc-400">Prices you pay locally, in rupees. Leave blank for the default.</p>
+              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {Object.keys(RATE_UNIT).map(k => (
+                  <label key={k} className="text-[10px] capitalize text-zinc-500">{k} / {RATE_UNIT[k]}
+                    <input type="number" min="0" value={rates[k] ?? ''} placeholder={String(data.rates[k])} onChange={(e) => setRate(k, e.target.value)}
+                      className="mt-0.5 w-full rounded bg-zinc-900 px-2 py-1 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+                  </label>
+                ))}
+                <label className="text-[10px] text-zinc-500">Labour, % of materials
+                  <input type="number" min="0" max="150" value={rates.labour != null ? Math.round(rates.labour * 100) : ''} placeholder={String(Math.round(data.rates.labour * 100))}
+                    onChange={(e) => setRate('labour', e.target.value === '' ? '' : Number(e.target.value) / 100)}
+                    className="mt-0.5 w-full rounded bg-zinc-900 px-2 py-1 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+                </label>
+              </div>
+              <div className="mt-2 flex gap-2">
+                <button onClick={applyRates} className="rounded-md bg-zinc-100 px-3 py-1 text-[11px] font-semibold text-zinc-950">Recalculate</button>
+                <button onClick={resetRates} className="rounded-md border border-zinc-700 px-3 py-1 text-[11px] text-zinc-300">Use defaults</button>
+              </div>
+            </div>
+          )}
+
+          {tab === 'materials' && (
+            <table className="mt-2 w-full text-xs">
+              <thead><tr className="text-left text-[10px] text-zinc-500"><th className="py-1 font-normal">Material</th><th className="font-normal text-right">Quantity</th><th className="font-normal text-right">Cost</th></tr></thead>
+              <tbody>
+                {data.materials.map(m => (
+                  <tr key={m.key} className="border-t border-zinc-900">
+                    <td className="py-1.5"><span className="text-zinc-100">{m.item}</span>{m.note && <span className="block text-[10px] text-zinc-500">{m.note}</span>}</td>
+                    <td className="whitespace-nowrap text-right text-zinc-200">{Number(m.qty).toLocaleString('en-IN')} {m.unit}</td>
+                    <td className="whitespace-nowrap text-right text-zinc-300">{inr(m.cost)}</td>
+                  </tr>
+                ))}
+                <tr className="border-t border-zinc-800"><td className="py-1.5 text-zinc-400">Labour</td><td /><td className="text-right text-zinc-300">{inr(data.summary.labour_cost)}</td></tr>
+                <tr className="border-t border-zinc-800 font-semibold"><td className="py-1.5 text-zinc-100">Total</td><td /><td className="text-right text-zinc-100">{inr(data.total_cost)}</td></tr>
+              </tbody>
+            </table>
+          )}
+
+          {tab === 'schedule' && <Gantt data={data} />}
+
+          {tab === 'works' && (
+            <table className="mt-2 w-full text-xs">
+              <tbody>
+                {data.works.map(w => (
+                  <tr key={w.key} className="border-t border-zinc-900">
+                    <td className={`py-1.5 ${w.item.startsWith('of which') ? 'pl-4 text-zinc-500' : 'text-zinc-100'}`}>{w.item}</td>
+                    <td className="text-right text-zinc-200">{Number(w.qty).toLocaleString('en-IN')} {w.unit}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          <ul className="mt-3 space-y-0.5 text-[10px] leading-snug text-zinc-600">
+            {data.assumptions.map((a, i) => <li key={i}>· {a}</li>)}
+          </ul>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function Gantt({ data }) {
+  const total = Math.max(1, data.total_days);
+  const months = Math.ceil(total / 30.4);
+  const spent = data.phases.reduce((sum, p) => sum + p.cost, 0);
+  return (
+    <div className="mt-3">
+      <div className="flex h-4 gap-2 text-[9px] text-zinc-500">
+        <span className="w-[42%] shrink-0" />
+        <span className="relative flex-1">
+          {Array.from({ length: months }).map((_, m) => (
+            <span key={m} className="absolute" style={{ left: `${(m * 30.4 / total) * 100}%` }}>{`M${m + 1}`}</span>
+          ))}
+        </span>
+        <span className="w-24 shrink-0" />
+      </div>
+      <ul className="space-y-1">
+        {data.phases.map(p => {
+          return (
+            <li key={p.key} className="flex items-center gap-2 text-[11px]">
+              <span className="w-[42%] shrink-0 truncate text-zinc-300" title={`${p.name} · ${p.days} days · ${inr(p.cost)}`}>{p.name}</span>
+              <span className="relative h-4 flex-1 rounded bg-zinc-900">
+                {Array.from({ length: months }).map((_, m) => (
+                  <span key={m} className="absolute inset-y-0 w-px bg-zinc-800" style={{ left: `${(m * 30.4 / total) * 100}%` }} />
+                ))}
+                <span className="absolute inset-y-0.5 rounded-sm bg-gradient-to-r from-amber-500/80 to-orange-500/80"
+                  style={{ left: `${(p.start_day / total) * 100}%`, width: `${Math.max(1, (p.days / total) * 100)}%` }}
+                  title={`Day ${p.start_day + 1}–${p.start_day + p.days}`} />
+              </span>
+              <span className="w-24 shrink-0 text-right text-zinc-500">{p.cost ? inr(p.cost) : '—'}</span>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="mt-2 text-[10px] text-zinc-500">
+        About {Math.round(total / 7)} weeks with one crew working steadily. Costs per phase include labour; together they come to {inr(spent)}, the rest is spread across the job.
+      </p>
+    </div>
+  );
+}

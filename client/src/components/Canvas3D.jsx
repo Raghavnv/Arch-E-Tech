@@ -6,6 +6,7 @@ import * as SunCalc from 'suncalc';
 import { Eye, Layers, Compass, Maximize2, X } from 'lucide-react';
 import { useWallMaterial } from '../utils/wallTexture';
 import { catalogItem, partsOf } from '../utils/furnitureCatalog';
+import { footprint, slabPieces, outline, roofRects } from '../utils/roofShape';
 
 const SCALE = 0.05; // 1 unit in 2D (px) = 0.05m in 3D (e.g. 100px = 5m)
 const WALL_HEIGHT = 3.0; // 3 meters
@@ -802,45 +803,75 @@ function CeilingsAndLights({ rooms, holes, isDay, withCeiling }) {
   );
 }
 
-/** Roof over the top storey: a flat slab with a parapet, or a hipped roof over the footprint. */
+/** A hipped roof over a w × d rectangle (centred, base at y = 0): four slopes up to a ridge along the long side. */
+function hipGeometry(w, d, h) {
+  const along = w >= d, L = along ? w : d, W = along ? d : w;
+  const r = Math.max(0, L / 2 - W / 2);                    // half the ridge length
+  const P = (a, b, y) => (along ? [a, y, b] : [b, y, a]);  // (along, across) → (x, y, z)
+  const c = [P(-L / 2, -W / 2, 0), P(L / 2, -W / 2, 0), P(L / 2, W / 2, 0), P(-L / 2, W / 2, 0)];
+  const r0 = P(-r, 0, h), r1 = P(r, 0, h);
+  const tris = [
+    [c[0], r0, r1], [c[0], r1, c[1]],      // long slope, -across side
+    [c[2], r1, r0], [c[2], r0, c[3]],      // long slope, +across side
+    [c[1], r1, c[2]],                      // hip end, +along
+    [c[3], r0, c[0]],                      // hip end, -along
+    [c[0], c[1], c[2]], [c[0], c[2], c[3]],  // soffit underneath
+  ];
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(tris.flat(2), 3));
+  g.computeVertexNormals();
+  return g;
+}
+
+function HipRoof({ rect, eave, pitch }) {
+  const w = rect.w + eave * 2, d = rect.d + eave * 2;
+  const h = Math.min(3.4, (Math.min(w, d) / 2) * pitch);
+  const geo = useMemo(() => hipGeometry(w, d, h), [w, d, h]);
+  return (
+    <mesh geometry={geo} position={[rect.x + rect.w / 2, 0, rect.z + rect.d / 2]} castShadow receiveShadow>
+      <meshStandardMaterial color="#8a4b2c" roughness={0.75} flatShading side={THREE.DoubleSide} />
+    </mesh>
+  );
+}
+
+const WALL_OUTSIDE = 0.2;   // walls are 0.4 m thick on the room outline: their outer face is 0.2 m out
+
+/** Roof over the top storey, following the house's own outline: a flat slab with a parapet along
+ *  the outer walls, or hipped roofs over the wings, meeting in valleys, with short eaves. */
 function Roof({ rooms, style }) {
+  const rects = useMemo(() => rooms.map(roomRect), [rooms]);
+  const fp = useMemo(() => footprint(rects, WALL_OUTSIDE), [rects]);
+  const flat = useMemo(() => (style === 'flat' ? { slab: slabPieces(fp), edges: outline(fp) } : null), [fp, style]);
+  const wings = useMemo(() => (style === 'pitched' ? roofRects(fp) : []), [fp, style]);
   if (!rooms.length || style === 'none') return null;
-  const rects = rooms.map(roomRect);
-  if (style === 'flat') {
+  if (flat) {
+    const t = 0.12, ph = 0.5;
     return (
       <group>
-        {rects.map((p, i) => (
-          <mesh key={i} position={[p.x + p.w / 2, WALL_HEIGHT + 0.14, p.z + p.d / 2]} castShadow receiveShadow>
-            <boxGeometry args={[p.w + 0.5, 0.24, p.d + 0.5]} />
+        {flat.slab.map((p, i) => (
+          <mesh key={i} position={[p.x + p.w / 2, WALL_HEIGHT + 0.12, p.z + p.d / 2]} castShadow receiveShadow>
+            <boxGeometry args={[p.w, 0.24, p.d]} />
             <meshStandardMaterial color="#b9b2a6" roughness={0.9} />
           </mesh>
         ))}
-        {(() => {
-          const x0 = Math.min(...rects.map(p => p.x)) - 0.25, z0 = Math.min(...rects.map(p => p.z)) - 0.25;
-          const x1 = Math.max(...rects.map(p => p.x + p.w)) + 0.25, z1 = Math.max(...rects.map(p => p.z + p.d)) + 0.25;
-          const y = WALL_HEIGHT + 0.5, t = 0.12;
-          return [[(x0 + x1) / 2, z0, x1 - x0, t], [(x0 + x1) / 2, z1, x1 - x0, t], [x0, (z0 + z1) / 2, t, z1 - z0], [x1, (z0 + z1) / 2, t, z1 - z0]]
-            .map(([x, z, w, d], i) => (
-              <mesh key={`p-${i}`} position={[x, y, z]} castShadow>
-                <boxGeometry args={[w, 0.5, d]} />
-                <meshStandardMaterial color="#cfc8bd" roughness={0.9} />
-              </mesh>
-            ));
-        })()}
+        {flat.edges.map(({ a, b, out }, i) => {
+          // the parapet stands on the outer face of the wall, inside the footprint
+          const horiz = a[1] === b[1];
+          const len = horiz ? b[0] - a[0] : b[1] - a[1];
+          const x = (a[0] + b[0]) / 2 - out[0] * (t / 2), z = (a[1] + b[1]) / 2 - out[1] * (t / 2);
+          return (
+            <mesh key={`p-${i}`} position={[x, WALL_HEIGHT + 0.24 + ph / 2, z]} castShadow>
+              <boxGeometry args={horiz ? [len, ph, t] : [t, ph, len]} />
+              <meshStandardMaterial color="#cfc8bd" roughness={0.9} />
+            </mesh>
+          );
+        })}
       </group>
     );
   }
-  // hipped roof: a four-sided pyramid stretched over the footprint, with eaves
-  const x0 = Math.min(...rects.map(p => p.x)), z0 = Math.min(...rects.map(p => p.z));
-  const x1 = Math.max(...rects.map(p => p.x + p.w)), z1 = Math.max(...rects.map(p => p.z + p.d));
-  const w = x1 - x0 + 0.7, d = z1 - z0 + 0.7;   // eaves just past the walls
-  const h = Math.min(3.2, Math.max(1.4, Math.min(w, d) * 0.28));
   return (
-    <group position={[(x0 + x1) / 2, WALL_HEIGHT + 0.02, (z0 + z1) / 2]}>
-      <mesh position={[0, h / 2, 0]} rotation={[0, Math.PI / 4, 0]} scale={[w / Math.SQRT2, 1, d / Math.SQRT2]} castShadow receiveShadow>
-        <coneGeometry args={[1, h, 4, 1]} />
-        <meshStandardMaterial color="#8a4b2c" roughness={0.75} flatShading />
-      </mesh>
+    <group position={[0, WALL_HEIGHT + 0.1, 0]}>{/* above the top-floor ceiling, so its underside never shows inside */}
+      {wings.map((r, i) => <HipRoof key={i} rect={r} eave={0.35} pitch={0.55} />)}
     </group>
   );
 }
@@ -890,10 +921,12 @@ export function HouseModel({ elements, roofStyle = 'pitched', isDay = true }) {
   ));
 }
 
-export { SCALE as PLAN_SCALE, FLOOR_TO_FLOOR };
+export { SCALE as PLAN_SCALE, FLOOR_TO_FLOOR, useProcessedArchitecture };
 
-function FirstPersonPlayer({ collisionSegments, bounds, initialPosition, onLockChange }) {
-  const { camera } = useThree();
+/** First-person walking: mouse look, WASD, sliding along walls. `start` = { at: [x, z], look: [x, z] }
+ *  places the walker; `groundAt(x, z)` gives the floor height to stand on (steps, a plinth). */
+export function FirstPersonPlayer({ collisionSegments, bounds, initialPosition, onLockChange, start, groundAt, dragLook = false }) {
+  const { camera, gl } = useThree();
   const controlsRef = useRef(null);
   const [_isLocked, setIsLocked] = useState(false);
 
@@ -908,6 +941,7 @@ function FirstPersonPlayer({ collisionSegments, bounds, initialPosition, onLockC
 
   const velocity = useRef(new THREE.Vector3());
   const bobTimer = useRef(0);
+  const floorY = useRef(start && groundAt ? groundAt(start.at[0], start.at[1]) : 0);
 
   // place the walker once, when the walkthrough starts: re-running this whenever the parent re-rendered
   // (a new bounds object each time) is what kept snapping people back to the start after a few steps
@@ -915,13 +949,16 @@ function FirstPersonPlayer({ collisionSegments, bounds, initialPosition, onLockC
   useEffect(() => {
     if (spawned.current) return;
     spawned.current = true;
-    if (initialPosition) {
+    if (start) {
+      camera.position.set(start.at[0], PLAYER_HEIGHT + (groundAt ? groundAt(start.at[0], start.at[1]) : 0), start.at[1]);
+      camera.lookAt(start.look[0], camera.position.y - 0.2, start.look[1]);
+    } else if (initialPosition) {
       camera.position.set(initialPosition[0], PLAYER_HEIGHT, initialPosition[1]);
     } else {
       camera.position.set(bounds.centerX, PLAYER_HEIGHT, bounds.maxZ + 3);
       camera.lookAt(bounds.centerX, PLAYER_HEIGHT, bounds.centerZ);
     }
-  }, [initialPosition, bounds, camera]);
+  }, [initialPosition, bounds, camera, start, groundAt]);
 
   // Handle keyboard events
   useEffect(() => {
@@ -983,9 +1020,31 @@ function FirstPersonPlayer({ collisionSegments, bounds, initialPosition, onLockC
     };
   }, []);
 
+  // without a captured mouse (a trackpad, a touch screen, a browser that refuses): drag to look around
+  useEffect(() => {
+    if (!dragLook) return;
+    const el = gl.domElement;
+    const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+    let last = null;
+    const down = (e) => { if (!controlsRef.current?.isLocked) last = [e.clientX, e.clientY]; };
+    const move = (e) => {
+      if (!last || controlsRef.current?.isLocked) return;
+      euler.setFromQuaternion(camera.quaternion);
+      euler.y -= (e.clientX - last[0]) * 0.004;
+      euler.x = Math.max(-1.4, Math.min(1.4, euler.x - (e.clientY - last[1]) * 0.004));
+      camera.quaternion.setFromEuler(euler);
+      last = [e.clientX, e.clientY];
+    };
+    const up = () => { last = null; };
+    el.addEventListener('pointerdown', down);
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    return () => { el.removeEventListener('pointerdown', down); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+  }, [dragLook, gl, camera]);
+
   // Frame physics loop: WASD Movement + Wall Sliding Collisions
   useFrame((_, delta) => {
-    if (!controlsRef.current?.isLocked) return;
+    if (!controlsRef.current?.isLocked && !dragLook) return;
 
     // Cap delta to prevent huge jumps on tab switch
     const dt = Math.min(delta, 0.1);
@@ -1056,7 +1115,11 @@ function FirstPersonPlayer({ collisionSegments, bounds, initialPosition, onLockC
 
     // Subtle natural head bob
     const bobOffset = Math.sin(bobTimer.current) * (keys.current.sprint ? 0.04 : 0.02);
-    camera.position.y = PLAYER_HEIGHT + bobOffset;
+    if (groundAt) {
+      // ease up and down steps rather than jumping
+      floorY.current += (groundAt(nextX, nextZ) - floorY.current) * Math.min(1, dt * 12);
+    }
+    camera.position.y = PLAYER_HEIGHT + floorY.current + bobOffset;
   });
 
   return (
