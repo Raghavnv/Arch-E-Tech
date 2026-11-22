@@ -1,4 +1,5 @@
 import { PLAN_SCALE } from '../components/Canvas3D';
+import { catalogItem } from './furnitureCatalog';
 
 /*
  * Where to stand to photograph a room so that as much of it as possible is in the picture.
@@ -23,8 +24,26 @@ const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const norm = (a) => { const l = Math.hypot(...a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
 
+/** Do the 2D segments p1-p2 and q1-q2 cross? */
+function crosses([ax, az], [bx, bz], [cx, cz], [dx, dz]) {
+  const d1 = (dx - cx) * (az - cz) - (dz - cz) * (ax - cx), d2 = (dx - cx) * (bz - cz) - (dz - cz) * (bx - cx);
+  const d3 = (bx - ax) * (cz - az) - (bz - az) * (cx - ax), d4 = (bx - ax) * (dz - az) - (bz - az) * (dx - ax);
+  return (d1 > 0) !== (d2 > 0) && (d3 > 0) !== (d4 > 0);
+}
+
+/** Is the straight line from the camera to a point blocked by a wall or a tall piece of furniture?
+ *  Crossings right at the point (a window on its own wall, a piece's own edges) do not count. */
+function sightBlocked(pos, s, occluders) {
+  const a = [pos[0], pos[2]], b = [s.p[0], s.p[2]];
+  const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  if (L < 0.4) return false;
+  const k = (L - 0.3) / L;                         // stop 0.3 m short of the point
+  const b2 = [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
+  return occluders.some(o => o.owner !== s.owner && crosses(a, b2, o.a, o.b));
+}
+
 /** How much of the weighted sample points a camera at `pos` looking at `look` gets in frame. */
-function coverage(pos, look, fovV, samples) {
+function coverage(pos, look, fovV, samples, occluders = []) {
   const f = norm(sub(look, pos));
   const r = norm(cross(f, [0, 1, 0]));
   const u = cross(r, f);
@@ -35,7 +54,7 @@ function coverage(pos, look, fovV, samples) {
     const v = sub(s.p, pos);
     const z = dot(v, f);
     if (z < 0.25) continue;
-    if (Math.abs(dot(v, r) / z) <= tx && Math.abs(dot(v, u) / z) <= ty) got += s.w;
+    if (Math.abs(dot(v, r) / z) <= tx && Math.abs(dot(v, u) / z) <= ty && !sightBlocked(pos, s, occluders)) got += s.w;
   }
   return all ? got / all : 0;
 }
@@ -72,13 +91,26 @@ export function cameraForRoom(room, elements, { cutaway = true } = {}) {
     const a = ((e.angle || 0) * Math.PI) / 180;
     const cx = (e.left + (e.width / 2) * Math.cos(a)) * S;      // (left, top) is the middle of the piece's start edge
     const cz = (e.top + (e.width / 2) * Math.sin(a)) * S;
-    return { cx, cz, big: e.width * e.height * S * S, type: e.type };
+    return { cx, cz, big: e.width * e.height * S * S, type: e.type, w: e.width * S, d: e.height * S, a, h: catalogItem(e.type)?.h };
   }).filter(f => inside(f.cx, f.cz));
-  furniture.forEach(f => samples.push({ p: [f.cx, 0.6, f.cz], w: floorW * (0.12 + Math.min(0.25, f.big / 6)) }));
+  furniture.forEach((f, i) => samples.push({ p: [f.cx, 0.6, f.cz], w: floorW * (0.12 + Math.min(0.25, f.big / 6)), owner: `f${i}` }));
   const openings = here.filter(e => e.type === 'window' || e.type === 'door').map(e => ({ ...line(e), type: e.type }))
     .map(o => ({ ...o, mx: ((o.x0 + o.x1) / 2) * S, mz: ((o.y0 + o.y1) / 2) * S, w: o.len * S }))
     .filter(o => inside(o.mx, o.mz, 0.3));
   openings.filter(o => o.type === 'window').forEach(o => samples.push({ p: [o.mx, 1.4, o.mz], w: floorW * 0.08 }));
+
+  // what can stand in the way: every wall on this floor, and tall pieces (wardrobes, fridges, tall units)
+  const wallSegs = here.filter(e => e.type === 'wall').map(e => {
+    const l = line(e);
+    return { a: [l.x0 * S, l.y0 * S], b: [l.x1 * S, l.y1 * S], el: e };
+  });
+  const tall = furniture.map((f, i) => ({ ...f, owner: `f${i}` })).filter(f => (f.h ?? 0) >= 1.4);
+  const tallSegs = tall.flatMap(f => {
+    const c = Math.cos(f.a), s = Math.sin(f.a), hw = f.w / 2, hd = f.d / 2;
+    const pts = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]].map(([x, z]) => [f.cx + x * c - z * s, f.cz + x * s + z * c]);
+    return pts.map((p, k) => ({ a: p, b: pts[(k + 1) % 4], owner: f.owner }));
+  });
+  const insideTall = (x, z) => tall.some(f => Math.hypot(f.cx - x, f.cz - z) < Math.max(f.w, f.d) / 2 + 0.3);
 
   const doors = openings.filter(o => o.type === 'door');
   const blocked = (x, z) => doors.some(d => Math.hypot(d.mx - x, d.mz - z) < d.w / 2 + 0.45);
@@ -124,8 +156,10 @@ export function cameraForRoom(room, elements, { cutaway = true } = {}) {
 
   const scored = views.map(v => ({
     ...v,
-    score: coverage(v.pos, v.look, ROOM_FOV, v.cut ? samples.filter(sm => !onCut(sm, v.cut)) : samples)
+    score: coverage(v.pos, v.look, ROOM_FOV, v.cut ? samples.filter(sm => !onCut(sm, v.cut)) : samples,
+      [...(v.cut ? wallSegs.filter(w => !onCutWall(w.el, v.cut)) : wallSegs), ...tallSegs])
       - (!v.cut && blocked(v.pos[0], v.pos[2]) ? 0.25 : 0) + (v.straight ? 0.02 : 0)
+      - (insideTall(v.pos[0], v.pos[2]) ? 0.6 : 0)
       - (v.cut ? 0.1 : 0),                       // a view from inside the room is preferred when it is nearly as good
   })).sort((a, b) => b.score - a.score);
   const best = scored[0];
