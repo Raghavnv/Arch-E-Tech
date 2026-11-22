@@ -280,3 +280,57 @@ export function applyDesignStyle(elements, style, parts = { walls: true, floors:
   }
   return { elements: out, summary };
 }
+
+/** Read a style back out of a designed house, to save it and apply it to other houses. */
+export function styleFromHouse(elements, name) {
+  const rooms = elements.filter(e => e.type === 'room');
+  const byKind = {};
+  const tally = (map, key, val, w = 1) => { if (val == null) return; const m = (map[key] = map[key] || new Map()); const k = JSON.stringify(val); m.set(k, (m.get(k) || 0) + w); };
+  const best = (m) => (m ? JSON.parse([...m.entries()].sort((a, b) => b[1] - a[1])[0][0]) : undefined);
+  const walls = {}, features = {}, floors = {}, ceilings = {};
+  const listOf = (v) => (Array.isArray(v) ? v : v ? [v] : []);
+  // every room's own side of each wall: the longest finish is its paint, a different one its feature wall
+  elements.filter(e => e.type === 'wall').forEach(w => {
+    roomsAlong(w, rooms.filter(r => (r.floor || 1) === (w.floor || 1))).forEach(seg => {
+      const fins = listOf(w.sides?.[seg.side]).filter(f => f.y0 == null && (f.to ?? 99) > seg.from && (f.from ?? 0) < seg.to);
+      fins.forEach(f => {
+        const len = Math.min(seg.to, f.to ?? seg.to) - Math.max(seg.from, f.from ?? 0);
+        (byKind[seg.room.kind] = byKind[seg.room.kind] || []).push({ f: { material: f.material, isColor: !!f.isColor }, len });
+      });
+    });
+  });
+  Object.entries(byKind).forEach(([kind, list]) => {
+    const tot = new Map();
+    list.forEach(({ f, len }) => { const k = JSON.stringify(f); tot.set(k, (tot.get(k) || 0) + len); });
+    const ranked = [...tot.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => JSON.parse(k));
+    const paint = ranked.find(f => f.isColor);
+    if (paint) walls[kind] = paint.material;
+    const feat = ranked.find(f => f !== paint && (!paint || f.material !== paint.material));
+    if (feat) features[kind] = feat;
+  });
+  rooms.forEach(r => {
+    tally(floors, r.kind, r.flooring);
+    if (r.ceiling) tally(ceilings, r.kind, [r.ceiling.style, r.ceiling.light]);
+  });
+  const floorsOut = {}, ceilOut = {};
+  Object.keys(floors).forEach(k => { floorsOut[k] = best(floors[k]); });
+  Object.keys(ceilings).forEach(k => { ceilOut[k] = best(ceilings[k]); });
+  const win = {}; elements.filter(e => e.type === 'window').forEach(w => { tally(win, 'frame', w.frame); if (w.treatment && w.treatment !== 'blinds') tally(win, 'fabric', w.fabric); });
+  const ext = {}; elements.filter(e => e.type === 'wall' && e.isColor && e.material).forEach(w => tally(ext, 'c', w.material));
+  const piece = (re) => elements.find(e => re.test(e.type || ''));
+  const commonPaint = Object.values(walls)[0] || '#f4f2ee';
+  const style = {
+    id: `custom_${Date.now().toString(36)}`, name, desc: 'Your own style', custom: true,
+    walls: { default: walls.living || walls.bedroom || commonPaint, ...walls },
+    feature: features,
+    floors: { default: floorsOut.living || floorsOut.bedroom || 'oak', ...floorsOut },
+    ceilings: { default: ['plain', 'flush'], ...ceilOut },
+    exterior: best(ext.c) || '#efede8',
+    windows: { frame: best(win.frame) || 'black', fabric: best(win.fabric) || '#e9e2d4' },
+    decor: { rug: piece(/furniture_rug/)?.color || '#c9c2b6', art: piece(/furniture_wall_art/)?.color || '#2a2a2c', plant: !!piece(/furniture_plant/), lamp: !!piece(/furniture_floor_lamp/) },
+  };
+  style.swatch = [style.walls.default, (features.living?.isColor && features.living.material) || style.walls.bedroom || '#ddd', ...['living', 'bedroom'].map(k => {
+    const f = style.floors[k] || style.floors.default; return { oak: '#b98a5b', walnut: '#5c3f2b', marble_white: '#eeece8' }[f] || '#a8794d';
+  })];
+  return style;
+}

@@ -28,6 +28,10 @@ class Project(Base):
     elements_data = Column(JSON, default=list)
     # the plot, when known: size, facing, setbacks, buildable area, Vastu wish, notes from generation
     site = Column(JSON, nullable=True)
+    # the front of the house: exterior paint, cladding, roof, gate, compound wall, outdoor lights
+    facade = Column(JSON, nullable=True)
+    # the build: per phase status, money spent, notes and site photos
+    progress = Column(JSON, nullable=True)
     
     owner_id = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
@@ -133,4 +137,15 @@ class ShareDecision(Base):
     note = Column(Text, nullable=True)
     plan_version = Column(String)                          # hash of the plan that was decided on
     elements = Column(JSON)                                # that plan, kept so the owner can see what was approved
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class UserStyle(Base):
+    """An interior style a user saved from one of their houses, to apply to others."""
+    __tablename__ = "user_styles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), index=True)
+    name = Column(String(80))
+    data = Column(JSON)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
