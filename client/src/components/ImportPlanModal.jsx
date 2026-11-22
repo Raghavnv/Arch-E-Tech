@@ -22,6 +22,7 @@ const ROOM_FILL = {
   living: '#f5d796', dining: '#f0c98a', lounge: '#efe6c8', kitchen: '#f0a06e', bedroom: '#a0c8f0',
   master_bedroom: '#7fb2ea', bathroom: '#8cdcdc', balcony: '#aadc8c', hallway: '#d4d4d8', study: '#c9e4c5',
   utility: '#d9c3a5',
+  closet: '#c9a27a',
 };
 const SCALE_SOURCE = {
   given: 'set by you',

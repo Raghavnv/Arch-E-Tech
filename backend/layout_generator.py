@@ -36,7 +36,7 @@ OPEN_KINDS = ("living", "dining", "lounge")
 MIN_SIDE = {"living": 7, "dining": 6, "kitchen": 5, "utility": 4, "lounge": 6, "master_bedroom": 7,
             "bedroom": 6, "study": 5, "bathroom": 4}
 DOOR_SIDE = 5           # 2.5 m of shared wall leaves room for a door and its clearances
-HALL_MAX = 18           # cells (9 m), as floorplan_builder's validation allows
+HALL_MAX = 22           # cells (11 m), as floorplan_builder's validation allows
 
 
 def _cells(room, s):
@@ -116,8 +116,13 @@ def _unit_boxes(unit, rng, s, x, y, outward, along_axis, depth=None, along_min=0
     hallway / living room. depth: the row's common depth, if the room can take it.
     Returns (boxes, length along the string)."""
     main = unit[0]
-    dims = _dims_at_depth(main, depth, s, along_min) if depth else None
-    al, dp = dims or _dims(main, rng, s, along_min)
+    # a master with its ensuite is a suite: bedroom -> walk-in closet -> bathroom, in a row. The master's
+    # program area carries the closet's share (fb.CLOSET_ALLOWANCE), which comes off the bedroom itself.
+    suite = len(unit) > 1 and main.kind == "master_bedroom"
+    sized = dataclasses.replace(main, area=max(fb.KIND_SPEC["master_bedroom"][1], main.area - fb.CLOSET_ALLOWANCE)) \
+        if suite else main
+    dims = _dims_at_depth(sized, depth, s, along_min) if depth else None
+    al, dp = dims or _dims(sized, rng, s, along_min)
     boxes = []
 
     def put(room, a0, d0, al_, dp_):
@@ -131,6 +136,18 @@ def _unit_boxes(unit, rng, s, x, y, outward, along_axis, depth=None, along_min=0
 
     put(main, 0, 0, al, dp)
     length = al
+    if suite and dp >= 7:
+        cw = 4 if dp <= 8 else 3                       # 2 m wide in a shallow suite, 1.5 m in a deep one
+        closet = fb.Room(id=f"{main.id}_closet", kind="closet", name="Walk-in Closet",
+                         area=cw * dp * 0.25, row="private", ensuite=True)
+        put(closet, al, 0, cw, dp)
+        ens = unit[1]
+        fit = _dims_at_depth(ens, dp, s, 4)
+        eal, edp = fit or _dims(ens, rng, s)
+        edp = max(edp, DOOR_SIDE)
+        put(ens, al + cw, 0, eal, min(edp, dp) if fit is None and edp > dp else edp)
+        length += cw + eal
+        return boxes, length
     if len(unit) > 1:
         ens = unit[1]
         behind = rng.random() < 0.3
@@ -504,12 +521,12 @@ def _score(boxes, target_m2, filled, perim, bbox_area):
     score += 3 * max(0.0, 0.7 - filled / bbox_area)
     for b in boxes:
         room, _, _, w, h = b
-        if room.kind not in ("hallway", "bathroom", "utility"):
+        if room.kind not in ("hallway", "bathroom", "utility", "closet"):
             score += 0.6 * max(0.0, max(w, h) / min(w, h) - 1.6)
         # a room stuck onto the outside with outside walls on three sides reads as an afterthought
         shared = sum(_touch_len(b, o) for o in boxes if o is not b)
         outside = 1 - shared / (2 * (w + h))
-        score += (2.0 if room.kind in ("bathroom", "utility", "hallway") else 1.0) * max(0.0, outside - 0.55)
+        score += (2.0 if room.kind in ("bathroom", "utility", "hallway", "closet") else 1.0) * max(0.0, outside - 0.55)
     rects = [{"kind": b[0].kind, "x": b[1], "y": b[2], "w": b[3], "h": b[4]} for b in boxes]
     if bedroom_spread_fail(rects):
         score += 1.0

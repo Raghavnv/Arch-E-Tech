@@ -12,7 +12,7 @@ import { downloadPlanSheet } from '../utils/planSheet';
 
 const KINDS = [
   ['living', 'Living room'], ['dining', 'Dining room'], ['kitchen', 'Kitchen'], ['master_bedroom', 'Master bedroom'],
-  ['bedroom', 'Bedroom'], ['bathroom', 'Bathroom'], ['study', 'Study'], ['utility', 'Utility'], ['lounge', 'Lounge'],
+  ['bedroom', 'Bedroom'], ['bathroom', 'Bathroom'], ['study', 'Study'], ['utility', 'Utility'], ['closet', 'Walk-in closet'], ['lounge', 'Lounge'],
   ['hallway', 'Hallway'], ['balcony', 'Balcony'], ['patio', 'Patio'],
 ];
 const KIND_NAME = Object.fromEntries(KINDS);

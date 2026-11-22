@@ -46,6 +46,8 @@ Write the house you want in plain English. The prompt is read for:
 
 The planner picks similar reference houses, asks the LLM to design a new layout, then cleans and validates it. Bedrooms are spread around the house rather than lined up. If the LLM's answer is unusable, a reference plan is adapted instead, so a plan is always produced.
 
+Room sizes are generous: bedrooms 12.5–24 m² (about 16 m² on average), the master 17 m² and up, bathrooms 4.2–10 m² with the master's own bathroom the biggest. The master is a **suite**: bedroom → walk-in closet (1.5–2 m wide, with wardrobes) → ensuite bathroom, and the bathroom is entered only through the closet. On a very tight plot the closet is left out rather than squeezing the bedroom.
+
 ### Plot, facing and Vastu
 - New Project takes an optional plot (frontage × depth, in ft or m), which side the road is on, and a Vastu toggle.
   The prompt works too: "3 bhk on a 30x40 plot, east facing, vastu".
@@ -104,7 +106,7 @@ Links can be turned off at any time.
 - **(i) tips** next to each feature explain what it does.
 
 ### Feature dock
-A panel that slides in from the right edge of the Studio and collapses to a slim **FEATURES** tab:
+A panel on the right of the Studio with a **Start here** grid of the headline features (Walkthrough, Photo Render, Room Designer, Video tour, AR, Materials & schedule), a search box and every feature by colour-coded group. Shrunk, it stays an icon rail with the headline features one click away, and first-time users get a pointer to it:
 
 | Group   | Feature        | What it does |
 |---------|----------------|--------------|
@@ -147,7 +149,7 @@ Worked out from the drawing for an ordinary RCC-frame house with brick walls (23
 - Download everything as CSV. It's an estimate for planning and budgeting; footings and steel must come from a structural engineer.
 
 ### Photo Render
-1. Each room's base picture is **taken inside your 3D house**: the camera stands at eye level in the corner that sees the most of the room (its windows and doors), so the picture is the actual room, with its real size, walls, windows and doors. "Capture all rooms" does every room at once. This needs no AI.
+1. Each room's base picture is **taken inside your 3D house**, framed to show as much of the room as possible: corner views, straight-on views from the middle of each wall, and for small rooms a cutaway from behind one wall (left out of the picture) are each scored on how much floor, furniture and window they get in frame, and the best one is used. So the picture is the actual room, with its real size, walls, windows and doors. "Capture all rooms" does every room at once. This needs no AI.
 2. The AI then furnishes that picture: it turns the plain 3D view into a photo, keeping the camera, walls, windows and doors where they are, and adds furniture the way your prompt and the house style describe.
 3. Or capture the room **with the furniture you placed** (in the Studio or the Room Designer), and the AI makes that exact arrangement photorealistic.
 4. You can still have the AI imagine an empty room, or upload your own photo. Keep any photo in Saved Photos.

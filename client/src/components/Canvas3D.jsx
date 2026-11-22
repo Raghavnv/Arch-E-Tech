@@ -641,7 +641,7 @@ function ProceduralStairs({ el }) {
 const FLOOR_LOOK = {
   living: ['wood', '#b98a5b'], dining: ['wood', '#b98a5b'], lounge: ['wood', '#b98a5b'],
   master_bedroom: ['wood', '#c9a77c'], bedroom: ['wood', '#c9a77c'], study: ['wood', '#a9825a'],
-  kitchen: ['tile', '#d8d4cf'], utility: ['tile', '#d8d4cf'], bathroom: ['tile', '#b9d3e0'],
+  kitchen: ['tile', '#d8d4cf'], utility: ['tile', '#d8d4cf'], closet: ['wood', '#a9825f'], bathroom: ['tile', '#b9d3e0'],
   balcony: ['tile', '#a39787'], patio: ['tile', '#a39787'], hallway: ['wood', '#b98a5b'],
 };
 const floorTextureCache = {};
@@ -772,7 +772,7 @@ function StoreySlab({ rooms, holes }) {
   ));
 }
 
-const LIT = new Set(['living', 'dining', 'lounge', 'kitchen', 'master_bedroom', 'bedroom', 'study', 'bathroom', 'utility', 'balcony', 'hallway']);
+const LIT = new Set(['living', 'dining', 'lounge', 'kitchen', 'master_bedroom', 'bedroom', 'study', 'bathroom', 'utility', 'closet', 'balcony', 'hallway']);
 
 /** A ceiling over every room and a warm light in each: what makes the house feel lived in. */
 function CeilingsAndLights({ rooms, holes, isDay, withCeiling }) {
@@ -1176,10 +1176,17 @@ export default function Canvas3D({
   const sunY = Math.max(sunDistance * Math.sin(sunPos.altitude), 2);
   const sunZ = sunDistance * Math.cos(sunPos.altitude) * Math.cos(sunPos.azimuth);
   const isDay = sunPos.altitude > 0;
+  // the sun aims at the middle of the house, and its shadow covers the whole house (three.js's default
+  // shadow camera is only 10 m across, which left most of a house without shadows)
+  const span = Math.max(bounds.width, bounds.depth) / 2 + 6;
+  const sunTarget = useMemo(() => new THREE.Object3D(), []);
+  const bg = isDay ? '#0f0e0d' : '#030712';
 
   return (
     <div className="absolute inset-0 bg-zinc-950 select-none overflow-hidden" id="studio-3d-viewport">
       <Canvas
+        dpr={[1, 2]}
+        gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: isDay ? 1.08 : 0.9 }}
         camera={{
           // the orbit camera stands back in proportion to the house, so small and large plans both fill the view
           position: walkthroughMode ? [bounds.centerX, PLAYER_HEIGHT, bounds.maxZ + 4]
@@ -1188,18 +1195,30 @@ export default function Canvas3D({
         }}
         shadows
       >
-        <color attach="background" args={[isDay ? '#0f0e0d' : '#030712']} />
+        <color attach="background" args={[bg]} />
+        <fog attach="fog" args={[bg, span * 4, span * 12]} />
 
-        {/* Ambient & Natural Sunlight */}
-        <ambientLight intensity={isDay ? 0.45 : 0.12} />
+        {/* sky and ground bounce, then the sun with shadows sized to the house */}
+        <hemisphereLight args={[isDay ? '#dfe8f5' : '#22304f', isDay ? '#6b5a48' : '#0b0b10', isDay ? 0.55 : 0.12]} />
+        <ambientLight intensity={isDay ? 0.16 : 0.06} />
+        <primitive object={sunTarget} position={[bounds.centerX, 0, bounds.centerZ]} />
         <directionalLight
-          position={[sunX, sunY, sunZ]}
-          intensity={isDay ? 1.6 : 0.08}
+          position={[bounds.centerX + sunX, sunY, bounds.centerZ + sunZ]}
+          target={sunTarget}
+          intensity={isDay ? 2.1 : 0.08}
+          color={isDay ? '#fff4e2' : '#9fb3d9'}
           castShadow
-          shadow-mapSize={[2048, 2048]}
-          shadow-bias={-0.0001}
+          shadow-mapSize={[4096, 4096]}
+          shadow-camera-left={-span}
+          shadow-camera-right={span}
+          shadow-camera-top={span}
+          shadow-camera-bottom={-span}
+          shadow-camera-near={1}
+          shadow-camera-far={160}
+          shadow-bias={-0.0002}
+          shadow-normalBias={0.025}
         />
-        <Environment preset={isDay ? "city" : "night"} />
+        <Environment preset={isDay ? "city" : "night"} environmentIntensity={isDay ? 0.55 : 0.3} />
 
         {/* Ground grid */}
         <Grid

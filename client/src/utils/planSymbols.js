@@ -76,6 +76,7 @@ const FLOORS = {
   study:          { tint: 'rgba(160,140,110,0.16)', pattern: 'wood' },
   kitchen:        { tint: 'rgba(203,213,225,0.15)', pattern: 'tile' },
   utility:        { tint: 'rgba(203,213,225,0.12)', pattern: 'tile' },
+  closet:         { tint: 'rgba(180,140,100,0.14)', pattern: 'wood' },
   bathroom:       { tint: 'rgba(56,189,248,0.17)', pattern: 'tile' },
   balcony:        { tint: 'rgba(200,121,74,0.12)', pattern: 'tile' },
   patio:          { tint: 'rgba(200,121,74,0.10)', pattern: 'tile' },
@@ -84,24 +85,51 @@ const FLOORS = {
 export function drawRoom(ctx, w, h, { kind, blueprint = false } = {}) {
   const f = FLOORS[kind] || FLOORS.living;
   const x = -w / 2, y = -h / 2;
-  if (!blueprint) {
-    ctx.fillStyle = f.tint;
-    ctx.fillRect(x, y, w, h);
-    ctx.save();
+  if (blueprint) return;
+  ctx.fillStyle = f.tint;
+  ctx.fillRect(x, y, w, h);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+  ctx.lineWidth = 0.6;
+  if (f.pattern === 'wood') {
+    // planks 0.3 m wide with staggered butt joints, the way a floor is actually laid
+    const pw = 6, pl = 36;
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
     ctx.beginPath();
-    ctx.rect(x, y, w, h);
-    ctx.clip();
-    ctx.strokeStyle = 'rgba(255,255,255,0.045)';
-    ctx.lineWidth = 0.7;
-    const step = f.pattern === 'wood' ? 6 : 9;
-    ctx.beginPath();
-    for (let gy = y + step; gy < y + h; gy += step) { ctx.moveTo(x, gy); ctx.lineTo(x + w, gy); }
-    if (f.pattern === 'tile') {
-      for (let gx = x + step; gx < x + w; gx += step) { ctx.moveTo(gx, y); ctx.lineTo(gx, y + h); }
+    let row = 0;
+    for (let gy = y; gy < y + h; gy += pw, row++) {
+      ctx.moveTo(x, gy); ctx.lineTo(x + w, gy);
+      const off = ((row * 13) % pl);
+      for (let gx = x - off; gx < x + w; gx += pl) { if (gx > x) { ctx.moveTo(gx, gy); ctx.lineTo(gx, gy + pw); } }
     }
     ctx.stroke();
-    ctx.restore();
+  } else {
+    // 0.6 m tiles with grout lines and a faint checker
+    const t = 12;
+    ctx.fillStyle = 'rgba(255,255,255,0.025)';
+    for (let gy = y, j = 0; gy < y + h; gy += t, j++) {
+      for (let gx = x, i = 0; gx < x + w; gx += t, i++) if ((i + j) % 2) ctx.fillRect(gx, gy, t, t);
+    }
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+    ctx.beginPath();
+    for (let gy = y + t; gy < y + h; gy += t) { ctx.moveTo(x, gy); ctx.lineTo(x + w, gy); }
+    for (let gx = x + t; gx < x + w; gx += t) { ctx.moveTo(gx, y); ctx.lineTo(gx, y + h); }
+    ctx.stroke();
   }
+  // soft shade along the walls, so each room reads as a space with walls around it
+  const edge = Math.min(10, w / 4, h / 4);
+  const shade = (x0, y0, x1, y1) => {
+    const g = ctx.createLinearGradient(x0, y0, x1, y1);
+    g.addColorStop(0, 'rgba(0,0,0,0.32)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    return g;
+  };
+  ctx.fillStyle = shade(x, 0, x + edge, 0); ctx.fillRect(x, y, edge, h);
+  ctx.fillStyle = shade(x + w, 0, x + w - edge, 0); ctx.fillRect(x + w - edge, y, edge, h);
+  ctx.fillStyle = shade(0, y, 0, y + edge); ctx.fillRect(x, y, w, edge);
+  ctx.fillStyle = shade(0, y + h, 0, y + h - edge); ctx.fillRect(x, y + h - edge, w, edge);
+  ctx.restore();
 }
 
 /**
@@ -111,26 +139,32 @@ export function drawRoom(ctx, w, h, { kind, blueprint = false } = {}) {
 export function drawRoomLabel(ctx, room, blueprint = false) {
   const { name, area, left, top, width, height } = room;
   if (!name) return;
-  const x = left + 8;
-  const y = top - height / 2 + 14;
   const compact = width < 70 || height < 45;
-  const title = compact ? name.replace(' Room', '').replace('Master Bedroom', 'Master').replace('Bedroom', 'Bed') : name;
+  const title = compact ? name.replace(' Room', '').replace('Master Bedroom', 'Master').replace('Walk-in Closet', 'Closet').replace('Bedroom', 'Bed') : name;
+  const cx = left + width / 2, cy = top;               // the room's centre (left / top is the middle of its left edge)
   ctx.save();
-  ctx.textBaseline = 'alphabetic';
-  ctx.textAlign = 'left';
-  ctx.lineJoin = 'round';
-  ctx.strokeStyle = blueprint ? 'rgba(30,58,138,0.9)' : 'rgba(9,9,11,0.9)';
-  ctx.lineWidth = 3;
-  ctx.font = '600 8px Inter, system-ui, -apple-system, sans-serif';
-  ctx.strokeText(title, x, y);
-  ctx.fillStyle = blueprint ? '#dbeafe' : '#e4e4e7';
-  ctx.fillText(title, x, y);
-  if (area && !compact) {
-    ctx.font = '500 7px Inter, system-ui, -apple-system, sans-serif';
-    const txt = formatArea(area, { short: true });
-    ctx.strokeText(txt, x, y + 9);
-    ctx.fillStyle = blueprint ? 'rgba(191,219,254,0.85)' : '#a1a1aa';
-    ctx.fillText(txt, x, y + 9);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `600 ${compact ? 7 : 8.5}px Inter, system-ui, -apple-system, sans-serif`;
+  const sub = area && !compact ? formatArea(area, { short: true }) : '';
+  const tw = Math.max(ctx.measureText(title.toUpperCase()).width, sub ? sub.length * 3.6 : 0) + 10;
+  const th = sub ? 21 : 12;
+  if (blueprint) {
+    ctx.fillStyle = 'rgba(30,58,138,0.85)';
+  } else {
+    ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 4;
+    ctx.fillStyle = 'rgba(12,11,10,0.72)';
+  }
+  ctx.beginPath();
+  roundRect(ctx, cx - tw / 2, cy - th / 2, tw, th, 3.5);
+  ctx.fill();
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+  ctx.fillStyle = blueprint ? '#dbeafe' : '#f4f4f5';
+  ctx.fillText(title.toUpperCase(), cx, sub ? cy - 4.5 : cy + 0.5);
+  if (sub) {
+    ctx.font = '500 6.5px Inter, system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = blueprint ? 'rgba(191,219,254,0.85)' : '#a8a29e';
+    ctx.fillText(sub, cx, cy + 5.5);
   }
   ctx.restore();
 }
@@ -353,8 +387,18 @@ export function drawSymbol(type, ctx, w, h, opts = {}) {
     else if (type === 'window') drawWindow(ctx, w, h, opts);
     else if (type === 'stairs') drawStairs(ctx, w, h, opts);
     else if (type === 'railing') drawRailing(ctx, w, h, opts);
-    else if (FURNITURE[type]) FURNITURE[type](ctx, w, h);
-    else if (catalogItem(type)?.parts) drawCatalogPiece(ctx, catalogItem(type), w, h);
+    else if (FURNITURE[type] || catalogItem(type)?.parts) {
+      // a soft drop shadow lifts furniture off the floor (not on blueprints, not under rugs)
+      if (!opts.blueprint && (catalogItem(type)?.h ?? 1) >= 0.05) {
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 5; ctx.shadowOffsetX = 1.2; ctx.shadowOffsetY = 1.8;
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.beginPath(); roundRect(ctx, -w / 2 + 0.5, -h / 2 + 0.5, w - 1, h - 1, 2); ctx.fill();
+        ctx.restore();
+      }
+      if (FURNITURE[type]) FURNITURE[type](ctx, w, h);
+      else drawCatalogPiece(ctx, catalogItem(type), w, h);
+    }
   } catch (e) {
     console.warn(`Could not draw ${type} (${w} x ${h})`, e);
   }

@@ -55,11 +55,14 @@ KIND_SPEC = {
     "kitchen":        ("Kitchen",         7, 10, 22, 2.8, "public"),
     "utility":        ("Utility",         3,  4,  8, 2.4, "public"),
     "lounge":         ("Lounge",         10, 16, 40, 3.0, "public"),   # open family space, never walled off
-    "master_bedroom": ("Master Bedroom", 15, 18, 32, 3.4, "private"),
-    "bedroom":        ("Bedroom",        11, 13, 22, 3.0, "private"),
+    "master_bedroom": ("Master Bedroom", 17, 21, 40, 3.6, "private"),   # walk-in closet carved from it later
+    "bedroom":        ("Bedroom",      12.5, 14.5, 24, 3.0, "private"),
     "study":          ("Study",         9.5, 10, 16, 2.6, "private"),   # NBC 2016: habitable room >= 9.5 m2
-    "bathroom":       ("Bathroom",      3.5,  6,  9, 2.4, "private"),
+    "bathroom":       ("Bathroom",      4.2, 6.5, 10, 2.4, "private"),
+    "closet":         ("Walk-in Closet",  3,  5,  9, 1.5, "private"),   # never in a program: carved off a master
 }
+CLOSET_ALLOWANCE = 6.0      # m2 added to a master with an ensuite, given back as its walk-in closet
+MASTER_MIN_AFTER = 15.5     # m2 a master keeps once its closet is carved off
 PUB_ORDER = {"living": 0, "dining": 1, "kitchen": 2, "utility": 3}
 STRETCH_WEIGHT = {"bathroom": 0.25, "utility": 0.4}
 
@@ -246,7 +249,7 @@ def build_program(llm_rooms, llm_total_sqm, prompt: str, max_sqm: float | None =
     if target:
         target = _clamp(target, 25, 600)
         # bathrooms stay bathroom-sized in a big house; the other rooms take up the area
-        baths_m2 = [_clamp(a * (0.75 + target / 600), 4.5, 7.5) if kind == "bathroom" and a > 4 else a
+        baths_m2 = [_clamp(a * (0.75 + target / 600), 5.0, 8.5) if kind == "bathroom" and a > 4 else a
                     for kind, a in wanted]
         fixed = sum(b for (kind, _), b in zip(wanted, baths_m2) if kind == "bathroom")
         base = sum(a for kind, a in wanted if kind != "bathroom")
@@ -281,8 +284,14 @@ def build_program(llm_rooms, llm_total_sqm, prompt: str, max_sqm: float | None =
                 name = "Ensuite Bath"
             else:
                 name = "Bathroom" if baths == 1 else f"Bathroom {bath_i}"
+        if ensuite:
+            area = min(KIND_SPEC["bathroom"][3], area * 1.25)      # the master's own bath is the big one
         rooms.append(Room(id=f"r{len(rooms)}", kind=kind, name=name, area=float(area),
                           row=row, ensuite=ensuite))
+    if ensuite_for_master:
+        for r in rooms:
+            if r.kind == "master_bedroom":
+                r.area += CLOSET_ALLOWANCE                          # room for the walk-in closet
     return rooms
 
 
@@ -574,7 +583,23 @@ def furnish_bathroom(p: Placer):
     return tub
 
 
+def furnish_closet(p: Placer):
+    """Wardrobes down the long walls (clear of the door swings), a dresser if there is room."""
+    walls = sorted("NSEW", key=lambda s: -p.wall_len(s))
+    placed = 0
+    for side in walls:
+        for w in (48, 36, 30, 24):
+            if w <= p.wall_len(side) - 2 and p.place("furniture_wardrobe3" if w >= 36 else "furniture_wardrobe2",
+                                                     w, 12, [side], gap=0, corner=True):
+                placed += 1
+                break
+        if placed >= 2:
+            break
+    p.place("furniture_dresser", 20, 9, p.ranked(), gap=2)
+
+
 FURNISHERS = {
+    "closet": furnish_closet,
     "living": furnish_living,
     "dining": furnish_dining,
     "kitchen": furnish_kitchen,
@@ -711,6 +736,52 @@ class Layout:
     def _adjacent(self, a, b):
         return _shared_boundary(a, b) is not None
 
+    def add_walk_in_closet(self):
+        """Carve a walk-in closet off the master bedroom, between it and its ensuite: a strip 1.5-2 m deep
+        along the master's whole wall to the bath, so the way in is bedroom -> closet -> bathroom.
+        Skipped when the master would get too small or would lose its own door to the house."""
+        master = next((r for r in self.rooms if r.kind == "master_bedroom"), None)
+        bath = next((r for r in self.rooms if r.kind == "bathroom" and r.ensuite), None)
+        if not master or not bath or any(r.kind == "closet" for r in self.rooms):
+            return None
+        sb = _shared_boundary(master, bath)
+        if not sb or (sb[3] - sb[2]) < DOOR_W + 2 * MARGIN:
+            return None
+        orient, line, _, _ = sb
+        side = _side_of(master, orient, line)
+        span = (master.x1 - master.x0) if orient == "h" else (master.y1 - master.y0)
+        deep = (master.y1 - master.y0) if orient == "h" else (master.x1 - master.x0)
+        if span < DOOR_W + 2 * MARGIN + 10:
+            return None
+        circulation = ("hallway", "lounge", "living", "dining")
+        for cells in (4, 3):
+            d = cells * CELL
+            left = deep - d
+            if left < 72 or (left * span) / (U * U) < MASTER_MIN_AFTER:
+                continue
+            m = copy.deepcopy(master)
+            if side == "N":
+                c = (m.x0, m.y0, m.x1, m.y0 + d); m.y0 += d
+            elif side == "S":
+                c = (m.x0, m.y1 - d, m.x1, m.y1); m.y1 -= d
+            elif side == "W":
+                c = (m.x0, m.y0, m.x0 + d, m.y1); m.x0 += d
+            else:
+                c = (m.x1 - d, m.y0, m.x1, m.y1); m.x1 -= d
+            closet = Room(id=f"{master.id}_closet", kind="closet", name="Walk-in Closet",
+                          area=round(((c[2] - c[0]) / U) * ((c[3] - c[1]) / U), 1), row="private", ensuite=True,
+                          x0=c[0], y0=c[1], x1=c[2], y1=c[3])
+            # the master must still open onto the house, through a wall wide enough for a door
+            if not any(o.kind in circulation and _shared_boundary(m, o)
+                       and (_shared_boundary(m, o)[3] - _shared_boundary(m, o)[2]) >= DOOR_W + 2 * MARGIN
+                       for o in self.rooms if o is not master):
+                continue
+            master.x0, master.y0, master.x1, master.y1 = m.x0, m.y0, m.x1, m.y1
+            master.area = round(((m.x1 - m.x0) / U) * ((m.y1 - m.y0) / U), 1)
+            self.rooms.append(closet)
+            return closet
+        return None
+
     def connect(self):
         rooms = self.rooms
         by_kind = lambda k: [r for r in rooms if r.kind == k]  # noqa: E731
@@ -747,9 +818,15 @@ class Layout:
                 if r.row == "private" and not r.ensuite:
                     edges.append((hall, r, "door"))
         if master:
+            closet = next((r for r in rooms if r.kind == "closet"), None)
             for r in rooms:
-                if r.ensuite and self._adjacent(master, r):
+                if r.kind == "bathroom" and r.ensuite and closet and self._adjacent(closet, r):
+                    edges.append((master, closet, "door"))        # bedroom -> closet -> bathroom
+                    edges.append((closet, r, "door"))
+                elif r.ensuite and r.kind != "closet" and self._adjacent(master, r):
                     edges.append((master, r, "door"))
+            if closet and not any(closet in e[:2] for e in edges) and self._adjacent(master, closet):
+                edges.append((master, closet, "door"))
 
         self.graph = {r.id: set() for r in rooms}
         for a, b, kind in edges:
@@ -789,7 +866,7 @@ class Layout:
                             continue
                         if o.kind in through_ok:
                             prio = through_ok[o.kind]
-                        elif r.ensuite and o.kind == "master_bedroom":
+                        elif r.ensuite and o.kind in ("master_bedroom", "closet"):
                             prio = 0
                         elif r.row == "private" and o.row == "private" and o.kind != "bathroom":
                             prio = -1
@@ -923,7 +1000,7 @@ class Layout:
 
     def windows_pass(self):
         for room in self.rooms:
-            if room.kind == "hallway":
+            if room.kind in ("hallway", "closet"):
                 continue
             small = room.kind in ("bathroom", "utility")
             width = SMALL_WIN_W if small else WIN_W
@@ -1013,6 +1090,7 @@ class Layout:
             )
         else:
             self.plan()
+        self.add_walk_in_closet()
         self.connect()
         self.entrance()
         self.windows_pass()
@@ -1064,7 +1142,7 @@ class Layout:
 # --------------------------------------------------------------------------
 NEEDS_WINDOW = ("living", "dining", "kitchen", "master_bedroom", "bedroom", "study")
 HALL_W = 7                      # cells: a 3.5 m open lounge between two bedroom stacks, never a corridor
-HALL_MAX = 18                   # cells: the lounge stays under 9 m long
+HALL_MAX = 22                   # cells: the lounge stays under 11 m long
 OPEN_MAX_ASPECT = 2.5            # the open living area is never longer than 2.5x its width
 MIN_DOOR_CELLS = 5              # a bedroom must share >= 4.6 cells with the room it opens into
 _MIN_H = {"master_bedroom": 8, "bedroom": 7, "study": 6, "bathroom": 5}
@@ -1292,6 +1370,10 @@ def _zone_fail(rooms):
                 return "hall"
             continue
         spec = KIND_SPEC[r.kind]
+        if r.kind == "closet":                  # a walk-in closet is a narrow room by nature
+            if short < 1.45 or long_ / short > 4.5:
+                return "aspect:closet"
+            continue
         if r.kind in ("bedroom", "master_bedroom"):
             if short < spec[4] * 0.95 or wm * dm < spec[1] * 0.97:
                 return f"small:{r.kind}"

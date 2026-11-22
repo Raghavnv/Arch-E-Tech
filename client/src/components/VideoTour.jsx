@@ -63,7 +63,7 @@ function useShots(elements, site, layout, photos, name) {
     for (const r of ordered) {
       if (r.kind === 'bathroom' && baths++ >= 1) continue;
       if (shots.length >= 12) break;
-      const v = cameraForRoom(r, elements);
+      const v = cameraForRoom(r, elements, { cutaway: false });   // the film keeps every wall
       const up = ((r.floor || 1) - 1) * FLOOR_TO_FLOOR;
       const p0 = world([v.position[0], v.position[1] + up, v.position[2]]);
       const t0 = world([v.target[0], v.target[1] + up, v.target[2]]);

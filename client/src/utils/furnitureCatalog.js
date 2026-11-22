@@ -64,7 +64,7 @@ export const CATALOG = [
       b(-0.2, 0.1, 0.27, 0.3, 0.7, 0.15, '#b91c1c'), b(0.18, 0.1, 0.47, 0.4, 0.7, 0.15, '#1d4ed8'), b(-0.1, 0.1, 0.67, 0.35, 0.7, 0.14, '#15803d')] },
   { type: 'furniture_console', name: 'Console table', cat: 'living', w: 1.2, d: 0.35, h: 0.8, price: 220, rooms: ['living', 'dining', 'lounge', 'hallway'],
     parts: [b(0, 0, 0.92, 1, 1, 0.08, WALNUT), ...legs4(0.05, 0.92, DARK, 0.06)] },
-  { type: 'furniture_pouf', name: 'Pouf / ottoman', cat: 'living', w: 0.5, d: 0.5, h: 0.42, price: 80, rooms: ['living', 'lounge', 'bedroom', 'master_bedroom'],
+  { type: 'furniture_pouf', name: 'Pouf / ottoman', cat: 'living', w: 0.5, d: 0.5, h: 0.42, price: 80, rooms: ['living', 'lounge', 'bedroom', 'master_bedroom', 'closet'],
     parts: [c(0, 0, 0, 1, 1, 1, '#a16207')] },
 
   // ---- dining ------------------------------------------------------------------------------------
@@ -90,17 +90,17 @@ export const CATALOG = [
   { type: 'furniture_bed_single', name: 'Single bed', cat: 'bedroom', w: 0.95, d: 2.0, h: 0.9, price: 350, rooms: ['bedroom', 'study'], parts: bedParts(OAK, WHITE, '#2563eb') },
   { type: 'furniture_bedside', name: 'Bedside table', cat: 'bedroom', w: 0.5, d: 0.4, h: 0.55, price: 120, rooms: ['master_bedroom', 'bedroom'],
     parts: [b(0, 0, 0.12, 1, 1, 0.88, OAK), ...legs4(0.08, 0.12, WALNUT, 0.08), c(0.2, 0, 1, 0.35, 0.45, 0.45, '#fde68a')] },
-  { type: 'furniture_wardrobe2', name: 'Wardrobe, 2 doors', cat: 'bedroom', w: 1.2, d: 0.6, h: 2.1, price: 600, rooms: ['master_bedroom', 'bedroom', 'kids'],
+  { type: 'furniture_wardrobe2', name: 'Wardrobe, 2 doors', cat: 'bedroom', w: 1.2, d: 0.6, h: 2.1, price: 600, rooms: ['master_bedroom', 'bedroom', 'kids', 'closet'],
     parts: [b(0, 0, 0, 1, 1, 1, '#e7e2da'), b(0, 0.51, 0.4, 0.005, 0.02, 0.15, DARK)] },
-  { type: 'furniture_wardrobe3', name: 'Wardrobe, 3 doors', cat: 'bedroom', w: 1.8, d: 0.6, h: 2.1, price: 850, rooms: ['master_bedroom', 'bedroom'],
+  { type: 'furniture_wardrobe3', name: 'Wardrobe, 3 doors', cat: 'bedroom', w: 1.8, d: 0.6, h: 2.1, price: 850, rooms: ['master_bedroom', 'bedroom', 'closet'],
     parts: [b(0, 0, 0, 1, 1, 1, '#e7e2da'), b(-0.17, 0.51, 0.4, 0.005, 0.02, 0.15, DARK), b(0.17, 0.51, 0.4, 0.005, 0.02, 0.15, DARK)] },
-  { type: 'furniture_wardrobe_sliding', name: 'Sliding wardrobe', cat: 'bedroom', w: 2.4, d: 0.65, h: 2.4, price: 1300, rooms: ['master_bedroom', 'bedroom'],
+  { type: 'furniture_wardrobe_sliding', name: 'Sliding wardrobe', cat: 'bedroom', w: 2.4, d: 0.65, h: 2.4, price: 1300, rooms: ['master_bedroom', 'bedroom', 'closet'],
     parts: [b(0, 0, 0, 1, 1, 1, WALNUT), b(0, 0.51, 0.02, 0.5, 0.02, 0.96, '#a8c3d6', { glass: true })] },
-  { type: 'furniture_dresser', name: 'Dressing table', cat: 'bedroom', w: 1.0, d: 0.45, h: 1.6, price: 350, rooms: ['master_bedroom', 'bedroom'],
+  { type: 'furniture_dresser', name: 'Dressing table', cat: 'bedroom', w: 1.0, d: 0.45, h: 1.6, price: 350, rooms: ['master_bedroom', 'bedroom', 'closet'],
     parts: [b(0, 0, 0, 1, 1, 0.47, OAK), b(0, -0.42, 0.47, 0.7, 0.08, 0.5, '#dbeafe', { glass: true }), b(0, -0.46, 0.47, 0.78, 0.06, 0.53, OAK)] },
-  { type: 'furniture_drawers', name: 'Chest of drawers', cat: 'bedroom', w: 0.9, d: 0.45, h: 0.9, price: 300, rooms: ['master_bedroom', 'bedroom', 'kids'],
+  { type: 'furniture_drawers', name: 'Chest of drawers', cat: 'bedroom', w: 0.9, d: 0.45, h: 0.9, price: 300, rooms: ['master_bedroom', 'bedroom', 'kids', 'closet'],
     parts: [b(0, 0, 0.06, 1, 1, 0.94, OAK), ...[0.3, 0.55, 0.8].map(y => b(0, 0.51, y, 0.3, 0.02, 0.03, DARK)), ...legs4(0.06, 0.06, DARK, 0.06)] },
-  { type: 'furniture_bench', name: 'Bed-end bench', cat: 'bedroom', w: 1.2, d: 0.4, h: 0.45, price: 180, rooms: ['master_bedroom', 'bedroom'],
+  { type: 'furniture_bench', name: 'Bed-end bench', cat: 'bedroom', w: 1.2, d: 0.4, h: 0.45, price: 180, rooms: ['master_bedroom', 'bedroom', 'closet'],
     parts: [b(0, 0, 0.75, 1, 1, 0.25, LINEN), ...legs4(0.05, 0.75, WALNUT, 0.07)] },
 
   // ---- kids --------------------------------------------------------------------------------------
@@ -163,7 +163,7 @@ export const CATALOG = [
     parts: [b(0, 0, 0, 1, 1, 1, WHITE), c(0, 0.51, 0.45, 0.6, 0.02, 0.5, '#93c5fd', { axis: 'z' })] },
   { type: 'furniture_pooja', name: 'Pooja unit (mandir)', cat: 'utility', w: 0.9, d: 0.45, h: 1.8, price: 400, rooms: ['living', 'dining', 'study', 'utility'],
     parts: [b(0, 0, 0, 1, 1, 0.4, '#a16207'), b(0, -0.1, 0.4, 0.9, 0.8, 0.45, '#fef3c7'), b(0, 0, 0.85, 1, 1, 0.15, '#a16207'), c(0, 0.1, 0.42, 0.15, 0.2, 0.08, '#f59e0b')] },
-  { type: 'furniture_shoe_rack', name: 'Shoe rack', cat: 'utility', w: 0.9, d: 0.35, h: 1.0, price: 150, rooms: ['living', 'hallway', 'utility'],
+  { type: 'furniture_shoe_rack', name: 'Shoe rack', cat: 'utility', w: 0.9, d: 0.35, h: 1.0, price: 150, rooms: ['living', 'hallway', 'utility', 'closet'],
     parts: [b(0, 0, 0, 1, 1, 1, OAK), b(0, 0.51, 0.5, 0.005, 0.02, 0.2, DARK)] },
   { type: 'furniture_storage_shelf', name: 'Storage shelf', cat: 'utility', w: 1.0, d: 0.4, h: 1.8, price: 140, rooms: ['utility', 'kitchen', 'study'],
     parts: [...[0, 0.33, 0.66, 0.97].map(y => b(0, 0, y, 1, 1, 0.03, GREY)), ...[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => b(sx * 0.48, sz * 0.46, 0, 0.04, 0.08, 1, DARK))] },
@@ -189,7 +189,7 @@ export const CATALOG = [
     parts: [b(0, 0, 0.62, 1, 1, 0.35, '#c2410c'), b(0, 0.3, 0.64, 0.9, 0.5, 0.31, '#fdba74')] },
   { type: 'furniture_curtains', name: 'Curtains', cat: 'decor', w: 2.0, d: 0.12, h: 2.6, price: 150, rooms: ['living', 'lounge', 'dining', 'master_bedroom', 'bedroom', 'study'],
     parts: [b(-0.33, 0, 0, 0.34, 1, 1, LINEN), b(0.33, 0, 0, 0.34, 1, 1, LINEN), b(0, 0, 0.98, 1.02, 0.4, 0.02, DARK)] },
-  { type: 'furniture_mirror', name: 'Standing mirror', cat: 'decor', w: 0.6, d: 0.3, h: 1.7, price: 110, rooms: ['master_bedroom', 'bedroom', 'hallway'],
+  { type: 'furniture_mirror', name: 'Standing mirror', cat: 'decor', w: 0.6, d: 0.3, h: 1.7, price: 110, rooms: ['master_bedroom', 'bedroom', 'hallway', 'closet'],
     parts: [b(0, 0, 0, 1, 0.2, 1, OAK), b(0, 0.12, 0.03, 0.85, 0.05, 0.94, '#dbeafe', { glass: true })] },
 ];
 

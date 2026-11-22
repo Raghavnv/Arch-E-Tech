@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { PerspectiveCamera } from '@react-three/drei';
 import { HouseModel } from './Canvas3D';
-import { cameraForRoom } from '../utils/roomCamera';
+import { cameraForRoom, onCutWall } from '../utils/roomCamera';
 
 /*
  * A photo of one room taken inside the 3D house: the camera stands at eye level in the corner that
@@ -34,14 +34,27 @@ function Snap({ onShot }) {
 
 export default function RoomCapture({ elements, room, withFurniture = false, onDone, onError }) {
   const fired = useRef(false);
-  // only this room's floor, drawn as the ground floor; furniture only when asked for
+  // frame the room by everything in it (counters, beds…) even when the picture leaves the furniture out
+  const view = useMemo(() => {
+    const floor = room.floor || 1;
+    const all = (elements || []).filter(e => e && e.type && (e.floor || 1) === floor).map(e => ({ ...e, floor: 1 }));
+    return cameraForRoom({ ...room, floor: 1 }, all);
+  }, [room, elements]);
+  // only this room's floor, drawn as the ground floor; furniture only when asked for, and only this
+  // room's; for a cutaway, without the wall the camera stands behind
   const scene = useMemo(() => {
     const floor = room.floor || 1;
+    const x0 = room.left, x1 = room.left + room.width, y0 = room.top - room.height / 2, y1 = room.top + room.height / 2;
+    const inRoom = (e) => {
+      const a = ((e.angle || 0) * Math.PI) / 180;
+      const cx = e.left + (e.width / 2) * Math.cos(a), cy = e.top + (e.width / 2) * Math.sin(a);
+      return cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1;
+    };
     return (elements || []).filter(e => e && e.type && (e.floor || 1) === floor)
-      .filter(e => withFurniture || !e.type.startsWith('furniture_'))
+      .filter(e => !e.type.startsWith('furniture_') || (withFurniture && inRoom(e)))
+      .filter(e => !onCutWall(e, view.cut))
       .map(e => ({ ...e, floor: 1 }));
-  }, [elements, room, withFurniture]);
-  const view = useMemo(() => cameraForRoom({ ...room, floor: 1 }, scene), [room, scene]);
+  }, [elements, room, withFurniture, view]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -59,7 +72,7 @@ export default function RoomCapture({ elements, room, withFurniture = false, onD
   return (
     <div aria-hidden style={{ position: 'fixed', left: -12000, top: 0, width: W, height: H, pointerEvents: 'none' }}>
       <Canvas dpr={1} gl={{ preserveDrawingBuffer: true, antialias: true }} frameloop="always">
-        <PerspectiveCamera makeDefault position={view.position} fov={view.fov} near={0.05} far={200} aspect={W / H}
+        <PerspectiveCamera makeDefault position={view.position} fov={view.fov} near={view.cut ? 0.35 : 0.05} far={200} aspect={W / H}
           onUpdate={(c) => c.lookAt(...view.target)} />
         {/* a bright sky behind the windows, even daylight inside, the room's own ceiling light */}
         <color attach="background" args={['#dfe9f3']} />
