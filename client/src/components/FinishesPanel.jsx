@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { Check, Eye, Paintbrush, Lamp, Pipette } from 'lucide-react';
+import { Check, Eye, Paintbrush, Lamp, Pipette, Grid3x3 } from 'lucide-react';
 import InfoTip from './InfoTip';
 import { ARCHITECTURAL_TEXTURES, WOOD_FINISHES, PAINT_COLOURS, PLAIN_WALL } from '../utils/textureLibrary';
+import { FLOOR_FINISHES, floorSwatch } from '../utils/floorFinishes';
+import { formatMoney } from '../utils/units';
 import { CEILING_STYLES, LIGHT_TYPES, CEILING_COLOURS, RoomCeiling, RoomLight } from './Ceilings';
 
 /*
@@ -41,7 +43,53 @@ function Swatch({ active, onClick, title, children, style }) {
   );
 }
 
-export default function FinishesPanel({ elements, floor, brush, setBrush, onPaintAll, onPaintRoom, onSetCeiling, onWalk, roofOff }) {
+function FloorsTab({ rooms, onSetFlooring }) {
+  const [picked, setPicked] = useState([]);
+  const [done, setDone] = useState('');
+  const groups = [...new Set(FLOOR_FINISHES.map(f => f.group))];
+  const apply = (f) => {
+    const ids = picked.length ? picked : [];
+    if (!ids.length) { setDone('Pick the rooms first.'); return; }
+    onSetFlooring(ids, f ? f.id : null);
+    setDone(`${f ? f.name : 'The standard floor'} in ${ids.length} room${ids.length > 1 ? 's' : ''}.`);
+  };
+  return (
+    <div className="custom-scrollbar space-y-3 overflow-y-auto p-3">
+      <div>
+        <p className="mb-1.5 flex items-center justify-between font-mono text-[10px] tracking-[0.15em] text-zinc-500">
+          ROOMS <button onClick={() => setPicked(picked.length === rooms.length ? [] : rooms.map(r => r.id))} className="font-sans text-[10px] normal-case tracking-normal text-indigo-300">{picked.length === rooms.length ? 'None' : 'All'}</button>
+        </p>
+        <div className="flex flex-wrap gap-1">
+          {rooms.map(r => (
+            <button key={r.id} onClick={() => setPicked(p => (p.includes(r.id) ? p.filter(x => x !== r.id) : [...p, r.id]))}
+              className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] ${picked.includes(r.id) ? 'bg-zinc-100 text-zinc-950' : 'border border-zinc-800 text-zinc-400 hover:text-zinc-200'}`}>
+              {r.flooring && <img src={floorSwatch(r.flooring)} alt="" className="h-2.5 w-2.5 rounded-full" />}
+              {r.name || r.kind}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1.5 text-[10px] text-zinc-500">{picked.length ? 'Now click a floor to lay it.' : 'Pick rooms, then click a floor.'}</p>
+      </div>
+      {done && <p className="flex items-start gap-1.5 text-[11px] text-emerald-300"><Check className="mt-0.5 h-3 w-3 shrink-0" /> {done}</p>}
+      {groups.map(g => (
+        <div key={g}>
+          <p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">{g.toUpperCase()}</p>
+          <div className="grid grid-cols-3 gap-2">
+            {FLOOR_FINISHES.filter(f => f.group === g).map(f => (
+              <Swatch key={f.id} title={`${f.name} · ${formatMoney(f.price)}/m²`} onClick={() => apply(f)} style={{ background: f.color }}>
+                <img src={floorSwatch(f.id)} alt="" className="pointer-events-none aspect-square w-full object-cover" />
+                <span className="absolute inset-x-0 bottom-0 truncate bg-black/75 px-1 py-0.5 text-center text-[9px] text-white">{f.name}</span>
+              </Swatch>
+            ))}
+          </div>
+        </div>
+      ))}
+      <button onClick={() => apply(null)} className="w-full rounded-lg border border-zinc-700 py-1.5 text-[11px] text-zinc-300 hover:bg-zinc-800">Back to the standard floor</button>
+    </div>
+  );
+}
+
+export default function FinishesPanel({ elements, floor, brush, setBrush, onPaintAll, onPaintRoom, onSetCeiling, onSetFlooring, onWalk, roofOff }) {
   const [tab, setTab] = useState('walls');
   const [custom, setCustom] = useState('#8fa3b8');
   const rooms = useMemo(() => elements.filter(e => e.type === 'room' && (e.floor || 1) === floor && e.kind !== 'balcony'), [elements, floor]);
@@ -71,13 +119,16 @@ export default function FinishesPanel({ elements, floor, brush, setBrush, onPain
         <button onClick={() => setTab('walls')} className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs ${tab === 'walls' ? 'bg-zinc-100 font-semibold text-zinc-950' : 'text-zinc-400 hover:text-white'}`}>
           <Paintbrush className="h-3.5 w-3.5" /> Walls
         </button>
+        <button onClick={() => { setTab('floors'); setBrush(null); }} className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs ${tab === 'floors' ? 'bg-zinc-100 font-semibold text-zinc-950' : 'text-zinc-400 hover:text-white'}`}>
+          <Grid3x3 className="h-3.5 w-3.5" /> Floors
+        </button>
         <button onClick={() => { setTab('ceilings'); setBrush(null); }} className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs ${tab === 'ceilings' ? 'bg-zinc-100 font-semibold text-zinc-950' : 'text-zinc-400 hover:text-white'}`}>
-          <Lamp className="h-3.5 w-3.5" /> Ceilings & lights
+          <Lamp className="h-3.5 w-3.5" /> Ceilings
         </button>
         <InfoTip id="painter" align="right" />
       </div>
 
-      {tab === 'walls' ? (
+      {tab === 'floors' ? <FloorsTab rooms={rooms} onSetFlooring={onSetFlooring} /> : tab === 'walls' ? (
         <>
           <div className="border-b border-zinc-800 p-3">
             <p className="text-[11px] text-zinc-400">

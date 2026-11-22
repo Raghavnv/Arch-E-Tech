@@ -1,4 +1,5 @@
 import { formatArea } from './units';
+import { FLOOR_BY_ID } from './floorFinishes';
 import { CATALOG, catalogItem, partsOf, tint } from './furnitureCatalog';
 /**
  * Architectural plan symbols for the 2D canvas.
@@ -82,12 +83,13 @@ const FLOORS = {
   patio:          { tint: 'rgba(200,121,74,0.10)', pattern: 'tile' },
 };
 
-export function drawRoom(ctx, w, h, { kind, blueprint = false } = {}) {
-  const f = FLOORS[kind] || FLOORS.living;
+export function drawRoom(ctx, w, h, { kind, flooring, blueprint = false } = {}) {
+  const fin = flooring && FLOOR_BY_ID[flooring];
+  const f = fin ? { pattern: fin.group === 'Wood' ? 'wood' : 'tile' } : (FLOORS[kind] || FLOORS.living);
   const x = -w / 2, y = -h / 2;
   if (blueprint) return;
-  ctx.fillStyle = f.tint;
-  ctx.fillRect(x, y, w, h);
+  if (fin) { ctx.globalAlpha = 0.32; ctx.fillStyle = fin.color; ctx.fillRect(x, y, w, h); ctx.globalAlpha = 1; }
+  else { ctx.fillStyle = f.tint; ctx.fillRect(x, y, w, h); }
   ctx.save();
   ctx.beginPath();
   ctx.rect(x, y, w, h);
@@ -428,6 +430,7 @@ export function installSymbol(rect) {
       swing: this.swing ?? 1,
       hinge: this.hinge ?? 1,
       kind: this.kind,
+      flooring: this.flooring,
       name: this.name,
       area: this.area,
       bg: (canvas && canvas.backgroundColor) || '#0f0e0d',

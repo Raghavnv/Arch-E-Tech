@@ -1,6 +1,7 @@
 import { currencyRate, measurement } from './units';
 import { catalogItem } from './furnitureCatalog';
 import { CEILING_STYLES, LIGHT_TYPES } from '../components/Ceilings';
+import { FLOOR_BY_ID } from './floorFinishes';
 
 // rough build-cost rates in US dollars (converted to the chosen currency): walls and railings per
 // metre of length, everything else per item
@@ -24,7 +25,14 @@ export function computeCosts(elements) {
   let total = 0;
   const extra = {};          // ceiling designs (per m2) and light fittings, by kind
   (elements || []).forEach(el => {
-    if (el?.type !== 'room' || !el.ceiling) return;
+    if (el?.type !== 'room') return;
+    const fl = el.flooring && FLOOR_BY_ID[el.flooring];
+    if (fl) {
+      const m2f = (el.width / 20) * (el.height / 20);
+      const c = extra[`floor_${fl.id}`] || (extra[`floor_${fl.id}`] = { label: `Flooring: ${fl.name}`, area: 0, count: 0, cost: 0 });
+      c.area += m2f; c.cost += m2f * fl.price * k;
+    }
+    if (!el.ceiling) return;
     const style = CEILING_STYLES.find(st => st.id === el.ceiling.style);
     const light = LIGHT_TYPES.find(l => l.id === el.ceiling.light);
     const m2 = (el.width / 20) * (el.height / 20);
@@ -65,7 +73,7 @@ export function computeCosts(elements) {
   Object.entries(extra).forEach(([key, c]) => {
     total += c.cost;
     breakdown.push({
-      key, type: key.startsWith('ceiling_') ? 'CEILING' : 'LIGHT', label: c.label,
+      key, type: key.startsWith('ceiling_') ? 'CEILING' : key.startsWith('floor_') ? 'FLOOR' : 'LIGHT', label: c.label,
       qty: c.area ? (imperial ? `${Math.round(c.area * 10.764)}ft²` : `${c.area.toFixed(1)}m²`) : c.count,
       cost: Math.round(c.cost),
     });

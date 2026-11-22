@@ -669,8 +669,8 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
             match.setCoords();
             needsRerender = true;
           }
-          if (el.type === 'room' && (match.name !== el.name || match.kind !== el.kind || match.area !== el.area)) {
-            Object.assign(match, { name: el.name, kind: el.kind, area: el.area });
+          if (el.type === 'room' && (match.name !== el.name || match.kind !== el.kind || match.area !== el.area || match.flooring !== el.flooring)) {
+            Object.assign(match, { name: el.name, kind: el.kind, area: el.area, flooring: el.flooring });
             needsRerender = true;
           }
         }
@@ -716,6 +716,7 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
           kind: el.kind,
           name: el.name,
           area: el.area,
+          flooring: el.flooring,
           material: el.material || null,
           isColor: el.isColor || false,
           cornerColor: '#ffffff',

@@ -272,6 +272,10 @@ export default function Studio() {
     setCanvasElements(prev => prev.map(el => (el.type === 'wall' && (el.floor || 1) === f && onEdge(el) ? { ...el, ...paintFor(selectedMaterial) } : el)));
   };
 
+  const handleSetFlooring = (ids, flooring) => {
+    setCanvasElements(prev => prev.map(el => (el.type === 'room' && ids.includes(el.id) ? { ...el, flooring: flooring || undefined } : el)));
+  };
+
   const handleSetCeiling = (ids, ceiling) => {
     setCanvasElements(prev => prev.map(el => (el.type === 'room' && ids.includes(el.id) ? { ...el, ceiling } : el)));
   };
@@ -956,7 +960,7 @@ export default function Studio() {
 
         {activeTab === '3D' && !walkthroughMode && (
           <FinishesPanel elements={canvasElements} floor={activeFloor} brush={selectedMaterial} setBrush={setSelectedMaterial}
-            onPaintAll={handlePaintAllWalls} onPaintRoom={handlePaintRoomWalls} onSetCeiling={handleSetCeiling}
+            onPaintAll={handlePaintAllWalls} onPaintRoom={handlePaintRoomWalls} onSetCeiling={handleSetCeiling} onSetFlooring={handleSetFlooring}
             roofOff={roofStyle === 'none'}
             onWalk={() => { if (roofStyle === 'none') setRoofStyle('flat'); setWalkthroughMode(true); }} />
         )}

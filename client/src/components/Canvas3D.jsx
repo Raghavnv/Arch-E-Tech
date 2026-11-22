@@ -8,6 +8,7 @@ import { useWallMaterial } from '../utils/wallTexture';
 import { catalogItem, partsOf } from '../utils/furnitureCatalog';
 import { footprint, slabPieces, outline, roofRects } from '../utils/roofShape';
 import { RoomCeiling, RoomLight } from './Ceilings';
+import { FLOOR_BY_ID, floorTexture3D } from '../utils/floorFinishes';
 
 const SCALE = 0.05; // 1 unit in 2D (px) = 0.05m in 3D (e.g. 100px = 5m)
 const WALL_HEIGHT = 3.0; // 3 meters
@@ -696,9 +697,25 @@ function FloorPiece({ p, pattern, color }) {
 
 /** A room's finished floor; on an upper storey it stops at the stairwell. */
 function RoomFloor({ room, holes = [] }) {
-  const [pattern, color] = FLOOR_LOOK[room.kind] || FLOOR_LOOK.living;
   const pieces = cutAll([roomRect(room)], holes);
+  if (room.flooring && FLOOR_BY_ID[room.flooring]) {
+    return pieces.map((p, i) => <FinishFloorPiece key={i} p={p} id={room.flooring} />);
+  }
+  const [pattern, color] = FLOOR_LOOK[room.kind] || FLOOR_LOOK.living;
   return pieces.map((p, i) => <FloorPiece key={i} p={p} pattern={pattern} color={color} />);
+}
+
+/** A floor in a chosen finish (marble, herringbone, Athangudi tiles …). */
+function FinishFloorPiece({ p, id }) {
+  const tex = useMemo(() => floorTexture3D(id, p.w, p.d), [id, p.w, p.d]);
+  useEffect(() => () => tex.dispose(), [tex]);
+  const f = FLOOR_BY_ID[id];
+  return (
+    <mesh position={[p.x + p.w / 2, 0.025, p.z + p.d / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <planeGeometry args={[p.w, p.d]} />
+      <meshStandardMaterial map={tex} roughness={f.rough} metalness={0.02} envMapIntensity={f.rough < 0.2 ? 1.2 : 0.8} />
+    </mesh>
+  );
 }
 
 // =================================================================
