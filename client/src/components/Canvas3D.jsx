@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useMemo, createContext, useContext } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Grid, Environment, PointerLockControls } from '@react-three/drei';
+import { OrbitControls, Grid, Environment, PointerLockControls, Html } from '@react-three/drei';
 import * as SunCalc from 'suncalc';
 import { Eye, Layers, Compass, Maximize2, X } from 'lucide-react';
 import { useWallMaterial } from '../utils/wallTexture';
+import { formatArea } from '../utils/units';
 import { catalogItem, partsOf } from '../utils/furnitureCatalog';
 import { footprint, slabPieces, outline, roofRects } from '../utils/roofShape';
 import { RoomCeiling, RoomLight } from './Ceilings';
@@ -1213,6 +1214,82 @@ export function FirstPersonPlayer({ collisionSegments, bounds, initialPosition, 
 // 8. MAIN EXPORTED CANVAS 3D COMPONENT
 // =================================================================
 
+/** Room names over the model: a small label at each room's centre, on its own storey. */
+function RoomLabels({ levels }) {
+  return levels.flatMap(({ level, elements: els }) => els.filter(e => e.type === 'room' && e.kind !== 'hallway' && e.name).map((r, i) => {
+    const q = roomRect(r);
+    return (
+      <Html key={`${level}-${r.id || i}`} position={[q.x + q.w / 2, (levels.length > 1 ? level - 1 : 0) * FLOOR_TO_FLOOR + 1.1, q.z + q.d / 2]}
+        center distanceFactor={14} zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
+        <div className="whitespace-nowrap rounded-md bg-black/70 px-2 py-0.5 text-center text-[11px] font-semibold uppercase tracking-wide text-white shadow">
+          {r.name}
+          {r.area ? <div className="text-[9px] font-normal normal-case tracking-normal text-zinc-300">{formatArea(r.area, { short: true })}</div> : null}
+        </div>
+      </Html>
+    );
+  }));
+}
+
+/** Copies the walker's position and heading out of the 3D scene for the mini-map. */
+function PoseProbe({ out }) {
+  const v = useMemo(() => new THREE.Vector3(), []);
+  useFrame(({ camera }) => {
+    camera.getWorldDirection(v);
+    out.current = { x: camera.position.x, z: camera.position.z, yaw: Math.atan2(v.x, v.z) };
+  });
+  return null;
+}
+
+/** A small plan in the corner during the walkthrough: the rooms, the room you are in, and you. */
+function MiniMap({ rooms, pose }) {
+  const ref = useRef(null);
+  const [here, setHere] = useState('');
+  useEffect(() => {
+    if (!rooms.length) return undefined;
+    const rs = rooms.map(r => ({ r, q: roomRect(r) }));
+    const x0 = Math.min(...rs.map(o => o.q.x)), z0 = Math.min(...rs.map(o => o.q.z));
+    const x1 = Math.max(...rs.map(o => o.q.x + o.q.w)), z1 = Math.max(...rs.map(o => o.q.z + o.q.d));
+    const W = 180, H = 180, pad = 8, k = Math.min((W - 2 * pad) / (x1 - x0), (H - 2 * pad) / (z1 - z0));
+    const ox = (W - (x1 - x0) * k) / 2, oz = (H - (z1 - z0) * k) / 2;
+    let raf, last = '';
+    const draw = () => {
+      const cv = ref.current;
+      if (cv) {
+        const g = cv.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+        if (cv.width !== W * dpr) { cv.width = W * dpr; cv.height = H * dpr; }
+        g.setTransform(dpr, 0, 0, dpr, 0, 0);
+        g.clearRect(0, 0, W, H);
+        const p = pose.current;
+        const inRoom = rs.find(o => p.x >= o.q.x && p.x <= o.q.x + o.q.w && p.z >= o.q.z && p.z <= o.q.z + o.q.d);
+        rs.forEach(o => {
+          g.fillStyle = o === inRoom ? 'rgba(234,128,64,0.45)' : o.r.kind === 'hallway' ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.11)';
+          g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 1;
+          g.fillRect(ox + (o.q.x - x0) * k, oz + (o.q.z - z0) * k, o.q.w * k, o.q.d * k);
+          g.strokeRect(ox + (o.q.x - x0) * k, oz + (o.q.z - z0) * k, o.q.w * k, o.q.d * k);
+        });
+        const px = ox + (p.x - x0) * k, pz = oz + (p.z - z0) * k;
+        g.save(); g.translate(px, pz); g.rotate(-p.yaw + Math.PI);
+        g.fillStyle = 'rgba(255,255,255,0.18)';
+        g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, 26, -Math.PI / 2 - 0.5, -Math.PI / 2 + 0.5); g.closePath(); g.fill();
+        g.fillStyle = '#fb923c'; g.beginPath(); g.arc(0, 0, 4, 0, Math.PI * 2); g.fill();
+        g.restore();
+        const name = inRoom ? inRoom.r.name || '' : 'Outside';
+        if (name !== last) { last = name; setHere(name); }
+      }
+      raf = requestAnimationFrame(draw);
+    };
+    draw();
+    return () => cancelAnimationFrame(raf);
+  }, [rooms, pose]);
+  return (
+    <div className="pointer-events-none absolute left-4 top-20 z-30 rounded-xl border border-white/10 bg-black/60 p-2 backdrop-blur-md">
+      <canvas ref={ref} style={{ width: 180, height: 180 }} />
+      <p className="mt-1 text-center text-[11px] font-semibold text-white">{here}</p>
+    </div>
+  );
+}
+
 export default function Canvas3D({
   elements = [],
   timeOfDay = 12,
@@ -1233,6 +1310,9 @@ export default function Canvas3D({
   const { collisionSegments, bounds } = useProcessedArchitecture(walkthroughMode ? ground : elements);
   const height = levels.length ? levels[levels.length - 1].level * FLOOR_TO_FLOOR : FLOOR_TO_FLOOR;
   const [isPointerLocked, setIsPointerLocked] = useState(false);
+  const [showLabels, setShowLabels] = useState(() => { try { return localStorage.getItem('studio_3d_labels') !== '0'; } catch { return true; } });
+  useEffect(() => { try { localStorage.setItem('studio_3d_labels', showLabels ? '1' : '0'); } catch { /* private mode */ } }, [showLabels]);
+  const pose = useRef({ x: 0, z: 0, yaw: 0 });
 
   // Sun calculation using SunCalc
   const date = new Date();
@@ -1319,6 +1399,10 @@ export default function Canvas3D({
           />
         ))}
 
+        {/* room names floating over each room, when looking at the model */}
+        {!walkthroughMode && showLabels && <RoomLabels levels={levels} />}
+        {walkthroughMode && <PoseProbe out={pose} />}
+
         {/* Controls: First-Person Walkthrough (Feature A) vs Orbit Mode */}
         {walkthroughMode ? (
           <FirstPersonPlayer
@@ -1339,6 +1423,14 @@ export default function Canvas3D({
           />
         )}
       </Canvas>
+
+      {walkthroughMode && <MiniMap rooms={(levels[0]?.elements || []).filter(e => e.type === 'room')} pose={pose} />}
+      {!walkthroughMode && (
+        <button onClick={() => setShowLabels(v => !v)}
+          className={`absolute bottom-20 left-4 z-20 rounded-full border px-3 py-1.5 text-[11px] backdrop-blur-md ${showLabels ? 'border-zinc-600 bg-zinc-900/80 text-zinc-100' : 'border-zinc-800 bg-zinc-950/70 text-zinc-500'}`}>
+          {showLabels ? 'Room names on' : 'Room names off'}
+        </button>
+      )}
 
       {/* ============================================================= */}
       {/* HUD OVERLAYS & CONTROLS FOR WALKTHROUGH MODE (Feature A)      */}
