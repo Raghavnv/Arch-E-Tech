@@ -5,7 +5,7 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Menu, MousePointer2, Box, Home, PenTool, LayoutTemplate, 
   Settings, Save, FileText, ChevronRight, Calculator, CheckCircle, 
-  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen, FileUp, Compass, Ruler, PenLine, ShieldCheck, Share2, Zap, Sofa, HardHat, Clapperboard, Smartphone, Palette, ChefHat 
+  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen, FileUp, Compass, Ruler, PenLine, ShieldCheck, Share2, Zap, Sofa, HardHat, Clapperboard, Smartphone, Palette, ChefHat, ClipboardList 
 } from 'lucide-react';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
@@ -16,6 +16,7 @@ import { PLAIN_WALL } from '../utils/textureLibrary';
 import VideoTour from './VideoTour';
 import DesignStyleModal from './DesignStyleModal';
 import FittedModal from './FittedModal';
+import { downloadFinishSchedule } from '../utils/finishSchedule';
 import { setSideRange } from '../utils/designStyles';
 import ImportPlanModal from './ImportPlanModal';
 import InfoTip from './InfoTip';
@@ -798,6 +799,8 @@ export default function Studio() {
             { id: 'dxf', icon: PenLine, label: exporting === 'dxf' ? 'Exporting…' : 'CAD drawing (DXF)',
               desc: `${activeFloor === 1 ? 'Ground floor' : `Floor ${activeFloor}`} for AutoCAD and other CAD apps`, disabled: !!exporting,
               onClick: exportDxf },
+            { id: 'finishes', icon: ClipboardList, label: 'Finish schedule (PDF)', desc: 'Room by room: paints, floors, ceilings, curtains, furniture',
+              onClick: () => downloadFinishSchedule(canvasElements, { project: projectName || 'House' }) },
             { id: 'pdf', icon: FileText, label: isGeneratingPDF ? 'Building PDF…' : 'PDF Report', desc: 'Plan, costs and notes', disabled: isGeneratingPDF,
               onClick: generatePDFReport },
           ] },
