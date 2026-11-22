@@ -5,7 +5,7 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Menu, MousePointer2, Box, Home, PenTool, LayoutTemplate, 
   Settings, Save, FileText, ChevronRight, Calculator, CheckCircle, 
-  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen, FileUp, Compass, Ruler, PenLine, ShieldCheck, Share2, Zap, Sofa, HardHat, Clapperboard, Smartphone, Palette 
+  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen, FileUp, Compass, Ruler, PenLine, ShieldCheck, Share2, Zap, Sofa, HardHat, Clapperboard, Smartphone, Palette, ChefHat 
 } from 'lucide-react';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
@@ -15,6 +15,7 @@ import FinishesPanel from './FinishesPanel';
 import { PLAIN_WALL } from '../utils/textureLibrary';
 import VideoTour from './VideoTour';
 import DesignStyleModal from './DesignStyleModal';
+import FittedModal from './FittedModal';
 import { setSideRange } from '../utils/designStyles';
 import ImportPlanModal from './ImportPlanModal';
 import InfoTip from './InfoTip';
@@ -35,7 +36,7 @@ const cleanElements = (list) => (Array.isArray(list) ? list : [])
 const planSignature = (list) => JSON.stringify((list || []).map(el => [
   el.id, el.type, Math.round(el.left), Math.round(el.top), Math.round(el.width), Math.round(el.height),
   Math.round(el.angle || 0), el.material || null, el.kind || null, el.name || null,
-  el.sides || null, el.ceiling || null, el.flooring || null, el.frame || null, el.treatment || null, el.fabric || null,
+  el.sides || null, el.ceiling || null, el.flooring || null, el.frame || null, el.treatment || null, el.fabric || null, el.colors || null,
 ]));
 
 export default function Studio() {
@@ -58,6 +59,7 @@ export default function Studio() {
   const [importOpen, setImportOpen] = useState(false);
   const [videoOpen, setVideoOpen] = useState(false);
   const [styleOpen, setStyleOpen] = useState(false);
+  const [fittedOpen, setFittedOpen] = useState(false);
   const [exporting, setExporting] = useState(null);       // 'sheet' | 'dxf' while an export runs
   useEffect(() => {
     try { localStorage.setItem('studio_left_open', leftOpen ? '1' : '0'); localStorage.setItem('studio_dock_open', dockOpen ? '1' : '0'); } catch { /* private mode */ }
@@ -768,6 +770,8 @@ export default function Studio() {
           { title: 'AI', items: [
             { id: 'style', icon: Palette, label: 'Design my house', desc: 'A whole interior style in one click', accent: true, disabled: !canvasElements.some(e => e.type === 'room'),
               onClick: () => setStyleOpen(true) },
+            { id: 'fitted', icon: ChefHat, label: 'Kitchen & wardrobes', desc: 'Modular kitchen and fitted wardrobes', disabled: !canvasElements.some(e => e.type === 'room'),
+              onClick: () => setFittedOpen(true) },
             { id: 'import', icon: FileUp, label: 'Import plan', desc: 'Trace a drawing into this floor',
               onClick: () => setImportOpen(true) },
             { id: 'render', icon: Sparkles, label: isCapturingForRender ? 'Opening…' : 'Photo Render', desc: 'Every room as a photo', info: 'render', accent: true,
@@ -1215,6 +1219,7 @@ export default function Studio() {
           </div>
         </div>
       )}
+      {fittedOpen && <FittedModal elements={canvasElements} onApply={(next) => setCanvasElements(next)} onClose={() => setFittedOpen(false)} />}
       {styleOpen && <DesignStyleModal elements={canvasElements} onApply={(next) => setCanvasElements(next)} onClose={() => setStyleOpen(false)}
         onSee={() => { setStyleOpen(false); setActiveTab('3D'); if (roofStyle === 'none') setRoofStyle('flat'); }} />}
       {videoOpen && <VideoTour projectId={projectId} elements={canvasElements} projectName={projectName} onClose={() => setVideoOpen(false)} />}

@@ -130,6 +130,8 @@ export const CATALOG = [
     parts: [...cabinet('#e7e2da', '#44403c'), b(0, 0.05, 0.97, 0.6, 0.6, 0.04, STEEL), c(0, -0.38, 1, 0.06, 0.08, 0.25, STEEL)] },
   { type: 'furniture_hob_unit', name: 'Hob unit', cat: 'kitchen', w: 0.9, d: 0.6, h: 0.9, price: 450, rooms: ['kitchen'],
     parts: [...cabinet('#e7e2da', '#44403c'), ...[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => c(sx * 0.2, sz * 0.2, 1, 0.2, 0.28, 0.02, '#111'))] },
+  { type: 'furniture_wall_cabinet', name: 'Wall cabinet, 60 cm', cat: 'kitchen', w: 0.6, d: 0.35, h: 2.2, price: 160, rooms: ['kitchen', 'utility'],
+    parts: [b(0, 0, 0.66, 1, 1, 0.34, '#e7e2da'), b(0, 0.51, 0.68, 0.6, 0.02, 0.02, '#44403c')] },
   { type: 'furniture_tall_unit', name: 'Tall pantry unit', cat: 'kitchen', w: 0.6, d: 0.6, h: 2.1, price: 500, rooms: ['kitchen', 'utility'],
     parts: [b(0, 0, 0, 1, 1, 1, '#e7e2da'), b(0, 0.51, 0.45, 0.05, 0.02, 0.15, DARK)] },
   { type: 'furniture_oven_tower', name: 'Oven and microwave tower', cat: 'kitchen', w: 0.6, d: 0.6, h: 2.1, price: 900, rooms: ['kitchen'],

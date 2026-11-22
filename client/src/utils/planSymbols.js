@@ -389,7 +389,11 @@ export function drawSymbol(type, ctx, w, h, opts = {}) {
     else if (type === 'window') drawWindow(ctx, w, h, opts);
     else if (type === 'stairs') drawStairs(ctx, w, h, opts);
     else if (type === 'railing') drawRailing(ctx, w, h, opts);
-    else if (FURNITURE[type] || catalogItem(type)?.parts) {
+    else if (type === 'furniture_wall_cabinet' || type === 'furniture_chimney') {
+      // things hung above the counter are drawn dashed on a plan, so the counter shows through
+      ctx.setLineDash([2.5, 2]); ctx.lineWidth = 0.8; ctx.strokeStyle = opts.blueprint ? '#bfdbfe' : 'rgba(231,226,217,0.6)';
+      ctx.strokeRect(-w / 2 + 0.5, -h / 2 + 0.5, w - 1, h - 1); ctx.setLineDash([]);
+    } else if (FURNITURE[type] || catalogItem(type)?.parts) {
       // a soft drop shadow lifts furniture off the floor (not on blueprints, not under rugs)
       if (!opts.blueprint && (catalogItem(type)?.h ?? 1) >= 0.05) {
         ctx.save();

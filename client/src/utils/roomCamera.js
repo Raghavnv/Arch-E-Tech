@@ -110,6 +110,14 @@ export function cameraForRoom(room, elements, { cutaway = true } = {}) {
     const pts = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]].map(([x, z]) => [f.cx + x * c - z * s, f.cz + x * s + z * c]);
     return pts.map((p, k) => ({ a: p, b: pts[(k + 1) % 4], owner: f.owner }));
   });
+  // a door stands ajar (the 3D model opens every leaf 0.55 rad from its start, towards -n): its leaf
+  // blocks the view like a short wall
+  const leafSegs = here.filter(e => e.type === 'door').map(e => {
+    const l = line(e);
+    const ax = l.x0 * S, az = l.y0 * S, bx = l.x1 * S, bz = l.y1 * S, len = Math.hypot(bx - ax, bz - az) || 1;
+    const ux = (bx - ax) / len, uz = (bz - az) / len, nx = -uz, nz = ux, c = Math.cos(0.55), s = Math.sin(0.55);
+    return { a: [ax, az], b: [ax + (c * ux - s * nx) * len, az + (c * uz - s * nz) * len] };
+  });
   const insideTall = (x, z) => tall.some(f => Math.hypot(f.cx - x, f.cz - z) < Math.max(f.w, f.d) / 2 + 0.3);
 
   const doors = openings.filter(o => o.type === 'door');
@@ -157,7 +165,7 @@ export function cameraForRoom(room, elements, { cutaway = true } = {}) {
   const scored = views.map(v => ({
     ...v,
     score: coverage(v.pos, v.look, ROOM_FOV, v.cut ? samples.filter(sm => !onCut(sm, v.cut)) : samples,
-      [...(v.cut ? wallSegs.filter(w => !onCutWall(w.el, v.cut)) : wallSegs), ...tallSegs])
+      [...(v.cut ? wallSegs.filter(w => !onCutWall(w.el, v.cut)) : wallSegs), ...tallSegs, ...leafSegs])
       - (!v.cut && blocked(v.pos[0], v.pos[2]) ? 0.25 : 0) + (v.straight ? 0.02 : 0)
       - (insideTall(v.pos[0], v.pos[2]) ? 0.6 : 0)
       - (v.cut ? 0.1 : 0),                       // a view from inside the room is preferred when it is nearly as good

@@ -98,7 +98,7 @@ const box = (r) => ({ x0: r.left, x1: r.left + r.width, y0: r.top - r.height / 2
 const ends = (e) => { const a = ((e.angle || 0) * Math.PI) / 180; return { ax: e.left, ay: e.top, ux: Math.cos(a), uy: Math.sin(a), len: e.width }; };
 
 /** Each room edge lying along this wall: [{ room, side: 'A' | 'B', from, to }] in metres along the wall. */
-function roomsAlong(wall, rooms) {
+export function roomsAlong(wall, rooms) {
   const { ax, ay, ux, uy, len } = ends(wall);
   const out = [];
   const tol = 6;
@@ -123,7 +123,9 @@ function roomsAlong(wall, rooms) {
 export function setSideRange(wall, side, finish, range = finish) {
   const listOf = (v) => (Array.isArray(v) ? v : v ? [v] : []);
   const from = range?.from ?? 0, to = range?.to ?? wall.width / U;
-  const kept = listOf(wall.sides?.[side]).filter(f => (f.to ?? wall.width / U) <= from + 0.01 || (f.from ?? 0) >= to - 0.01);
+  const band = (f) => f && (f.y0 != null || f.y1 != null);        // a band (backsplash) layers over the paint
+  const kept = listOf(wall.sides?.[side]).filter(f => band(f) !== band(finish ?? range)
+    || (f.to ?? wall.width / U) <= from + 0.01 || (f.from ?? 0) >= to - 0.01);
   const list = finish ? [...kept, finish] : kept;
   const sides = { ...(wall.sides || {}) };
   if (list.length) sides[side] = list; else delete sides[side];

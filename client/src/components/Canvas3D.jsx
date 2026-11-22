@@ -339,7 +339,7 @@ function FaceFinish({ wall, side, s0, s1, y0, y1, finish, onPaint }) {
     return g;
   }, [w, h, s0, y0, side]);
   useEffect(() => () => geo.dispose(), [geo]);
-  const off = (depth / 2 + 0.004) * (side === 'A' ? 1 : -1);
+  const off = (depth / 2 + (finish.y0 != null || finish.y1 != null ? 0.009 : 0.004)) * (side === 'A' ? 1 : -1);   // a band sits over the paint
   const sc = (s0 + s1) / 2;
   const rotY = -((angle || 0) * Math.PI) / 180 + (side === 'A' ? 0 : Math.PI);
   return (
@@ -539,9 +539,10 @@ function ArchitecturalWall({ wall, onPaint, rooms = [] }) {
   ['A', 'B'].forEach(side => listOf(sides?.[side]).forEach((f, k) => {
     if (!f || !f.material) return;
     const from = Math.max(0, f.from ?? 0), to = Math.min(length, f.to ?? length);
-    solid.forEach(([a, b, y0, y1], i) => {
-      const s0 = Math.max(a, from), s1 = Math.min(b, to);
-      if (s1 - s0 > 0.02) faces.push(<FaceFinish key={`${side}-${k}-${i}`} wall={wall} side={side} s0={s0} s1={s1} y0={y0} y1={y1} finish={f} onPaint={onPaint} />);
+    const fy0 = f.y0 ?? 0, fy1 = f.y1 ?? WALL_HEIGHT;            // a band, e.g. a kitchen backsplash
+    solid.forEach(([a, b, py0, py1], i) => {
+      const s0 = Math.max(a, from), s1 = Math.min(b, to), y0 = Math.max(py0, fy0), y1 = Math.min(py1, fy1);
+      if (s1 - s0 > 0.02 && y1 - y0 > 0.02) faces.push(<FaceFinish key={`${side}-${k}-${i}`} wall={wall} side={side} s0={s0} s1={s1} y0={y0} y1={y1} finish={f} onPaint={onPaint} />);
     });
   }));
 
@@ -597,8 +598,8 @@ function CatalogFurniture({ el, item }) {
     <group position={[cx, 0, cz]} rotation={[0, -rad, 0]}>
       {partsOf(item, w, d, h).map((p, i) => {
         const mat = p.glass
-          ? <meshStandardMaterial color={el.color && i === 0 ? el.color : p.c} transparent opacity={0.35} roughness={0.05} metalness={0.1} />
-          : <meshStandardMaterial color={el.color && i === 0 ? el.color : p.c} roughness={0.7} />;
+          ? <meshStandardMaterial color={el.colors?.[i] || (el.color && i === 0 ? el.color : p.c)} transparent opacity={0.35} roughness={0.05} metalness={0.1} />
+          : <meshStandardMaterial color={el.colors?.[i] || (el.color && i === 0 ? el.color : p.c)} roughness={el.gloss?.[i] ?? 0.7} />;
         if (p.s === 'c') {
           const r = Math.max(0.005, Math.min(p.sw, p.sd) / 2);
           if (p.axis === 'z') {        // a disc facing forward (a washing-machine door)
