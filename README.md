@@ -123,10 +123,16 @@ A panel on the right of the Studio with a **Start here** grid of the headline fe
 | Reports | Materials & schedule | Cement, steel, sand, bricks, tiles, paint… with costs, and a month-by-month build timeline |
 | Reports | PDF Report     | Plan, costs and notes as a PDF |
 
-### Walls, ceilings and lights
-In the 3D view the finishes panel has two tabs:
-- **Walls**: 24 paint colours in four families (whites and neutrals, warm, cool, greens) plus any colour you pick; six wood panelling finishes (light oak, walnut, teak, whitewashed pine, reclaimed timber, smoked oak; horizontal or vertical planks); stone, tile and plaster. Click walls to apply, apply to every wall, or to the walls of one room for an accent room.
-- **Ceilings & lights**: for any rooms, a ceiling design (plain, false ceiling with cove light, tray, coffered, wooden slats, round POP design, exposed beams), a light fitting (flush light, chandelier, pendants, recessed spots, fan with light, LED ring, none) and a ceiling colour, with a live preview. Ceilings show from inside (walkthrough, Photo Render captures, video tour), and their cost goes into the takeoff.
+### Walls, floors, ceilings and lights
+In the 3D view the finishes panel has three tabs:
+- **Walls**: 30 paint colours in five families plus any colour; wood panelling (oak, walnut, teak, whitewashed pine, reclaimed, smoked oak); 7 wallpapers (botanical, geometric, pinstripe, damask, art deco, palm, grasscloth); stone cladding (stacked stone, whitewashed brick, marble slab); stone, tile and plaster. A click paints the side of the wall you clicked; "Walls of one room" paints only the side facing that room and only along it, so an accent wall stops at the corner; "Every wall" does both sides.
+- **Floors**: 22 finishes per room: oak, walnut, grey-washed oak, teak, herringbone, chevron and wood-look tile; white, black and beige marble, granite, Kota stone, terrazzo, polished concrete; vitrified tiles, Moroccan, hexagon, black and white check, terracotta, anti-skid mosaic and Athangudi.
+- **Ceilings**: plain, false ceiling with cove light, tray, coffered, wooden slats, round POP, exposed beams, peripheral band with spots, backlit panel, wooden wave and wooden coffers; lights: flush, chandelier, crystal chandelier, pendants, globe cluster, linear pendant, recessed spots, track lights, fan with light, LED ring, lantern; and a ceiling colour. Live preview in the panel.
+
+Floors, ceilings and lights are priced in the cost takeoff, and all of it shows in the walkthrough, Photo Render captures and the video tour.
+
+### Design my house
+One click to style the whole house (Studio → feature dock → Design my house): Modern minimal, Japandi, Modern Indian, Luxury classic, Scandinavian, Industrial loft or Tropical boho. Each room gets its wall colour on its own side of each wall, a feature wall in the main rooms (wood, wallpaper, brick or a deep colour), floors, a ceiling design and light, an exterior colour, and decor placed where it fits (a rug, plants, a floor lamp, wall art). Choose which of these to change; applying another style replaces the last one's finishes and decor, and undo takes it back.
 
 ### 3D view
 - Walls with real window and door openings, glass, textured materials, furniture, ceilings and lights.
@@ -253,7 +259,8 @@ Arch-E-Tech/
 │   │   │   ├── RoomDesigner.jsx   Furnish a room yourself
 │   │   │   ├── VideoTour.jsx      Records a film of the house
 │   │   │   ├── Ceilings.jsx       Ceiling designs and light fittings
-│   │   │   ├── FinishesPanel.jsx  Wall paint / wood and ceiling & light choices
+│   │   │   ├── FinishesPanel.jsx  Walls, floors, ceilings & lights
+│   │   │   ├── DesignStyleModal.jsx Design my house: whole-house styles
 │   │   │   ├── ARView.jsx         The house in AR (WebXR, Quick Look)
 │   │   │   ├── Overview.jsx       Presentation slideshow
 │   │   │   ├── ImportPlanModal.jsx Upload a drawing, review the traced plan, set the scale
@@ -266,6 +273,8 @@ Arch-E-Tech/
 │   │       ├── furnitureCatalog.js 60+ furniture pieces: sizes, prices, 3D parts
 │   │       ├── roomCamera.js      Where to stand to photograph a room
 │   │       ├── roofShape.js       The house outline for roofs and the plinth
+│   │       ├── floorFinishes.js   22 floor finishes, drawn procedurally
+│   │       ├── designStyles.js    Whole-house interior styles
 │   │       ├── planSymbols.js, textureLibrary.js, wallTexture.js
 │   └── vite.config.js
 ├── ml/                          Plan reader: training data, model training, OCR, plan_reader service (see ml/README.md)

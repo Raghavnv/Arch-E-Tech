@@ -5,7 +5,7 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Menu, MousePointer2, Box, Home, PenTool, LayoutTemplate, 
   Settings, Save, FileText, ChevronRight, Calculator, CheckCircle, 
-  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen, FileUp, Compass, Ruler, PenLine, ShieldCheck, Share2, Zap, Sofa, HardHat, Clapperboard, Smartphone 
+  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen, FileUp, Compass, Ruler, PenLine, ShieldCheck, Share2, Zap, Sofa, HardHat, Clapperboard, Smartphone, Palette 
 } from 'lucide-react';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
@@ -14,6 +14,8 @@ import FeatureDock from './FeatureDock';
 import FinishesPanel from './FinishesPanel';
 import { PLAIN_WALL } from '../utils/textureLibrary';
 import VideoTour from './VideoTour';
+import DesignStyleModal from './DesignStyleModal';
+import { setSideRange } from '../utils/designStyles';
 import ImportPlanModal from './ImportPlanModal';
 import InfoTip from './InfoTip';
 import Mark from './Mark';
@@ -55,6 +57,7 @@ export default function Studio() {
   const [dockOpen, setDockOpen] = useState(() => pref('studio_dock_open', true));
   const [importOpen, setImportOpen] = useState(false);
   const [videoOpen, setVideoOpen] = useState(false);
+  const [styleOpen, setStyleOpen] = useState(false);
   const [exporting, setExporting] = useState(null);       // 'sheet' | 'dxf' while an export runs
   useEffect(() => {
     try { localStorage.setItem('studio_left_open', leftOpen ? '1' : '0'); localStorage.setItem('studio_dock_open', dockOpen ? '1' : '0'); } catch { /* private mode */ }
@@ -287,7 +290,8 @@ export default function Studio() {
       const side = (cx - w.left) * -uy + (cy - w.top) * ux > 0 ? 'A' : 'B';
       const along = [[x0, y0], [x1, y0], [x0, y1], [x1, y1]].map(([px, py]) => ((px - w.left) * ux + (py - w.top) * uy) / 20);
       const from = Math.max(0, Math.min(...along)), to = Math.min(w.width / 20, Math.max(...along));
-      return withSide(w, side, sideFinish(selectedMaterial, { from: Math.round(from * 100) / 100, to: Math.round(to * 100) / 100 }));
+      const range = { from: Math.round(from * 100) / 100, to: Math.round(to * 100) / 100 };
+      return setSideRange(w, side, sideFinish(selectedMaterial, range), range);   // Plain clears just this stretch
     };
     setCanvasElements(prev => prev.map(el => (el.type === 'wall' && (el.floor || 1) === f && onEdge(el) ? paintOne(el) : el)));
   };
@@ -748,6 +752,8 @@ export default function Studio() {
               onClick: () => flushSave(`/overview?projectId=${projectId}`) },
           ] },
           { title: 'AI', items: [
+            { id: 'style', icon: Palette, label: 'Design my house', desc: 'A whole interior style in one click', accent: true, disabled: !canvasElements.some(e => e.type === 'room'),
+              onClick: () => setStyleOpen(true) },
             { id: 'import', icon: FileUp, label: 'Import plan', desc: 'Trace a drawing into this floor',
               onClick: () => setImportOpen(true) },
             { id: 'render', icon: Sparkles, label: isCapturingForRender ? 'Opening…' : 'Photo Render', desc: 'Every room as a photo', info: 'render', accent: true,
@@ -1195,6 +1201,8 @@ export default function Studio() {
           </div>
         </div>
       )}
+      {styleOpen && <DesignStyleModal elements={canvasElements} onApply={(next) => setCanvasElements(next)} onClose={() => setStyleOpen(false)}
+        onSee={() => { setStyleOpen(false); setActiveTab('3D'); if (roofStyle === 'none') setRoofStyle('flat'); }} />}
       {videoOpen && <VideoTour projectId={projectId} elements={canvasElements} projectName={projectName} onClose={() => setVideoOpen(false)} />}
       {importOpen && <ImportPlanModal onClose={() => setImportOpen(false)} mode="replace"
         floorLabel={activeFloor === 1 ? 'the ground floor' : `floor ${activeFloor}`}

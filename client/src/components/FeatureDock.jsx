@@ -9,7 +9,7 @@ import InfoTip from './InfoTip';
  *   Collapsed: an icon rail that keeps the headline features one click away, never just a thin tab.
  * The first time someone opens the Studio, a callout points at the dock so they know it is there.
  */
-const FEATURED = ['walk', 'render', 'designer', 'video', 'ar', 'materials'];
+const FEATURED = ['style', 'walk', 'render', 'designer', 'video', 'ar', 'immersive', 'materials'];
 const TONE = {
   VIEW: { dot: 'bg-sky-400', text: 'text-sky-300', tile: 'from-sky-500/25 to-sky-500/5 border-sky-400/30', icon: 'bg-sky-500/20 text-sky-200 border-sky-400/30' },
   AI: { dot: 'bg-violet-400', text: 'text-violet-300', tile: 'from-violet-500/25 to-violet-500/5 border-violet-400/30', icon: 'bg-violet-500/20 text-violet-200 border-violet-400/30' },

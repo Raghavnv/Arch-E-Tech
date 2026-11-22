@@ -239,7 +239,8 @@ const faceSide = (e) => {
 
 /** A finish laid on one face of a wall over [s0, s1] x [y0, y1] (metres along the wall / up it),
  *  with UVs in metres so a pattern runs on unbroken from one piece of wall to the next. */
-function FaceFinish({ wall, side, s0, s1, y0, y1, matProps, onPaint }) {
+function FaceFinish({ wall, side, s0, s1, y0, y1, finish, onPaint }) {
+  const matProps = useWallMaterial(finish.material, finish.isColor, TILE_PER_M, TILE_PER_M);
   const { x0, z0, ux, uz, nx, nz, depth, angle, id } = wall;
   const w = s1 - s0, h = y1 - y0;
   const geo = useMemo(() => {
@@ -268,10 +269,8 @@ function FaceFinish({ wall, side, s0, s1, y0, y1, matProps, onPaint }) {
 function ArchitecturalWall({ wall, onPaint }) {
   const { x0, z0, ux, uz, depth, length, angle, openings, id, material, isColor, sides } = wall;
   const matProps = useWallMaterial(material, isColor, length, WALL_HEIGHT);
-  // a finish on one face only (an accent wall), per metre so it tiles evenly on every piece
-  const fa = sides?.A, fb = sides?.B;
-  const matA = useWallMaterial(fa?.material, fa?.isColor, TILE_PER_M, TILE_PER_M);
-  const matB = useWallMaterial(fb?.material, fb?.isColor, TILE_PER_M, TILE_PER_M);
+  // finishes on one face only: one, or a list (a wall shared by several rooms, each its own colour)
+  const listOf = (v) => (Array.isArray(v) ? v : v ? [v] : []);
   const rotY = -((angle || 0) * Math.PI) / 180;
 
   // Build segments
@@ -435,14 +434,14 @@ function ArchitecturalWall({ wall, onPaint }) {
 
   // finishes on one face, over the stretch they were given (the room's length of the wall)
   const faces = [];
-  [['A', fa, matA], ['B', fb, matB]].forEach(([side, f, mat]) => {
+  ['A', 'B'].forEach(side => listOf(sides?.[side]).forEach((f, k) => {
     if (!f || !f.material) return;
     const from = Math.max(0, f.from ?? 0), to = Math.min(length, f.to ?? length);
     solid.forEach(([a, b, y0, y1], i) => {
       const s0 = Math.max(a, from), s1 = Math.min(b, to);
-      if (s1 - s0 > 0.02) faces.push(<FaceFinish key={`${side}-${i}`} wall={wall} side={side} s0={s0} s1={s1} y0={y0} y1={y1} matProps={mat} onPaint={onPaint} />);
+      if (s1 - s0 > 0.02) faces.push(<FaceFinish key={`${side}-${k}-${i}`} wall={wall} side={side} s0={s0} s1={s1} y0={y0} y1={y1} finish={f} onPaint={onPaint} />);
     });
-  });
+  }));
 
   return <group>{segments}{faces}</group>;
 }
@@ -663,12 +662,12 @@ function ProceduralStairs({ el }) {
           {/* Step tread */}
           <mesh castShadow receiveShadow>
             <boxGeometry args={[stepDepth * 1.05, stepHeight, width]} />
-            <meshStandardMaterial color="#a855f7" roughness={0.6} metalness={0.15} />
+            <meshStandardMaterial color="#a8794d" roughness={0.55} metalness={0.02} />
           </mesh>
           {/* Nosing accent */}
           <mesh position={[0, stepHeight * 0.46, 0]}>
             <boxGeometry args={[stepDepth * 1.08, 0.03, width * 1.02]} />
-            <meshStandardMaterial color="#581c87" roughness={0.4} />
+            <meshStandardMaterial color="#e9e4dc" roughness={0.8} />
           </mesh>
         </group>
       ))}
@@ -679,7 +678,7 @@ function ProceduralStairs({ el }) {
         castShadow
       >
         <boxGeometry args={[Math.sqrt(length * length + totalHeight * totalHeight), 0.05, 0.05]} />
-        <meshStandardMaterial color="#2e1065" metalness={0.8} roughness={0.3} />
+        <meshStandardMaterial color="#2a2724" metalness={0.7} roughness={0.35} />
       </mesh>
       <mesh 
         position={[length / 2, totalHeight / 2 + 0.45, width / 2]} 
@@ -687,7 +686,7 @@ function ProceduralStairs({ el }) {
         castShadow
       >
         <boxGeometry args={[Math.sqrt(length * length + totalHeight * totalHeight), 0.05, 0.05]} />
-        <meshStandardMaterial color="#2e1065" metalness={0.8} roughness={0.3} />
+        <meshStandardMaterial color="#2a2724" metalness={0.7} roughness={0.35} />
       </mesh>
     </group>
   );
