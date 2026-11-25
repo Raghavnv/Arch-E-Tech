@@ -14,6 +14,36 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const NAME_KEY = 'archetech_reviewer_name';
 const when = (iso) => (iso ? new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
 
+/** The build so far, from the owner's construction tracker: phases and the latest site photos. */
+function BuildProgress({ progress }) {
+  const phases = progress.names.map(([key, name]) => ({ key, name, ...(progress.phases?.[key] || {}) }));
+  const done = phases.filter(p => p.status === 'done').length, doing = phases.filter(p => p.status === 'doing').length;
+  const pct = Math.round(((done + doing * 0.5) / Math.max(1, phases.length)) * 100);
+  const photos = phases.flatMap(p => (p.photos || []).map(ph => ({ ...ph, phase: p.name }))).sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 8);
+  return (
+    <div className="mt-5 rounded-2xl border border-zinc-800 p-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium">Build progress</p>
+        <p className="text-sm font-semibold text-orange-300">{pct}%</p>
+      </div>
+      <div className="mt-2 h-1.5 rounded-full bg-zinc-800"><div className="h-full rounded-full bg-gradient-to-r from-orange-400 to-rose-500" style={{ width: `${pct}%` }} /></div>
+      <ul className="mt-3 grid gap-1 sm:grid-cols-2">
+        {phases.map(p => (
+          <li key={p.key} className="flex items-center gap-2 text-[11px]">
+            <span className={`h-2 w-2 shrink-0 rounded-full ${p.status === 'done' ? 'bg-emerald-400' : p.status === 'doing' ? 'bg-amber-400' : 'bg-zinc-700'}`} />
+            <span className={p.status === 'done' ? 'text-zinc-300' : p.status === 'doing' ? 'text-amber-100' : 'text-zinc-500'}>{p.name}</span>
+          </li>
+        ))}
+      </ul>
+      {photos.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {photos.map(ph => <img key={ph.id} src={ph.data} alt={ph.phase} title={`${ph.phase} · ${ph.date}`} className="h-20 w-28 rounded-lg object-cover" />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SharedProject() {
   const { token } = useParams();
   const [data, setData] = useState(null);
@@ -113,6 +143,7 @@ export default function SharedProject() {
             <PlanDrawing elements={onFloor} highlight={room?.id} animate={false} onRoomClick={(r) => setRoom(cur => (cur?.id === r.id ? null : r))} />
           </div>
           <p className="mt-2 text-xs text-zinc-500">Click a room to comment on it.</p>
+          {data.progress?.names?.length > 0 && <BuildProgress progress={data.progress} />}
           <ul className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
             {rooms.map(r => (
               <li key={r.id}>

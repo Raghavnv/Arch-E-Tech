@@ -5,7 +5,7 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Menu, MousePointer2, Box, Home, PenTool, LayoutTemplate, 
   Settings, Save, FileText, ChevronRight, Calculator, CheckCircle, 
-  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen, FileUp, Compass, Ruler, PenLine, ShieldCheck, Share2, Zap, Sofa, HardHat, Clapperboard, Smartphone, Palette, ChefHat, ClipboardList 
+  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen, FileUp, Compass, Ruler, PenLine, ShieldCheck, Share2, Zap, Sofa, HardHat, Clapperboard, Smartphone, Palette, ChefHat, ClipboardList, ListChecks 
 } from 'lucide-react';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
@@ -795,6 +795,8 @@ export default function Studio() {
           ] },
           { title: 'REPORTS', items: [
             { id: 'cost', icon: Calculator, label: 'Cost takeoff', desc: `${money(costData.total)} estimated`, onClick: () => setShowCostModal(true) },
+            { id: 'tracker', icon: ListChecks, label: 'Construction tracker', desc: 'Phases, spend against the estimate, site photos', disabled: !projectId,
+              onClick: () => flushSave(`/tracker?projectId=${projectId}`) },
             { id: 'materials', icon: HardHat, label: 'Materials & schedule', desc: 'Cement, steel, bricks… and a build timeline', active: toolPanel === 'materials',
               onClick: () => setToolPanel(t => (t === 'materials' ? null : 'materials')) },
             { id: 'share', icon: Share2, label: 'Share with client', desc: 'View-only link, comments, approval', active: toolPanel === 'share',

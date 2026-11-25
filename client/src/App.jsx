@@ -13,6 +13,7 @@ import ImmersiveView from './components/ImmersiveView';
 import SharedProject from './components/SharedProject';
 import RoomDesigner from './components/RoomDesigner';
 import ARView from './components/ARView';
+import ConstructionTracker from './components/ConstructionTracker';
 import BackgroundPattern from './components/BackgroundPattern';
 import ErrorBoundary from './components/ErrorBoundary';
 import { useLocation } from 'react-router-dom';
@@ -40,6 +41,7 @@ function App() {
           <Route path="/render-studio" element={<RenderStudio />} />
           <Route path="/room-designer" element={<RoomDesigner />} />
           <Route path="/ar" element={<ARView />} />
+          <Route path="/tracker" element={<ConstructionTracker />} />
           <Route path="/overview" element={<Overview />} />
           <Route path="/war-room" element={<WarRoom />} />
           <Route path="/immersive" element={<ImmersiveView />} />
