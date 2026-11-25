@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Sky, Environment } from '@react-three/drei';
+import { Sky } from '@react-three/drei';
+import SafeEnvironment from './SafeEnvironment';
 import { Clapperboard, Download, Loader2, Play, Share2, Square, X } from 'lucide-react';
 import { Site, useSite, useSiteLayout, PLINTH, TIMES } from './ImmersiveView';
 import { FLOOR_TO_FLOOR } from './Canvas3D';
@@ -153,7 +154,7 @@ function Director({ shots, clock, out, bitmaps, onEnd }) {
   return null;
 }
 
-export default function VideoTour({ projectId, elements, projectName, onClose }) {
+export default function VideoTour({ projectId, elements, projectName, onClose, facade = null }) {
   const site = useSite(elements);
   const layout = useSiteLayout(site || { W: 10, D: 10, doorX: 0 }, 'street');
   const [photos, setPhotos] = useState([]);
@@ -300,8 +301,8 @@ export default function VideoTour({ projectId, elements, projectName, onClose })
             <ambientLight intensity={0.35} />{/* lifts the rooms indoors, where the sun does not reach */}
             <directionalLight position={TIMES.morning.sun} intensity={TIMES.morning.light} color={TIMES.morning.sunColor} castShadow
               shadow-mapSize={[2048, 2048]} shadow-camera-left={-45} shadow-camera-right={45} shadow-camera-top={45} shadow-camera-bottom={-45} shadow-camera-far={260} shadow-bias={-0.0004} />
-            <Environment preset="city" environmentIntensity={0.45} />
-            <Site site={site} setting="street" time="morning" elements={elements} roofStyle="pitched" camX={999} />
+            <SafeEnvironment preset="city" environmentIntensity={0.45} />
+            <Site site={site} setting="street" time="morning" elements={elements} roofStyle="pitched" camX={999} facade={facade} />
             <Director shots={shots} clock={clock} out={out} bitmaps={bitmaps} onEnd={onEnd} />
           </Canvas>
         </div>

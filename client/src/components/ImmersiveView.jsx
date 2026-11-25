@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as THREE from 'three';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Sky, Stars, Environment } from '@react-three/drei';
+import { OrbitControls, Sky, Stars } from '@react-three/drei';
+import SafeEnvironment from './SafeEnvironment';
 import { ArrowLeft, Footprints } from 'lucide-react';
 import { HouseModel, PLAN_SCALE, FirstPersonPlayer, useProcessedArchitecture } from './Canvas3D';
 import { footprint, slabPieces } from '../utils/roofShape';
@@ -133,34 +134,56 @@ function Planter({ position }) {
 // ---------------------------------------------------------------------------------------------
 // Boundary, street furniture, neighbours
 // ---------------------------------------------------------------------------------------------
-function CompoundWall({ x0, x1, z, gateFrom, gateTo, color = '#d9d2c5' }) {
-  // a 1.2 m rendered wall with a coping, broken by the gate opening
+const WALL_FINISH = {
+  plaster: (c) => ({ color: c, roughness: 0.9 }),
+  stone: () => ({ color: '#8f8578', roughness: 0.95 }),
+  brick: () => ({ color: '#9e3b2a', roughness: 0.9 }),
+};
+
+function CompoundWall({ x0, x1, z, gateFrom, gateTo, color = '#d9d2c5', height = 1.2, finish = 'plaster', gate = 'bars', gateColor = '#2f2b27' }) {
+  // a rendered (or stone / brick) wall with a coping, broken by the gate opening
   const pieces = [[x0, gateFrom], [gateTo, x1]].filter(([a, b]) => b - a > 0.2);
+  const mat = (WALL_FINISH[finish] || WALL_FINISH.plaster)(color);
+  const metal = { color: gateColor, metalness: gate === 'wood' ? 0 : 0.5, roughness: gate === 'wood' ? 0.6 : 0.5 };
+  const gh = Math.min(height - 0.1, 1.6);
   return (
     <group>
       {pieces.map(([a, b], i) => (
         <group key={i}>
-          <mesh position={[(a + b) / 2, 0.6, z]} castShadow receiveShadow><boxGeometry args={[b - a, 1.2, 0.22]} /><meshStandardMaterial color={color} roughness={0.9} /></mesh>
-          <mesh position={[(a + b) / 2, 1.25, z]} castShadow><boxGeometry args={[b - a, 0.08, 0.3]} /><meshStandardMaterial color="#9b9184" roughness={0.8} /></mesh>
+          <mesh position={[(a + b) / 2, height / 2, z]} castShadow receiveShadow><boxGeometry args={[b - a, height, 0.22]} /><meshStandardMaterial {...mat} /></mesh>
+          {finish !== 'plaster' && Array.from({ length: Math.floor(height / 0.25) }).map((_, k) => (
+            <mesh key={k} position={[(a + b) / 2, 0.25 * (k + 1), z]}><boxGeometry args={[b - a + 0.002, 0.012, 0.225]} /><meshStandardMaterial color={finish === 'stone' ? '#5f584f' : '#d8cfc2'} /></mesh>
+          ))}
+          <mesh position={[(a + b) / 2, height + 0.05, z]} castShadow><boxGeometry args={[b - a, 0.08, 0.3]} /><meshStandardMaterial color="#9b9184" roughness={0.8} /></mesh>
         </group>
       ))}
       {[gateFrom, gateTo].map((gx, i) => (
-        <mesh key={`p${i}`} position={[gx, 0.8, z]} castShadow><boxGeometry args={[0.4, 1.6, 0.4]} /><meshStandardMaterial color="#b8ad9c" roughness={0.85} /></mesh>
+        <mesh key={`p${i}`} position={[gx, (height + 0.4) / 2, z]} castShadow><boxGeometry args={[0.4, height + 0.4, 0.4]} /><meshStandardMaterial color="#b8ad9c" roughness={0.85} /></mesh>
       ))}
-      {/* a low metal gate of vertical bars, swung open */}
+      {/* the gate, swung open */}
       <group position={[gateFrom + 0.2, 0, z]} rotation={[0, -Math.PI / 2.6, 0]}>
-        {[0.15, 1.05].map(y => (
-          <mesh key={y} position={[0.9, y, 0]} castShadow><boxGeometry args={[1.8, 0.05, 0.05]} /><meshStandardMaterial color="#2f2b27" metalness={0.5} roughness={0.5} /></mesh>
+        {gate === 'solid' && <mesh position={[0.9, gh / 2 + 0.05, 0]} castShadow><boxGeometry args={[1.8, gh, 0.05]} /><meshStandardMaterial {...metal} /></mesh>}
+        {gate === 'wood' && Array.from({ length: Math.round(gh / 0.14) }).map((_, i) => (
+          <mesh key={i} position={[0.9, 0.12 + i * 0.14, 0]} castShadow><boxGeometry args={[1.8, 0.1, 0.04]} /><meshStandardMaterial {...metal} /></mesh>
         ))}
-        {Array.from({ length: 10 }).map((_, i) => (
-          <mesh key={i} position={[0.1 + i * 0.18, 0.6, 0]} castShadow><boxGeometry args={[0.03, 1.0, 0.03]} /><meshStandardMaterial color="#2f2b27" metalness={0.5} roughness={0.5} /></mesh>
-        ))}
+        {(gate === 'bars' || gate === 'mesh') && (
+          <>
+            {[0.15, gh].map(y => <mesh key={y} position={[0.9, y, 0]} castShadow><boxGeometry args={[1.8, 0.05, 0.05]} /><meshStandardMaterial {...metal} /></mesh>)}
+            {Array.from({ length: gate === 'mesh' ? 24 : 10 }).map((_, i, arr) => (
+              <mesh key={i} position={[0.1 + i * (1.6 / (arr.length - 1)), (gh + 0.15) / 2, 0]} castShadow><boxGeometry args={[gate === 'mesh' ? 0.012 : 0.03, gh - 0.15, gate === 'mesh' ? 0.012 : 0.03]} /><meshStandardMaterial {...metal} /></mesh>
+            ))}
+            {gate === 'mesh' && Array.from({ length: Math.round(gh / 0.08) }).map((_, i) => (
+              <mesh key={`h${i}`} position={[0.9, 0.15 + i * 0.08, 0]}><boxGeometry args={[1.8, 0.012, 0.012]} /><meshStandardMaterial {...metal} /></mesh>
+            ))}
+          </>
+        )}
       </group>
     </group>
   );
 }
 
-function SideWall({ x, z0, z1, color = '#d9d2c5' }) {
+function SideWall({ x, z0, z1, color: c }) {
+  const color = c || '#d9d2c5';
   return (
     <mesh position={[x, 0.75, (z0 + z1) / 2]} castShadow receiveShadow>
       <boxGeometry args={[0.22, 1.5, z1 - z0]} /><meshStandardMaterial color={color} roughness={0.9} />
@@ -350,7 +373,9 @@ function usePlinth(elements, site) {
   }, [elements, site]);
 }
 
-export function Site({ site, setting, time, elements, roofStyle, camX }) {
+export function Site({ site, setting, time, elements, roofStyle, camX, facade = null }) {
+  const fc = facade || {};
+  const lights = fc.lights || { sconces: true, bollards: true };
   const night = !TIMES[time].day;
   const { D } = site;
   const { plotW, fz, bz, walkW, roadW, roadZ, farWalk, gateW, gateX, driveX, neighbours } = useSiteLayout(site, setting);
@@ -376,9 +401,10 @@ export function Site({ site, setting, time, elements, roofStyle, camX }) {
       )}
 
       {/* boundary: rendered wall on the street with a gate, walls down the sides, a hedge at the back */}
-      <CompoundWall x0={-plotW / 2} x1={plotW / 2} z={fz} gateFrom={gateX} gateTo={gateX + gateW} />
-      {setting !== 'corner' && <SideWall x={-plotW / 2} z0={bz} z1={fz} />}
-      <SideWall x={plotW / 2} z0={bz} z1={fz} />
+      <CompoundWall x0={-plotW / 2} x1={plotW / 2} z={fz} gateFrom={gateX} gateTo={gateX + gateW}
+        color={fc.compound?.color} height={fc.compound?.height || 1.2} finish={fc.compound?.finish} gate={fc.gate} gateColor={fc.gateColor} />
+      {setting !== 'corner' && <SideWall x={-plotW / 2} z0={bz} z1={fz} color={fc.compound?.color} />}
+      <SideWall x={plotW / 2} z0={bz} z1={fz} color={fc.compound?.color} />
       <Hedge x={0} z={bz + 0.4} w={plotW - 0.6} d={0.7} h={1.4} />
       {setting === 'corner' && <Hedge x={-plotW / 2 + 0.4} z={(fz + bz) / 2} w={0.7} d={fz - bz - 0.6} h={1.1} />}
 
@@ -397,7 +423,7 @@ export function Site({ site, setting, time, elements, roofStyle, camX }) {
         <Tree position={[0, 0, bz + 2]} kind="slender" scale={1.2} tint={1} />
       </>}
       {/* at night: a warm light over the door and low lights along the path */}
-      {night && (
+      {night && !lights.bollards && (
         <>
           <mesh position={[site.doorX, PLINTH + 2.5, site.doorZ + 0.08]}><boxGeometry args={[0.25, 0.25, 0.12]} /><meshStandardMaterial color="#fff3df" emissive="#ffcf8a" emissiveIntensity={3} /></mesh>
           <pointLight position={[site.doorX, PLINTH + 2.3, site.doorZ + 0.8]} intensity={6} distance={9} decay={2} color="#ffcf8a" />
@@ -432,9 +458,33 @@ export function Site({ site, setting, time, elements, roofStyle, camX }) {
               <boxGeometry args={[p.w, PLINTH, p.d]} /><meshStandardMaterial color="#9c948a" roughness={0.9} />
             </mesh>
           ))}
-          <HouseModel elements={elements} roofStyle={roofStyle} isDay={!night} />
+          <HouseModel elements={elements} roofStyle={roofStyle} isDay={!night} facade={facade} />
         </group>
       </group>
+
+      {/* outdoor lights from the front elevation: wall lights by the door, bollards along the path, uplights */}
+      {lights.sconces && [-1, 1].map(sg => (
+        <group key={`sc${sg}`} position={[site.doorX + sg * 1.05, PLINTH + 2.0, site.doorZ + 0.12]}>
+          <mesh><boxGeometry args={[0.12, 0.26, 0.1]} /><meshStandardMaterial color="#2f2b27" metalness={0.5} roughness={0.4} /></mesh>
+          <mesh position={[0, 0, 0.051]}><planeGeometry args={[0.08, 0.2]} /><meshStandardMaterial color="#fff3df" emissive="#ffcf8a" emissiveIntensity={night ? 3 : 0.6} toneMapped={false} /></mesh>
+          {night && <pointLight position={[0, 0, 0.4]} intensity={2.5} distance={5} decay={2} color="#ffcf8a" />}
+        </group>
+      ))}
+      {lights.bollards && [0.2, 0.45, 0.7, 0.92].map(f => {
+        const pz = stepsEnd + (fz - stepsEnd) * f;
+        return [-1, 1].map(sg => (
+          <group key={`bo${f}${sg}`} position={[gateX + gateW / 2 + sg * 1.0, 0, pz]}>
+            <mesh position={[0, 0.35, 0]}><cylinderGeometry args={[0.06, 0.06, 0.7, 12]} /><meshStandardMaterial color="#2f2b27" metalness={0.4} roughness={0.5} /></mesh>
+            <mesh position={[0, 0.62, 0]}><cylinderGeometry args={[0.062, 0.062, 0.08, 12]} /><meshStandardMaterial color="#fff3df" emissive="#ffd59a" emissiveIntensity={night ? 2.5 : 0.4} toneMapped={false} /></mesh>
+          </group>
+        ));
+      })}
+      {lights.uplights && night && [-0.38, 0, 0.38].map(k => (
+        <group key={`up${k}`} position={[k * site.W, 0, site.D / 2 + 0.5]}>
+          <mesh position={[0, 0.05, 0]}><cylinderGeometry args={[0.08, 0.08, 0.1, 12]} /><meshStandardMaterial color="#fff3df" emissive="#ffd9a8" emissiveIntensity={2} toneMapped={false} /></mesh>
+          <pointLight position={[0, 0.4, 0]} intensity={5} distance={6} decay={2} color="#ffd9a8" />
+        </group>
+      ))}
 
       {/* the street: footpath with a kerb, the road with a centre line, the footpath opposite */}
       <Ground x={0} z={fz + walkW / 2} w={200} d={walkW} tex={pavingTex} y={0.12} color="#c9c0b3" />
@@ -534,6 +584,7 @@ export default function ImmersiveView() {
   const [weather, setWeather] = useState('clear');
   const [roofStyle, setRoofStyle] = useState('pitched');
   const [walking, setWalking] = useState(false);
+  const [facade, setFacade] = useState(null);
   const [locked, setLocked] = useState(false);
 
   // the whole house (every floor) from the project; the last Studio state as a fallback
@@ -544,7 +595,7 @@ export default function ImmersiveView() {
     if (!projectId) { fromDraft(); return; }
     fetch(`${API_URL}/api/projects/${projectId}`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
       .then(r => (r.ok ? r.json() : Promise.reject()))
-      .then(p => { setElements((p.elements_data || []).filter(e => e && typeof e.type === 'string')); setName(p.name || ''); })
+      .then(p => { setElements((p.elements_data || []).filter(e => e && typeof e.type === 'string')); setName(p.name || ''); setFacade(p.facade || null); })
       .catch(fromDraft);
   }, [projectId]);
 
@@ -587,10 +638,10 @@ export default function ImmersiveView() {
             shadow-bias={-0.0004}
           />
           {/* soft reflections for glass and surfaces; the sky itself is drawn by <Sky> */}
-          <Environment preset={t.day ? 'city' : 'night'} environmentIntensity={t.day ? 0.45 : 0.25} />
+          <SafeEnvironment preset={t.day ? 'city' : 'night'} environmentIntensity={t.day ? 0.45 : 0.25} />
           {weather === 'rain' && <Rain />}
 
-          <Site site={site} setting={setting} time={time} elements={elements} roofStyle={roofStyle} camX={Math.max(6, site.W * 0.5)} />
+          <Site site={site} setting={setting} time={time} elements={elements} roofStyle={roofStyle} camX={Math.max(6, site.W * 0.5)} facade={facade} />
 
           {walking
             ? <StreetWalk site={site} setting={setting} elements={elements} onLockChange={setLocked} />

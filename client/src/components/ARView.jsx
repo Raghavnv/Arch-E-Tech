@@ -35,11 +35,11 @@ function useBounds(elements) {
 }
 
 /** The house centred on its own origin, standing on y = 0, at the given scale. */
-function House({ elements, bounds, roof, scale, groupRef }) {
+function House({ elements, bounds, roof, scale, groupRef, facade = null }) {
   return (
     <group ref={groupRef} scale={scale}>
       <group position={[-bounds.cx, 0, -bounds.cz]}>
-        <HouseModel elements={elements} roofStyle={roof ? 'pitched' : 'none'} isDay />
+        <HouseModel elements={elements} roofStyle={roof ? (facade?.roofStyle || 'pitched') : 'none'} isDay facade={facade} />
       </group>
     </group>
   );
@@ -199,11 +199,11 @@ export default function ARView() {
         <directionalLight position={[8, 14, 6]} intensity={1.3} />
         {inAR ? (
           <ARPlacer hitSource={hitSource} placed={placed} setPlaced={setPlaced} spin={spin} size={size * scale}>
-            <House elements={elements} bounds={bounds} roof={roof} scale={1} />
+            <House elements={elements} bounds={bounds} roof={roof} scale={1} facade={project.facade} />
           </ARPlacer>
         ) : (
           <>
-            <House elements={elements} bounds={bounds} roof={roof} scale={1} groupRef={exportRef} />
+            <House elements={elements} bounds={bounds} roof={roof} scale={1} groupRef={exportRef} facade={project.facade} />
             <mesh rotation-x={-Math.PI / 2} position-y={-0.01}><circleGeometry args={[span * 0.9, 48]} /><meshStandardMaterial color="#27272a" /></mesh>
             <OrbitControls target={[0, 2, 0]} maxPolarAngle={Math.PI / 2 - 0.05} />
           </>

@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useMemo, createContext, useContext } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Grid, Environment, PointerLockControls, Html } from '@react-three/drei';
+import { OrbitControls, Grid, PointerLockControls, Html } from '@react-three/drei';
+import SafeEnvironment from './SafeEnvironment';
 import * as SunCalc from 'suncalc';
 import { Eye, Layers, Compass, Maximize2, X } from 'lucide-react';
 import { useWallMaterial } from '../utils/wallTexture';
@@ -220,6 +221,8 @@ function WallMaterial({ matProps }) {
 
 // whether the scene is lit by day: at night the glass glows with the rooms' lights behind it
 const DayContext = createContext(true);
+/** The front elevation's choices (roof colour, railings …) for the parts of the house that use them. */
+export const FacadeContext = createContext(null);
 
 function WindowGlass({ w, h }) {
   const isDay = useContext(DayContext);
@@ -886,6 +889,8 @@ function FinishFloorPiece({ p, id }) {
 // =================================================================
 
 function ProceduralRailing({ el }) {
+  const kind = useContext(FacadeContext)?.railing || 'glass';
+  const metal = kind === 'wood' ? { color: '#6b4528', roughness: 0.6, metalness: 0 } : { color: '#2a2724', metalness: 0.6, roughness: 0.35 };
   const L = Math.max((el.width || 0) * SCALE, 0.2);
   const rotY = -((el.angle || 0) * Math.PI) / 180;
   const posts = Math.max(2, Math.round(L / 1.0) + 1);
@@ -894,21 +899,29 @@ function ProceduralRailing({ el }) {
       {Array.from({ length: posts }).map((_, i) => (
         <mesh key={i} position={[(i / (posts - 1)) * L, RAIL_HEIGHT / 2, 0]} castShadow>
           <boxGeometry args={[0.05, RAIL_HEIGHT, 0.05]} />
-          <meshStandardMaterial color="#2a2724" metalness={0.6} roughness={0.35} />
+          <meshStandardMaterial {...metal} />
         </mesh>
       ))}
       <mesh position={[L / 2, RAIL_HEIGHT, 0]} castShadow>
         <boxGeometry args={[L, 0.06, 0.08]} />
-        <meshStandardMaterial color="#2a2724" metalness={0.6} roughness={0.35} />
+        <meshStandardMaterial {...metal} />
       </mesh>
       <mesh position={[L / 2, RAIL_HEIGHT * 0.5, 0]}>
         <boxGeometry args={[L, 0.03, 0.03]} />
-        <meshStandardMaterial color="#2a2724" metalness={0.6} roughness={0.35} />
+        <meshStandardMaterial {...metal} />
       </mesh>
-      <mesh position={[L / 2, RAIL_HEIGHT * 0.48, 0]}>
-        <boxGeometry args={[L, RAIL_HEIGHT * 0.9, 0.015]} />
-        <meshPhysicalMaterial color="#cfe3ea" transparent opacity={0.22} roughness={0.05} />
-      </mesh>
+      {kind === 'glass' && (
+        <mesh position={[L / 2, RAIL_HEIGHT * 0.48, 0]}>
+          <boxGeometry args={[L, RAIL_HEIGHT * 0.9, 0.015]} />
+          <meshPhysicalMaterial color="#cfe3ea" transparent opacity={0.22} roughness={0.05} />
+        </mesh>
+      )}
+      {kind !== 'glass' && Array.from({ length: Math.max(2, Math.round(L / (kind === 'wood' ? 0.15 : 0.12))) }).map((_, i, arr) => (
+        <mesh key={`b${i}`} position={[((i + 0.5) / arr.length) * L, RAIL_HEIGHT * 0.5, 0]}>
+          <boxGeometry args={[kind === 'wood' ? 0.07 : 0.02, RAIL_HEIGHT * 0.95, kind === 'wood' ? 0.025 : 0.02]} />
+          <meshStandardMaterial {...metal} />
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -997,12 +1010,13 @@ function hipGeometry(w, d, h) {
 }
 
 function HipRoof({ rect, eave, pitch }) {
+  const roofColor = useContext(FacadeContext)?.roof || '#8a4b2c';
   const w = rect.w + eave * 2, d = rect.d + eave * 2;
   const h = Math.min(3.4, (Math.min(w, d) / 2) * pitch);
   const geo = useMemo(() => hipGeometry(w, d, h), [w, d, h]);
   return (
     <mesh geometry={geo} position={[rect.x + rect.w / 2, 0, rect.z + rect.d / 2]} castShadow receiveShadow>
-      <meshStandardMaterial color="#8a4b2c" roughness={0.75} flatShading side={THREE.DoubleSide} />
+      <meshStandardMaterial color={roofColor} roughness={0.75} flatShading side={THREE.DoubleSide} />
     </mesh>
   );
 }
@@ -1012,6 +1026,7 @@ const WALL_OUTSIDE = 0.2;   // walls are 0.4 m thick on the room outline: their 
 /** Roof over the top storey, following the house's own outline: a flat slab with a parapet along
  *  the outer walls, or hipped roofs over the wings, meeting in valleys, with short eaves. */
 function Roof({ rooms, style }) {
+  const parapet = useContext(FacadeContext)?.parapet || '#cfc8bd';
   const rects = useMemo(() => rooms.map(roomRect), [rooms]);
   const fp = useMemo(() => footprint(rects, WALL_OUTSIDE), [rects]);
   const flat = useMemo(() => (style === 'flat' ? { slab: slabPieces(fp), edges: outline(fp) } : null), [fp, style]);
@@ -1035,7 +1050,7 @@ function Roof({ rooms, style }) {
           return (
             <mesh key={`p-${i}`} position={[x, WALL_HEIGHT + 0.24 + ph / 2, z]} castShadow>
               <boxGeometry args={horiz ? [len, ph, t] : [t, ph, len]} />
-              <meshStandardMaterial color="#cfc8bd" roughness={0.9} />
+              <meshStandardMaterial color={parapet} roughness={0.9} />
             </mesh>
           );
         })}
@@ -1084,15 +1099,19 @@ function Storey({ elements, level, isTop, onPaint, roofStyle, isDay }) {
 }
 
 /** The whole house (every storey, roof and lights) with no ground, sky or camera: for other scenes. */
-export function HouseModel({ elements, roofStyle = 'pitched', isDay = true }) {
+export function HouseModel({ elements, roofStyle = 'pitched', isDay = true, facade = null }) {
   const levels = useMemo(() => {
     const by = {};
     (elements || []).forEach(el => { if (el && el.type) (by[el.floor || 1] = by[el.floor || 1] || []).push(el); });
     return Object.keys(by).map(Number).sort((a, b) => a - b).map(level => ({ level, elements: by[level] }));
   }, [elements]);
-  return levels.map(({ level, elements: els }, i) => (
-    <Storey key={level} elements={els} level={level} isTop={i === levels.length - 1} roofStyle={roofStyle} isDay={isDay} />
-  ));
+  return (
+    <FacadeContext.Provider value={facade}>
+      {levels.map(({ level, elements: els }, i) => (
+        <Storey key={level} elements={els} level={level} isTop={i === levels.length - 1} roofStyle={roofStyle} isDay={isDay} />
+      ))}
+    </FacadeContext.Provider>
+  );
 }
 
 export { SCALE as PLAN_SCALE, FLOOR_TO_FLOOR, useProcessedArchitecture };
@@ -1399,6 +1418,7 @@ export default function Canvas3D({
   onPaint,
   walkthroughMode = false,
   roofStyle = 'none',          // 'none' | 'flat' | 'pitched'
+  facade = null,               // the front elevation: roof colour, railings
   autoRotate = false,          // the camera circles the house on its own (Overview)
   onToggleWalkthrough,
   onToggleCeiling
@@ -1471,7 +1491,7 @@ export default function Canvas3D({
           shadow-bias={-0.0002}
           shadow-normalBias={0.025}
         />
-        <Environment preset={isDay ? "city" : "night"} environmentIntensity={isDay ? 0.55 : 0.3} />
+        <SafeEnvironment preset={isDay ? "city" : "night"} environmentIntensity={isDay ? 0.55 : 0.3} />
 
         {/* Ground grid */}
         <Grid
@@ -1489,6 +1509,7 @@ export default function Canvas3D({
           <meshStandardMaterial color="#2a2724" roughness={0.9} />
         </mesh>
 
+        <FacadeContext.Provider value={facade}>
         {/* every storey at its height; lights inside, the roof on the top one */}
         {levels.map(({ level, elements: els }, i) => (
           <Storey
@@ -1501,6 +1522,7 @@ export default function Canvas3D({
             isDay={isDay}
           />
         ))}
+        </FacadeContext.Provider>
 
         {/* room names floating over each room, when looking at the model */}
         {!walkthroughMode && showLabels && <RoomLabels levels={levels} />}

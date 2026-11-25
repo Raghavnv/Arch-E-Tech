@@ -16,6 +16,8 @@ import { PLAIN_WALL } from '../utils/textureLibrary';
 import VideoTour from './VideoTour';
 import DesignStyleModal from './DesignStyleModal';
 import FittedModal from './FittedModal';
+import FacadeModal from './FacadeModal';
+import { applyFacade } from '../utils/facade';
 import { downloadFinishSchedule } from '../utils/finishSchedule';
 import { setSideRange } from '../utils/designStyles';
 import ImportPlanModal from './ImportPlanModal';
@@ -69,6 +71,8 @@ export default function Studio() {
     return () => clearTimeout(t);
   }, [leftOpen, dockOpen]);
   const [projectName, setProjectName] = useState('');
+  const [projectFacade, setProjectFacade] = useState(null);   // the front elevation
+  const [facadeOpen, setFacadeOpen] = useState(false);
   const [projectSite, setProjectSite] = useState(null);   // the plot, when the project has one   // what is selected on the 2D plan, for "edit this"
   const [smartSnap, setSmartSnap] = useState(() => localStorage.getItem('pref_smart_snap') === '1');
   const toggleSmartSnap = () => setSmartSnap(on => {
@@ -218,6 +222,7 @@ export default function Studio() {
         if (!isMounted) return;
         setProjectName(data.name || '');
         setProjectSite(data.site || null);
+        setProjectFacade(data.facade || null);
         // edits that never reached the server (refresh mid-autosave, network drop) are newer
         // than the server copy, so keep them and push them up instead of overwriting them
         if (localStorage.getItem(dirtyKey) === '1' && cachedElements) {
@@ -763,6 +768,8 @@ export default function Studio() {
               onClick: () => flushSave(`/ar?projectId=${projectId}`) },
             { id: 'video', icon: Clapperboard, label: 'Video tour', desc: 'A film of the house to send', disabled: !canvasElements.some(e => e.type === 'room'),
               onClick: () => setVideoOpen(true) },
+            { id: 'facade', icon: Home, label: 'Front elevation', desc: 'Exterior paint, cladding, roof, gate and lights', disabled: !canvasElements.some(e => e.type === 'room'),
+              onClick: () => setFacadeOpen(true) },
             { id: 'designer', icon: Sofa, label: 'Room Designer', desc: 'Furnish a room yourself', disabled: !projectId,
               onClick: () => flushSave(`/room-designer?projectId=${projectId}`) },
             { id: 'overview', icon: Play, label: 'Overview', desc: 'A presentation of the whole house', info: 'overview', disabled: !projectId,
@@ -948,6 +955,7 @@ export default function Studio() {
               onPaint={handlePaintWall} 
               walkthroughMode={walkthroughMode}
               roofStyle={roofStyle}
+              facade={projectFacade}
             />
           </div>
         )}
@@ -1225,7 +1233,18 @@ export default function Studio() {
       {fittedOpen && <FittedModal elements={canvasElements} onApply={(next) => setCanvasElements(next)} onClose={() => setFittedOpen(false)} />}
       {styleOpen && <DesignStyleModal elements={canvasElements} onApply={(next) => setCanvasElements(next)} onClose={() => setStyleOpen(false)}
         onSee={() => { setStyleOpen(false); setActiveTab('3D'); if (roofStyle === 'none') setRoofStyle('flat'); }} />}
-      {videoOpen && <VideoTour projectId={projectId} elements={canvasElements} projectName={projectName} onClose={() => setVideoOpen(false)} />}
+      {videoOpen && <VideoTour projectId={projectId} elements={canvasElements} projectName={projectName} facade={projectFacade} onClose={() => setVideoOpen(false)} />}
+      {facadeOpen && <FacadeModal elements={canvasElements} facade={projectFacade} onClose={() => setFacadeOpen(false)}
+        onSave={async (f) => {
+          setProjectFacade(f);
+          setCanvasElements(prev => applyFacade(prev, f));
+          if (f.roofStyle) setRoofStyle(f.roofStyle);
+          if (projectId) {
+            await fetch(`${API_URL}/api/projects/${projectId}/facade`, {
+              method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` }, body: JSON.stringify({ facade: f }),
+            }).catch(() => {});
+          }
+        }} />}
       {importOpen && <ImportPlanModal onClose={() => setImportOpen(false)} mode="replace"
         floorLabel={activeFloor === 1 ? 'the ground floor' : `floor ${activeFloor}`}
         onAccept={async ({ elements }) => {
