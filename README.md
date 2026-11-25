@@ -134,6 +134,30 @@ Floors, ceilings and lights are priced in the cost takeoff, and all of it shows 
 ### Design my house
 One click to style the whole house (Studio → feature dock → Design my house): Modern minimal, Japandi, Modern Indian, Luxury classic, Scandinavian, Industrial loft or Tropical boho. Each room gets its wall colour on its own side of each wall, a feature wall in the main rooms (wood, wallpaper, brick or a deep colour), floors, a ceiling design and light, an exterior colour, and decor placed where it fits (a rug, plants, a floor lamp, wall art). Choose which of these to change; applying another style replaces the last one's finishes and decor, and undo takes it back.
 
+### Kitchen & wardrobes
+Modular kitchens laid out along a kitchen's walls, clear of its doors: straight, L, parallel, U or L with an island; sink under a window, hob with a chimney, fridge and oven tower, wall cabinets above; 8 cabinet colours, 5 countertops, and a backsplash band. Wardrobes for bedrooms: hinged, sliding or mirrored, 6 finishes, the whole wall or a set width, on the best wall or one you pick. A plan preview shows the result first.
+
+### Windows
+Frames (black or grey aluminium, white UPVC, teak, bronze) and curtains, sheer curtains, venetian, roman or roller blinds in ten fabrics, hung on the room side of each window; priced in the takeoff. Design my house dresses every window.
+
+### Front elevation
+Exterior paint, a cladding or colour round the entrance or across the whole front, pitched roof tile colour or a flat roof with a parapet colour, balcony railings (glass, metal, wood), gate style and colour, compound wall finish, height and colour, and outdoor lights (door sconces, path bollards, uplights), previewed live on the house's street at any time of day. Saved with the project and shown in 3D, the Immersive View, photos, the video tour and AR.
+
+### Your own styles
+Save a designed house's look (each room type's paint, feature wall, floor, ceiling and light, window frames and curtains, exterior colour, decor) as a style on your account, and apply it to your other houses from Design my house.
+
+### Finish schedule (PDF)
+Room by room: wall finishes with areas and named paint shades, backsplash, floor, ceiling and light, windows, furniture, each priced with a room total; then paint by shade in litres and the house's totals. For the painter, the flooring and false-ceiling contractors, and the budget.
+
+### Construction tracker
+The build schedule from the estimate as a live project: start date, each phase not started / under way / done, money actually spent (flagged when over the estimate), notes and site photos. It shows % built against the plan for today, spend against the estimate, and the finish date at the current pace. Clients see the progress and the latest photos on their share link.
+
+### Daylight & comfort
+Every living room, bedroom, kitchen and study is scored out of 100 for daylight (window area against floor area), how deep light reaches, hours of direct sun in June and December for each window's real compass direction at the chosen city, heat from afternoon (west) sun, and cross-ventilation, with plain suggestions (a wider window, a sunshade on the west window, a second window for through-air). The house's score is weighted by floor area.
+
+### 3D extras
+Room names float over the model (toggle), the walkthrough has a mini-map showing where you are and the room you are in, and every 3D view keeps working when the reflection lighting can't be downloaded (offline).
+
 ### 3D view
 - Walls with real window and door openings, glass, textured materials, furniture, ceilings and lights.
 - Flat or pitched roof, or no roof to look inside. Roofs follow the house's own outline: a flat roof's parapet runs along the outer walls, and an L- or T-shaped house gets hipped roofs over each wing meeting in valleys, with short eaves, never one big roof over the whole bounding box.
@@ -396,6 +420,9 @@ All project, photo and AI endpoints except health take `Authorization: Bearer <t
 | POST | `/api/ai/vastu-check` | Elements + which way north points → Vastu score and checklist |
 | POST | `/api/ai/building-check` | Elements + plot + limits → room-size, window and plot checks |
 | POST | `/api/ai/services-layout` | Elements → electrical and plumbing points with counts |
+| GET/POST/DELETE | `/api/styles` | Saved interior styles |
+| PUT | `/api/projects/{id}/facade` | The front elevation |
+| GET/PUT | `/api/projects/{id}/progress` | Construction progress and site photos |
 | POST | `/api/ai/quantities` | Elements (+ optional prices) → materials, quantities of work, cost and build schedule |
 | POST | `/api/export/dxf` | Elements + floor → DXF drawing (download) |
 | POST / GET | `/api/projects/{id}/shares` | Make a share link / list links, comments and approvals |

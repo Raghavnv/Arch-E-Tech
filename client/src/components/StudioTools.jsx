@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
-import { X, Loader2, AlertTriangle, Download, ScanLine, LayoutTemplate, Image as ImageIcon, Wand2 as Wand, Home, Bookmark, Check, Wallet } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { X, Loader2, AlertTriangle, Download, ScanLine, LayoutTemplate, Image as ImageIcon, Wand2 as Wand, Home, Bookmark, Check, Wallet, Sun } from 'lucide-react';
 import { detectRooms } from '../utils/detectRooms';
 import InfoTip from './InfoTip';
 import { formatArea, formatMoney, currencyCode, CURRENCY } from '../utils/units';
 import { downloadPlanSheet } from '../utils/planSheet';
+import { assessComfort, CITIES } from '../utils/comfort';
 
 /*
  * The Studio's tool panels: Auto Detect (label the rooms your walls enclose), AI Layout (a new plan
@@ -1195,5 +1196,89 @@ function Gantt({ data }) {
         About {Math.round(total / 7)} weeks with one crew working steadily. Costs per phase include labour; together they come to {inr(spent)}, the rest is spread across the job.
       </p>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// Daylight & comfort: light, sun, heat and air room by room, with what to change
+// ---------------------------------------------------------------------------------------------
+const scoreTone = (s) => (s >= 75 ? '#34d399' : s >= 55 ? '#fbbf24' : '#f87171');
+
+export function ComfortPanel({ elements, floor, north, onClose }) {
+  const [city, setCity] = useState(() => { try { return localStorage.getItem('comfort_city') || 'Bengaluru'; } catch { return 'Bengaluru'; } });
+  const [open, setOpen] = useState(null);
+  const result = useMemo(() => assessComfort(elements, { north, city }), [elements, north, city]);
+  const pick = (c) => { setCity(c); try { localStorage.setItem('comfort_city', c); } catch { /* private mode */ } };
+  const onFloor = elements.filter(e => (e.floor || 1) === floor);
+  const rooms = onFloor.filter(e => e.type === 'room');
+  const byId = Object.fromEntries(result.rooms.map(r => [r.room.id, r]));
+  const xs = rooms.flatMap(r => [r.left, r.left + r.width]), ys = rooms.flatMap(r => [r.top - r.height / 2, r.top + r.height / 2]);
+  const [x0, x1, y0, y1] = rooms.length ? [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)] : [0, 1, 0, 1];
+  const pad = 14;
+  return (
+    <Panel icon={Sun} title="Daylight & comfort" wide onClose={onClose}>
+      <div className="grid gap-4 md:grid-cols-[1fr_17rem]">
+        <div>
+          <div className="flex items-center gap-4">
+            <div className="flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-full border-4" style={{ borderColor: scoreTone(result.house) }}>
+              <span className="text-2xl font-semibold text-white">{result.house}</span>
+              <span className="text-[9px] text-zinc-500">of 100</span>
+            </div>
+            <div className="text-xs text-zinc-400">
+              <p>How well each room is lit by daylight, how much summer sun and heat it takes, and whether air can cross it, for a house in</p>
+              <select value={city} onChange={(e) => pick(e.target.value)} className="mt-1 rounded-lg bg-zinc-900 px-2 py-1 text-xs text-white focus:outline-none">
+                {CITIES.map(([c]) => <option key={c}>{c}</option>)}
+              </select>
+              <p className="mt-1 text-[10px] text-zinc-500">North is {north === 'up' ? 'up' : north} on the plan (set it in the Vastu check).</p>
+            </div>
+          </div>
+          <ul className="mt-4 space-y-1.5">
+            {result.rooms.filter(r => (r.room.floor || 1) === floor || result.rooms.length < 12).map(r => (
+              <li key={r.room.id} className="rounded-lg border border-zinc-800">
+                <button onClick={() => setOpen(open === r.room.id ? null : r.room.id)} className="flex w-full items-center gap-3 px-3 py-2 text-left">
+                  <span className="w-28 shrink-0 truncate text-xs text-zinc-100">{r.room.name}</span>
+                  <span className="h-1.5 flex-1 rounded-full bg-zinc-800"><span className="block h-full rounded-full" style={{ width: `${r.score}%`, background: scoreTone(r.score) }} /></span>
+                  <span className="w-7 text-right text-xs font-semibold" style={{ color: scoreTone(r.score) }}>{r.score}</span>
+                </button>
+                {open === r.room.id && (
+                  <div className="space-y-2 border-t border-zinc-800 px-3 py-2 text-[11px] text-zinc-300">
+                    <p className="text-zinc-400">
+                      {r.wins.length ? <>Windows face {r.facing.join(', ')} · {Math.round(r.wfr * 100)}% of the floor in glass · sun {r.summerSun.toFixed(1)} h in June, {r.winterSun.toFixed(1)} h in December</> : 'No outside windows.'}
+                    </p>
+                    <div className="grid grid-cols-4 gap-1.5 text-center">
+                      {[['Daylight', r.parts.daylight], ['Depth', r.parts.depth], ['Air', r.parts.ventilation], ['Heat', r.parts.heat]].map(([k, v]) => (
+                        <div key={k} className="rounded bg-zinc-900 py-1"><p className="text-[9px] text-zinc-500">{k}</p><p className="font-semibold" style={{ color: scoreTone(v) }}>{v}</p></div>
+                      ))}
+                    </div>
+                    <ul className="space-y-1">{r.tips.map((t, i) => <li key={i} className="flex gap-1.5"><span className="text-orange-300">›</span>{t}</li>)}</ul>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">{floor === 1 ? 'GROUND FLOOR' : `FLOOR ${floor}`}</p>
+          <svg viewBox={`${x0 - pad} ${y0 - pad} ${x1 - x0 + 2 * pad} ${y1 - y0 + 2 * pad}`} className="w-full rounded-lg bg-zinc-900/60">
+            {rooms.map(r => {
+              const c = byId[r.id];
+              return (
+                <g key={r.id} onClick={() => c && setOpen(r.id)} style={{ cursor: c ? 'pointer' : 'default' }}>
+                  <rect x={r.left} y={r.top - r.height / 2} width={r.width} height={r.height} fill={c ? scoreTone(c.score) : '#3f3f46'} fillOpacity={c ? 0.35 : 0.15} stroke="#e4e4e7" strokeWidth={2} />
+                  {c && <text x={r.left + r.width / 2} y={r.top + 4} textAnchor="middle" fontSize={11} fill="#fff" fontFamily="sans-serif">{c.score}</text>}
+                </g>
+              );
+            })}
+            {result.rooms.filter(r => (r.room.floor || 1) === floor).flatMap(r => r.wins).map((w, i) => {
+              const a = ((w.el.angle || 0) * Math.PI) / 180, mx = w.el.left + (w.el.width / 2) * Math.cos(a), my = w.el.top + (w.el.width / 2) * Math.sin(a);
+              const o = { N: [0, -1], S: [0, 1], W: [-1, 0], E: [1, 0] }[w.side];
+              const hot = w.deg > 200 && w.deg < 300;
+              return <line key={i} x1={mx} y1={my} x2={mx + o[0] * 12} y2={my + o[1] * 12} stroke={hot ? '#fb923c' : '#7dd3fc'} strokeWidth={3} strokeLinecap="round" />;
+            })}
+          </svg>
+          <p className="mt-1.5 text-[10px] leading-snug text-zinc-500"><span className="text-sky-300">Blue</span> marks a window, <span className="text-orange-300">orange</span> one facing the hot afternoon sun. Green rooms are bright and airy; red ones need attention.</p>
+        </div>
+      </div>
+    </Panel>
   );
 }

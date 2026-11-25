@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
-import { AutoDetectPanel, AiLayoutPanel, ConceptVizPanel, EditPanel, RoomsPanel, BudgetPanel, VastuPanel, RulesPanel, SharePanel, ServicesPanel, MaterialsPanel } from './StudioTools';
+import { AutoDetectPanel, AiLayoutPanel, ConceptVizPanel, EditPanel, RoomsPanel, BudgetPanel, VastuPanel, RulesPanel, SharePanel, ServicesPanel, MaterialsPanel, ComfortPanel } from './StudioTools';
 import FeatureDock from './FeatureDock';
 import FinishesPanel from './FinishesPanel';
 import { PLAIN_WALL } from '../utils/textureLibrary';
@@ -788,6 +788,8 @@ export default function Studio() {
               onClick: () => openTool('concept') },
             { id: 'services', icon: Zap, label: 'Electrical & plumbing', desc: 'Light, power and water points', active: toolPanel === 'services',
               onClick: () => setToolPanel(t => (t === 'services' ? null : 'services')) },
+            { id: 'comfort', icon: Sun, label: 'Daylight & comfort', desc: 'Light, sun, heat and air in every room', active: toolPanel === 'comfort',
+              onClick: () => setToolPanel(t => (t === 'comfort' ? null : 'comfort')) },
             { id: 'vastu', icon: Compass, label: 'Vastu check', desc: 'The plan against Vastu guidelines', active: toolPanel === 'vastu',
               onClick: () => setToolPanel(t => (t === 'vastu' ? null : 'vastu')) },
             { id: 'budget', icon: Wallet, label: 'Budget Advisor', desc: 'Find where to cut back', info: 'budget', accent: true, active: toolPanel === 'budget',
@@ -818,6 +820,7 @@ export default function Studio() {
           <ServicesPanel elements={canvasElements} floor={activeFloor} projectName={projectName} site={projectSite}
             north={northOf()} apiUrl={API_URL} onClose={() => setToolPanel(null)} />
         )}
+        {toolPanel === 'comfort' && <ComfortPanel elements={canvasElements} floor={activeFloor} north={northOf()} onClose={() => setToolPanel(null)} />}
         {toolPanel === 'materials' && (
           <MaterialsPanel elements={canvasElements} projectName={projectName} apiUrl={API_URL} onClose={() => setToolPanel(null)} />
         )}
