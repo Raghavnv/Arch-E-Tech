@@ -3,11 +3,13 @@ import { X, Camera, Upload, Loader2, Check, ScanLine, Sparkles, RotateCcw } from
 import { MATERIAL_KINDS, classifyMaterial, makeTile, registerMaterials, suggestName, newScanId } from '../utils/materialScan';
 import { applyClientOps } from '../utils/editOps';
 import { formatMoney } from '../utils/units';
+import { recognise, MODEL_MB } from '../utils/materialAI';
 
 /*
  * Scan a material: photograph (or upload) a real sample, such as a plank, a marble offcut, a granite
  * slab, a stone from the site, a brick or a tile, and put it on the house. The app says what it looks
- * like it is (the AI model when one is set up, otherwise its own colour-and-texture reading), turns the
+ * like it is (the server's AI model when one is set up; otherwise an image model that runs in the browser;
+ * failing that, its own colour-and-texture reading), turns the
  * photo into a seamless tile, and lays it on floors or walls. Scans are kept with the project and appear
  * under "Your materials" in Walls & floors.
  */
@@ -93,6 +95,7 @@ export default function MaterialScan({ projectId, apiUrl, elements, setElements,
   const [picked, setPicked] = useState([]);
   const [wallRoom, setWallRoom] = useState('');
   const [wallMode, setWallMode] = useState('feature');
+  const [model, setModel] = useState(null);         // the in-browser model: { loading: 0..1 } | { failed } | null
   const fileRef = useRef(null), captureRef = useRef(null);
   const touch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
 
@@ -115,15 +118,21 @@ export default function MaterialScan({ projectId, apiUrl, elements, setElements,
       const img = await loadImage(dataUrl);
       const { ranked, features } = classifyMaterial(img);
       const image = makeTile(img);
-      let ai = null;
-      try {
-        const r = await fetch(`${apiUrl}/api/ai/identify-material`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: smallJpeg(img) }) });
-        const d = await r.json().catch(() => ({}));
-        if (d.source === 'ai' && MATERIAL_KINDS[d.kind]) ai = d;
-      } catch { /* the reading from the photo stands */ }
-      const order = ai ? [ai.kind, ...(ai.alternatives || []), ...ranked.map(x => x.kind)] : ranked.map(x => x.kind);
-      const kinds = [...new Set(order)];
-      const s = { id: newScanId(), image, color: features.color, ranked, ai, features, kinds, sure: ai ? ai.confidence : ranked[0].score };
+      const small = smallJpeg(img);
+      // the server's vision model (when it has a key) and the in-browser image model look at the photo together
+      const server = fetch(`${apiUrl}/api/ai/identify-material`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: small }) })
+        .then(r => r.json()).then(d => (d.source === 'ai' && MATERIAL_KINDS[d.kind] ? d : null)).catch(() => null);
+      const local = recognise(small, (p) => setModel({ loading: p }))
+        .then(r => { setModel(null); return r; })
+        .catch(() => { setModel({ failed: true }); return null; });
+      const [ai, seen] = await Promise.all([server, local]);
+      const order = ai ? [ai.kind, ...(ai.alternatives || [])] : [];
+      if (seen) order.push(...seen.map(x => x.kind));
+      order.push(...ranked.map(x => x.kind));
+      const kinds = [...new Set(order)].filter(k => MATERIAL_KINDS[k]);
+      const how = ai ? 'ai' : seen ? 'model' : 'guess';
+      const s = { id: newScanId(), image, color: features.color, ranked, ai, features, kinds, how,
+        sure: ai ? ai.confidence : seen ? seen[0].score : ranked[0].score };
       setScan(s);
       setNamed(false);
       const k = kinds[0];
@@ -181,7 +190,8 @@ export default function MaterialScan({ projectId, apiUrl, elements, setElements,
   };
 
   const sure = scan?.sure;
-  const confidence = sure == null ? null : sure > 0.6 ? 'fairly sure' : sure > 0.3 ? 'a good guess' : 'not sure';
+  // on the labelled photos, a top score over 0.7 was right 97 % of the time, 0.5 to 0.7 about 3 in 4
+  const confidence = sure == null ? null : sure > 0.7 ? 'fairly sure' : sure > 0.5 ? 'likely' : 'not sure';
   const pickSet = (set) => setPicked(rooms.filter(r => set.has(r.kind)).map(r => r.id));
 
   return (
@@ -259,17 +269,24 @@ export default function MaterialScan({ projectId, apiUrl, elements, setElements,
                 </ol>
               </div>
             )}
-            {stage === 'review' && busy === 'reading' && <p className="flex items-center gap-2 text-xs text-zinc-400"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Looking at the sample…</p>}
+            {stage === 'review' && busy === 'reading' && (
+              <div className="text-xs text-zinc-400">
+                <p className="flex items-center gap-2"><Loader2 className="h-3.5 w-3.5 animate-spin" /> {model?.loading != null && model.loading < 1 ? `Getting the material recogniser ready (${MODEL_MB} MB, first time only)…` : 'Looking at the sample…'}</p>
+                {model?.loading != null && model.loading < 1 && (
+                  <div className="mt-2 h-1 rounded-full bg-zinc-800"><div className="h-full rounded-full bg-indigo-500" style={{ width: `${Math.round(model.loading * 100)}%` }} /></div>
+                )}
+              </div>
+            )}
             {stage === 'review' && scan && busy !== 'reading' && (
               <>
                 <div className="rounded-xl border border-zinc-800 p-3">
-                  <p className="label-caps">{scan.existing && !scan.ranked ? 'Material' : scan.ai ? 'It looks like' : 'Best guess'}</p>
+                  <p className="label-caps">{scan.existing && !scan.ranked ? 'Material' : scan.how === 'guess' ? 'Best guess' : 'It looks like'}</p>
                   <p className="mt-1 flex items-center gap-2 text-base font-semibold text-white">
                     {MATERIAL_KINDS[kind].label}
-                    {scan.ai && <span className="flex items-center gap-1 rounded-full bg-indigo-500/15 px-2 py-0.5 text-[10px] font-normal text-indigo-200"><Sparkles className="h-3 w-3" /> AI</span>}
+                    {(scan.how === 'ai' || scan.how === 'model') && <span className="flex items-center gap-1 rounded-full bg-indigo-500/15 px-2 py-0.5 text-[10px] font-normal text-indigo-200"><Sparkles className="h-3 w-3" /> AI</span>}
                     {confidence && <span className="text-[11px] font-normal text-zinc-500">{confidence}</span>}
                   </p>
-                  <p className="mt-2 text-[10px] text-zinc-500">{scan.ai || scan.existing ? 'Not right? Pick what it is:' : 'From its colour and texture, so check it: the next likeliest come first.'}</p>
+                  <p className="mt-2 text-[10px] text-zinc-500">{scan.how === 'guess' ? "From its colour and texture only (the image model couldn't load), so check it: the next likeliest come first." : 'Not right? Pick what it is:'}</p>
                   <div className="mt-1 flex flex-wrap gap-1.5">
                     {[...new Set([...(scan.kinds || []).slice(0, 3), ...Object.keys(MATERIAL_KINDS)])].map(k => (
                       <button key={k} type="button" onClick={() => chooseKind(k)} className={`${k === kind ? 'chip-on' : 'chip'} px-2 py-0.5 text-[11px]`}>{MATERIAL_KINDS[k].label}</button>

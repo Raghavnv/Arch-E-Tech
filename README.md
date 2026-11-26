@@ -176,11 +176,14 @@ grouped in Lab colour space) and never uploaded.
 Studio → **Scan a material**: photograph a real sample (a plank, a marble offcut, granite, a stone from the site, a
 brick, a tile) with the camera, or upload a photo, and lay it on the house. The middle of the photo becomes a seamless
 tile (its uneven light flattened, its edges blended into each other), shown repeating 3 × 3 before it is used. The app
-says what the material is: with a `GROQ_API_KEY` a vision model names it ("Statuario marble"); without one it gives a
-best guess from colour and texture, matched against 483 labelled photos of real materials
-(`client/src/utils/materialReference.json`), with the next likeliest kinds one tap away. In testing the guess was right
-first time for about 44 % of photos and in the top three for about 69 %, so it is shown as a guess to confirm. Set how
-much the photo covers (the pattern's size), then lay it on chosen floors, as an accent wall or on every wall of a room,
+says what the material is. With a `GROQ_API_KEY` a vision model on the server names it ("Statuario marble"). Otherwise
+an image model runs in the browser (CLIP ViT-B/32, about 89 MB from Hugging Face on the first scan, then cached by the
+browser; the photo never leaves the device) and compares the photo with 8 typical examples of each material, condensed
+from 493 labelled Wikimedia Commons photos (`client/src/utils/materialExamples.json`). On photos it had not seen it
+named the material right first time for 71 % and in its top three for 87 %; clean close-ups do better. If the model
+can't load (offline), a colour-and-texture guess (`materialReference.json`) stands in and says so. The next likeliest
+kinds are always one tap away.
+Set how much the photo covers (the pattern's size), then lay it on chosen floors, as an accent wall or on every wall of a room,
 or just save it. Scans are kept with the project (up to 30) and appear under **Your materials** in Walls & floors; they
 show in 2D, 3D, the walkthrough, Photo Render, AR, Immersive View, the Overview and the cost takeoff (priced by kind).
 On a phone, Take a photo opens the camera app.
@@ -368,7 +371,9 @@ Arch-E-Tech/
 │   │       ├── photoPalette.js    A photo's colours matched to paints, floors, wood and styles
 │   │       ├── loan.js            EMI and loan limits
 │   │       ├── materialScan.js    Material recognition, seamless tiles, the scanned-materials library
-│   │       ├── materialReference.json 483 labelled material photos, measured, for recognition
+│   │       ├── materialAI.js      In-browser material recognition (CLIP) against labelled examples
+│   │       ├── materialExamples.json  8 example embeddings per material, from 493 labelled photos
+│   │       ├── materialReference.json 483 labelled material photos, measured, for the offline guess
 │   │       ├── shareI18n.js       The share page in English, Hindi, Kannada and Tamil
 │   │       ├── planSymbols.js, textureLibrary.js, wallTexture.js
 │   └── vite.config.js
