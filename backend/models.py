@@ -32,6 +32,8 @@ class Project(Base):
     facade = Column(JSON, nullable=True)
     # the build: per phase status, money spent, notes and site photos
     progress = Column(JSON, nullable=True)
+    # plan options kept side by side and the client's votes on them (see options.py)
+    options = Column(JSON, nullable=True)
     
     owner_id = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.datetime.utcnow)

@@ -268,9 +268,11 @@ def _owned_project(project_id: int, db: Session, user: models.User) -> models.Pr
 import plan_import  # noqa: E402  (needs the helpers above)
 import sharing  # noqa: E402
 import extras  # noqa: E402
+import options  # noqa: E402
 app.include_router(plan_import.make_router(get_db, get_current_user, _owned_project))
 app.include_router(sharing.make_router(get_db, get_current_user, _owned_project))
 app.include_router(extras.make_router(get_db, get_current_user, _owned_project))
+app.include_router(options.make_router(get_db, get_current_user, _owned_project))
 
 
 def _render_out(r: models.RoomRender) -> dict:

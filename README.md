@@ -103,6 +103,17 @@ account, comment on the plan or on a room, and approve it or ask for changes. An
 of the plan; the owner sees comments (and can mark them done), approvals, and whether the plan has changed since.
 Links can be turned off at any time.
 
+### Compare options
+Studio → **Compare options** puts versions of the house side by side: the plan on screen and up to six options saved
+with the project. Each shows its plan (floor by floor) with built-up area, bedrooms and baths, outdoor space, estimated
+cost, monthly EMI (with the owner's Home loan settings), build time, daylight & comfort and Vastu scores, and how its
+rooms differ from the first; the best value in each row is marked. **Generate another option** draws a different layout
+with the same brief (bedrooms, baths, floors, extra rooms, outdoor spaces, plot and facing); **Save plan as option**
+keeps the plan on screen so it can be changed and compared. **Use this option** makes an option the plan, keeping the
+plan on screen as an option first. On the share link clients see the options and vote for one, with a note; voting
+again moves their vote. Owners see the tally and the notes; votes survive new finishes but not a changed layout.
+
+
 ### Multi-floor houses
 - Rooms are split across floors, with stairs placed to line up on both levels.
 - Balconies and patios get railings automatically.
@@ -148,6 +159,14 @@ Floors, ceilings and lights are priced in the cost takeoff, and all of it shows 
 
 ### Design my house
 One click to style the whole house (Studio → feature dock → Design my house): Modern minimal, Japandi, Modern Indian, Luxury classic, Scandinavian, Industrial loft or Tropical boho. Each room gets its wall colour on its own side of each wall, a feature wall in the main rooms (wood, wallpaper, brick or a deep colour), floors, a ceiling design and light, an exterior colour, and decor placed where it fits (a rug, plants, a floor lamp, wall art). Choose which of these to change; applying another style replaces the last one's finishes and decor, and undo takes it back.
+
+### Match a photo
+Studio → **Match a photo**: drop in a photo of a room you love (Pinterest, a magazine, a friend's house) and the app picks
+the closest wall paint, floor, accent wall (a paint, or a wood finish when the accent is wood) and whole-house style from
+its own library, showing the colour each came from and the next-closest alternatives. Apply to the whole house (paint in
+the living rooms, bedrooms and halls; floors there too; an accent wall in the living room, lounge and master bedroom,
+kitchen and bathrooms keep theirs) or to one room; undo takes it back. The photo is read in the browser (its colours
+grouped in Lab colour space) and never uploaded.
 
 ### Kitchen & wardrobes
 Modular kitchens laid out along a kitchen's walls, clear of its doors: straight, L, parallel, U or L with an island; sink under a window, hob with a chimney, fridge and oven tower, wall cabinets above; 8 cabinet colours, 5 countertops, and a backsplash band. Wardrobes for bedrooms: hinged, sliding or mirrored, 6 finishes, the whole wall or a set width, on the best wall or one you pick. A plan preview shows the result first.
@@ -279,6 +298,7 @@ Arch-E-Tech/
 │   ├── quantities.py            Material quantities, costs and build schedule
 │   ├── export_cad.py            DXF (AutoCAD R12) export
 │   ├── sharing.py               Share links, client comments and approvals
+│   ├── options.py               Plan options kept side by side, and client votes
 │   ├── plan_import.py           Plan import routes (forwards drawings to the plan reader service)
 │   ├── export_plan_imports.py   Exports shared (consented) imports for retraining the reader
 │   └── requirements.txt
@@ -305,7 +325,9 @@ Arch-E-Tech/
 │   │   │   ├── ARView.jsx         The house in AR (WebXR, Quick Look)
 │   │   │   ├── Overview.jsx       Presentation slideshow
 │   │   │   ├── ImportPlanModal.jsx Upload a drawing, review the traced plan, set the scale
-│   │   │   ├── SharedProject.jsx  The page behind a share link: view, comment, approve
+│   │   │   ├── SharedProject.jsx  The page behind a share link: view, comment, approve, vote
+│   │   │   ├── CompareOptions.jsx Compare options side by side
+│   │   │   ├── PhotoMatch.jsx     Match a photo: finishes from an inspiration photo
 │   │   │   └── InfoTip.jsx        (i) explanations
 │   │   └── utils/
 │   │       ├── costs.js           Cost takeoff
@@ -316,6 +338,8 @@ Arch-E-Tech/
 │   │       ├── roofShape.js       The house outline for roofs and the plinth
 │   │       ├── floorFinishes.js   22 floor finishes, drawn procedurally
 │   │       ├── designStyles.js    Whole-house interior styles
+│   │       ├── photoPalette.js    A photo's colours matched to paints, floors, wood and styles
+│   │       ├── loan.js            EMI and loan limits
 │   │       ├── planSymbols.js, textureLibrary.js, wallTexture.js
 │   └── vite.config.js
 ├── ml/                          Plan reader: training data, model training, OCR, plan_reader service (see ml/README.md)

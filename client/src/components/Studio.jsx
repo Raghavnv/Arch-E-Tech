@@ -5,7 +5,7 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Menu, MousePointer2, Box, Home, PenTool, LayoutTemplate, 
   Settings, Save, FileText, ChevronRight, Calculator, CheckCircle, 
-  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen, FileUp, Compass, Ruler, PenLine, ShieldCheck, Share2, Zap, Sofa, HardHat, Clapperboard, Smartphone, Palette, ChefHat, ClipboardList, ListChecks, Landmark 
+  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen, FileUp, Compass, Ruler, PenLine, ShieldCheck, Share2, Zap, Sofa, HardHat, Clapperboard, Smartphone, Palette, ChefHat, ClipboardList, ListChecks, Landmark, Columns3, ImagePlus 
 } from 'lucide-react';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
@@ -17,6 +17,8 @@ import VideoTour from './VideoTour';
 import DesignStyleModal from './DesignStyleModal';
 import FittedModal from './FittedModal';
 import FacadeModal from './FacadeModal';
+import CompareOptions from './CompareOptions';
+import PhotoMatch from './PhotoMatch';
 import { applyFacade, DEFAULT_FACADE } from '../utils/facade';
 import { downloadFinishSchedule } from '../utils/finishSchedule';
 import { setSideRange } from '../utils/designStyles';
@@ -73,6 +75,8 @@ export default function Studio() {
   const [projectName, setProjectName] = useState('');
   const [projectFacade, setProjectFacade] = useState(null);   // the front elevation
   const [facadeOpen, setFacadeOpen] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
   const [projectSite, setProjectSite] = useState(null);   // the plot, when the project has one   // what is selected on the 2D plan, for "edit this"
   const [smartSnap, setSmartSnap] = useState(() => localStorage.getItem('pref_smart_snap') === '1');
   const toggleSmartSnap = () => setSmartSnap(on => {
@@ -1106,6 +1110,10 @@ export default function Studio() {
         { title: 'AI', items: [
           { id: 'style', icon: Palette, label: 'Design my house', desc: 'A whole interior style in one click', accent: true, disabled: !canvasElements.some(e => e.type === 'room'),
             onClick: () => setStyleOpen(true) },
+          { id: 'photo', icon: ImagePlus, label: 'Match a photo', desc: 'Paint, floor and accents from a room you love', accent: true, disabled: !canvasElements.some(e => e.type === 'room'),
+            onClick: () => setPhotoOpen(true) },
+          { id: 'compare', icon: Columns3, label: 'Compare options', desc: 'Versions side by side; the client votes', disabled: !projectId,
+            onClick: () => setCompareOpen(true) },
           { id: 'fitted', icon: ChefHat, label: 'Kitchen & wardrobes', desc: 'Modular kitchen and fitted wardrobes', disabled: !canvasElements.some(e => e.type === 'room'),
             onClick: () => setFittedOpen(true) },
           { id: 'import', icon: FileUp, label: 'Import plan', desc: 'Trace a drawing into this floor',
@@ -1261,6 +1269,9 @@ export default function Studio() {
       {styleOpen && <DesignStyleModal elements={canvasElements} onApply={(next) => setCanvasElements(next)} onClose={() => setStyleOpen(false)}
         onSee={() => { setStyleOpen(false); setActiveTab('3D'); if (roofStyle === 'none') setRoofStyle('flat'); }} />}
       {videoOpen && <VideoTour projectId={projectId} elements={canvasElements} projectName={projectName} facade={projectFacade} onClose={() => setVideoOpen(false)} />}
+      {compareOpen && <CompareOptions projectId={projectId} apiUrl={API_URL} elements={canvasElements} site={{ ...(projectSite || {}), north: northOf() }}
+        onUse={(els) => { setCanvasElements(cleanElements(els)); setActiveFloor(1); }} onClose={() => setCompareOpen(false)} />}
+      {photoOpen && <PhotoMatch elements={canvasElements} setElements={(els) => setCanvasElements(cleanElements(els))} onClose={() => setPhotoOpen(false)} />}
       {facadeOpen && <FacadeModal elements={canvasElements} facade={projectFacade} onClose={() => setFacadeOpen(false)}
         onSave={saveFacade} />}
       {importOpen && <ImportPlanModal onClose={() => setImportOpen(false)} mode="replace"

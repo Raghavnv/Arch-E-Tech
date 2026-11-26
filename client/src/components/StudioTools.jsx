@@ -7,6 +7,7 @@ import InfoTip from './InfoTip';
 import { formatArea, formatMoney, currencyCode, CURRENCY } from '../utils/units';
 import { downloadPlanSheet } from '../utils/planSheet';
 import { assessComfort, CITIES } from '../utils/comfort';
+import { lakh, rupees, emiOf, loanFor, ltvCap } from '../utils/loan';
 
 /*
  * The Studio's tool panels: Auto Detect (label the rooms your walls enclose), AI Layout (a new plan
@@ -1323,29 +1324,6 @@ export function ComfortPanel({ elements, floor, north, onClose }) {
 // Home loan & EMI: what the house costs each month, what a bank would lend, and how the loan is
 // paid out stage by stage while it is built (interest-only "pre-EMI" until the keys)
 // ------------------------------------------------------------------------------------------------
-const lakh = (v) => {
-  const n = Math.round(Number(v) || 0);
-  if (Math.abs(n) >= 1e7) return `₹${(n / 1e7).toFixed(2)} Cr`;
-  if (Math.abs(n) >= 1e5) return `₹${(n / 1e5).toFixed(2)} L`;
-  return `₹${n.toLocaleString('en-IN')}`;
-};
-const rupees = (v) => `₹${Math.round(Number(v) || 0).toLocaleString('en-IN')}`;
-const emiOf = (P, ratePct, years) => {
-  const r = ratePct / 1200, n = Math.round(years * 12);
-  if (P <= 0 || n <= 0) return 0;
-  if (r === 0) return P / n;
-  const k = (1 + r) ** n;
-  return (P * r * k) / (k - 1);
-};
-const loanFor = (emi, ratePct, years) => {
-  const r = ratePct / 1200, n = Math.round(years * 12);
-  if (emi <= 0 || n <= 0) return 0;
-  if (r === 0) return emi * n;
-  const k = (1 + r) ** n;
-  return (emi * (k - 1)) / (r * k);
-};
-// RBI's loan-to-value limits for home loans
-const ltvCap = (cost) => (cost <= 30e5 ? 0.9 : cost <= 75e5 ? 0.8 : 0.75);
 
 export function LoanPanel({ elements, houseCost, projectId, apiUrl, onClose }) {
   const key = `loan_${projectId || 'draft'}`;

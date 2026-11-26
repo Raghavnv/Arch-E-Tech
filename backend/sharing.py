@@ -26,6 +26,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 import models
+import options
 
 MAX_COMMENTS_PER_LINK = 300
 
@@ -142,6 +143,7 @@ def make_router(get_db, get_current_user, owned_project) -> APIRouter:
             .order_by(models.ShareDecision.created_at.desc()).all()
         return {"name": project.name, "elements": project.elements_data or [], "site": project.site,
                 "facade": project.facade, "progress": project.progress,
+                "options": options.public(options._store(project), share.id),
                 "shared_by": (owner.full_name or "").split(" ")[0] if owner else None,
                 "plan_version": current, "comments": [_comment(c) for c in comments],
                 "decisions": [_decision(d, current) for d in decisions]}

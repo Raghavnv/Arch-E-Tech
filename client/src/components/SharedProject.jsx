@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Check, Loader2, MessageSquare, RotateCcw } from 'lucide-react';
+import { Check, Loader2, MessageSquare, RotateCcw, ThumbsUp } from 'lucide-react';
 import Mark from './Mark';
 import { PlanDrawing } from './Overview';
 import { formatArea } from '../utils/units';
@@ -40,6 +40,69 @@ function BuildProgress({ progress }) {
           {photos.map(ph => <img key={ph.id} src={ph.data} alt={ph.phase} title={`${ph.phase} · ${ph.date}`} className="h-20 w-28 rounded-lg object-cover" />)}
         </div>
       )}
+    </div>
+  );
+}
+
+const OUTDOOR = new Set(['patio', 'balcony', 'terrace', 'deck']);
+
+/** The versions of the house the owner is weighing up: each with its plan and key numbers, and a vote. */
+function Options({ options, name, busy, onVote }) {
+  const [note, setNote] = useState('');
+  const [floor, setFloor] = useState(1);
+  const mine = options.votes.find(v => v.author?.toLowerCase() === name.trim().toLowerCase());
+  const items = options.items.map(o => {
+    const els = (o.elements || []).filter(e => e && typeof e.type === 'string');
+    const rooms = els.filter(e => e.type === 'room');
+    return {
+      ...o, els,
+      floors: [...new Set(els.map(e => e.floor || 1))],
+      area: rooms.filter(r => !OUTDOOR.has(r.kind)).reduce((t, r) => t + (r.width / 20) * (r.height / 20), 0),
+      beds: rooms.filter(r => r.kind === 'bedroom' || r.kind === 'master_bedroom').length,
+      baths: rooms.filter(r => r.kind === 'bathroom' || r.kind === 'powder').length,
+      outdoor: rooms.filter(r => OUTDOOR.has(r.kind)).map(r => r.name),
+    };
+  });
+  const floors = [...new Set(items.flatMap(o => o.floors))].sort((a, b) => a - b);
+  return (
+    <div className="mt-5 rounded-2xl border border-zinc-800 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-medium">Which option do you prefer?</p>
+          <p className="text-xs text-zinc-500">{items.length} versions of the house. Vote for one; you can change your vote any time.</p>
+        </div>
+        {floors.length > 1 && (
+          <div className="flex gap-1.5">
+            {floors.map(f => <button key={f} onClick={() => setFloor(f)} className={f === floor ? 'chip-on' : 'chip'}>{f === 1 ? 'Ground' : `Floor ${f}`}</button>)}
+          </div>
+        )}
+      </div>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        {items.map(o => {
+          const chosen = mine?.option_id === o.id;
+          return (
+            <div key={o.id} className={`flex flex-col rounded-xl border p-3 ${chosen ? 'border-indigo-400/60 bg-indigo-500/5' : 'border-zinc-800'}`}>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold">{o.name}</p>
+                <span className="flex items-center gap-1 text-[11px] text-zinc-400"><ThumbsUp className="h-3 w-3" /> {o.votes}</span>
+              </div>
+              <div className="mt-2 aspect-[4/3] rounded-lg bg-zinc-900/50 p-2">
+                <PlanDrawing elements={o.els.filter(e => (e.floor || 1) === floor)} animate={false} />
+              </div>
+              <p className="mt-2 text-[11px] text-zinc-400">
+                {formatArea(o.area)} · {o.beds} bed · {o.baths} bath{o.floors.length > 1 ? ` · ${o.floors.length} floors` : ''}{o.outdoor.length ? ` · ${o.outdoor.join(', ')}` : ''}
+              </p>
+              <button onClick={() => onVote(o.id, note).then(ok => ok && setNote(''))} disabled={!!busy || chosen}
+                className={`mt-2.5 ${chosen ? 'chip-on justify-center py-1.5' : 'btn-primary py-1.5'} flex items-center gap-1.5 text-xs`}>
+                {busy === `vote${o.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : chosen ? <Check className="h-3.5 w-3.5" /> : <ThumbsUp className="h-3.5 w-3.5" />}
+                {chosen ? 'Your vote' : 'Vote for this'}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={600} placeholder="Why? (optional, sent with your vote)"
+        className="mt-3 w-full rounded-lg border border-zinc-800 bg-black px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none" />
     </div>
   );
 }
@@ -109,6 +172,7 @@ export default function SharedProject() {
     return <div className="flex min-h-screen items-center justify-center bg-zinc-950 text-zinc-400"><Loader2 className="h-5 w-5 animate-spin" /></div>;
   }
 
+  const vote = (optionId, why) => post('vote', { option_id: optionId, note: why.trim() || null }, `vote${optionId}`);
   const latest = data.decisions[0];
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
@@ -155,6 +219,7 @@ export default function SharedProject() {
               </li>
             ))}
           </ul>
+          {data.options?.items?.length > 1 && <Options options={data.options} name={name} busy={busy} onVote={vote} />}
         </section>
 
         <aside className="space-y-5">
