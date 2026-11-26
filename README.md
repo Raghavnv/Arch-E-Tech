@@ -103,6 +103,10 @@ account, comment on the plan or on a room, and approve it or ask for changes. An
 of the plan; the owner sees comments (and can mark them done), approvals, and whether the plan has changed since.
 Links can be turned off at any time.
 
+The share page reads in **English, Hindi, Kannada or Tamil**: the reader switches at the top, and the owner can send a
+link that opens in a language (Share with client → Opens in). Room names left as the defaults ("Bedroom 2", "Kitchen")
+are translated on the plan and in the lists; names the owner typed are shown as written.
+
 ### Compare options
 Studio → **Compare options** puts versions of the house side by side: the plan on screen and up to six options saved
 with the project. Each shows its plan (floor by floor) with built-up area, bedrooms and baths, outdoor space, estimated
@@ -167,6 +171,26 @@ its own library, showing the colour each came from and the next-closest alternat
 the living rooms, bedrooms and halls; floors there too; an accent wall in the living room, lounge and master bedroom,
 kitchen and bathrooms keep theirs) or to one room; undo takes it back. The photo is read in the browser (its colours
 grouped in Lab colour space) and never uploaded.
+
+### Scan a material
+Studio → **Scan a material**: photograph a real sample (a plank, a marble offcut, granite, a stone from the site, a
+brick, a tile) with the camera, or upload a photo, and lay it on the house. The middle of the photo becomes a seamless
+tile (its uneven light flattened, its edges blended into each other), shown repeating 3 × 3 before it is used. The app
+says what the material is: with a `GROQ_API_KEY` a vision model names it ("Statuario marble"); without one it gives a
+best guess from colour and texture, matched against 483 labelled photos of real materials
+(`client/src/utils/materialReference.json`), with the next likeliest kinds one tap away. In testing the guess was right
+first time for about 44 % of photos and in the top three for about 69 %, so it is shown as a guess to confirm. Set how
+much the photo covers (the pattern's size), then lay it on chosen floors, as an accent wall or on every wall of a room,
+or just save it. Scans are kept with the project (up to 30) and appear under **Your materials** in Walls & floors; they
+show in 2D, 3D, the walkthrough, Photo Render, AR, Immersive View, the Overview and the cost takeoff (priced by kind).
+On a phone, Take a photo opens the camera app.
+
+### Shopping list
+Studio → **Shopping list**: every piece of furniture and decor in the plan, room by room (both floors), with quantities,
+sizes and an estimated price, and links that search real shops for each piece: Pepperfry, Urban Ladder, IKEA and Amazon
+in India; IKEA, Wayfair and Amazon in dollars or euros. Tick pieces off as bought (remembered on that device) to see what
+is left to spend, include or leave out the fitted kitchen and bathroom, and download it as a spreadsheet (CSV). Prices
+are estimates for a mid-range piece of the size drawn, not quotes.
 
 ### Kitchen & wardrobes
 Modular kitchens laid out along a kitchen's walls, clear of its doors: straight, L, parallel, U or L with an island; sink under a window, hob with a chimney, fridge and oven tower, wall cabinets above; 8 cabinet colours, 5 countertops, and a backsplash band. Wardrobes for bedrooms: hinged, sliding or mirrored, 6 finishes, the whole wall or a set width, on the best wall or one you pick. A plan preview shows the result first.
@@ -299,6 +323,7 @@ Arch-E-Tech/
 │   ├── export_cad.py            DXF (AutoCAD R12) export
 │   ├── sharing.py               Share links, client comments and approvals
 │   ├── options.py               Plan options kept side by side, and client votes
+│   ├── extras.py                Saved styles, front elevation, build progress, scanned materials, material identification
 │   ├── plan_import.py           Plan import routes (forwards drawings to the plan reader service)
 │   ├── export_plan_imports.py   Exports shared (consented) imports for retraining the reader
 │   └── requirements.txt
@@ -328,6 +353,8 @@ Arch-E-Tech/
 │   │   │   ├── SharedProject.jsx  The page behind a share link: view, comment, approve, vote
 │   │   │   ├── CompareOptions.jsx Compare options side by side
 │   │   │   ├── PhotoMatch.jsx     Match a photo: finishes from an inspiration photo
+│   │   │   ├── MaterialScan.jsx   Scan a material: camera or upload, identify, tile, lay on the house
+│   │   │   ├── ShoppingList.jsx   Furniture to buy, room by room, with shop links
 │   │   │   └── InfoTip.jsx        (i) explanations
 │   │   └── utils/
 │   │       ├── costs.js           Cost takeoff
@@ -340,6 +367,9 @@ Arch-E-Tech/
 │   │       ├── designStyles.js    Whole-house interior styles
 │   │       ├── photoPalette.js    A photo's colours matched to paints, floors, wood and styles
 │   │       ├── loan.js            EMI and loan limits
+│   │       ├── materialScan.js    Material recognition, seamless tiles, the scanned-materials library
+│   │       ├── materialReference.json 483 labelled material photos, measured, for recognition
+│   │       ├── shareI18n.js       The share page in English, Hindi, Kannada and Tamil
 │   │       ├── planSymbols.js, textureLibrary.js, wallTexture.js
 │   └── vite.config.js
 ├── ml/                          Plan reader: training data, model training, OCR, plan_reader service (see ml/README.md)

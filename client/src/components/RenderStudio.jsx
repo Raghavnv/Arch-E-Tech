@@ -8,6 +8,7 @@ import InfoTip from './InfoTip';
 import RoomCapture from './RoomCapture';
 import PhotoGallery from './PhotoGallery';
 import { formatArea, formatSize } from '../utils/units';
+import { registerMaterials } from '../utils/materialScan';
 
 /*
  * Photo Render: every room of the plan pictured twice. First the room itself, captured inside the 3D
@@ -188,6 +189,7 @@ export default function RenderStudio() {
           call(`/api/projects/${projectId}/renders`),
           call('/api/render/status'),
         ]);
+        await registerMaterials(proj.materials);
         setProject(proj);
         setEnabled(status.enabled);
         setStyleNames(status.styles || {});

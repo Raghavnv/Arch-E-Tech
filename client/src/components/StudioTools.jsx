@@ -8,6 +8,7 @@ import { formatArea, formatMoney, currencyCode, CURRENCY } from '../utils/units'
 import { downloadPlanSheet } from '../utils/planSheet';
 import { assessComfort, CITIES } from '../utils/comfort';
 import { lakh, rupees, emiOf, loanFor, ltvCap } from '../utils/loan';
+import { LANGUAGES } from '../utils/shareI18n';
 
 /*
  * The Studio's tool panels: Auto Detect (label the rooms your walls enclose), AI Layout (a new plan
@@ -35,7 +36,7 @@ async function post(url, body) {
   return data;
 }
 
-function Panel({ icon: Icon, title, info, onClose, wide, bottom, children }) {
+export function Panel({ icon: Icon, title, info, onClose, wide, bottom, children }) {
   // most tools open on the right; AI Edit sits along the bottom of the grid, under the plan
   const place = bottom
     ? 'bottom-6 left-[21rem] right-[calc(var(--dock,1.5rem)+4.5rem)] max-w-2xl max-h-[45%]'
@@ -838,6 +839,8 @@ export function SharePanel({ projectId, apiUrl, onClose }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(null);
+  const [lang, setLang] = useState(() => { try { return localStorage.getItem('archetech_share_link_lang') || 'en'; } catch { return 'en'; } });
+  const pickLang = (l) => { setLang(l); try { localStorage.setItem('archetech_share_link_lang', l); } catch { /* private mode */ } };
 
   const call = async (path, opts = {}) => {
     const res = await fetch(`${apiUrl}${path}`, { ...opts, headers: { ...authHeaders(), ...(opts.headers || {}) } });
@@ -853,7 +856,8 @@ export function SharePanel({ projectId, apiUrl, onClose }) {
     return () => clearTimeout(t);
   }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const linkOf = (token) => `${window.location.origin}/shared/${token}`;
+  // the link opens in the chosen language; the reader can still switch on the page
+  const linkOf = (token) => `${window.location.origin}/shared/${token}${lang !== 'en' ? `?lang=${lang}` : ''}`;
   const create = async () => {
     setBusy(true); setError(null);
     try {
@@ -891,6 +895,14 @@ export function SharePanel({ projectId, apiUrl, onClose }) {
         <button onClick={create} disabled={busy} className="btn-primary px-3 py-0 text-xs">
           {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'New link'}
         </button>
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <span className="text-[11px] text-zinc-500">Opens in</span>
+        <div className="flex flex-wrap gap-1">
+          {LANGUAGES.map(([code, label]) => (
+            <button key={code} onClick={() => pickLang(code)} className={`${lang === code ? 'chip-on' : 'chip'} px-2 py-0.5 text-[11px]`}>{label}</button>
+          ))}
+        </div>
       </div>
       {error && <ErrorLine>{error}</ErrorLine>}
       {latest && (

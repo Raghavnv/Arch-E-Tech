@@ -8,6 +8,7 @@ import { ArrowLeft, Footprints } from 'lucide-react';
 import { HouseModel, PLAN_SCALE, FirstPersonPlayer, useProcessedArchitecture } from './Canvas3D';
 import { footprint, slabPieces } from '../utils/roofShape';
 import Mark from './Mark';
+import { registerMaterials } from '../utils/materialScan';
 
 /*
  * Immersive View: the house on its own plot in an ordinary residential street. Lawn, compound wall
@@ -595,6 +596,7 @@ export default function ImmersiveView() {
     if (!projectId) { fromDraft(); return; }
     fetch(`${API_URL}/api/projects/${projectId}`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
       .then(r => (r.ok ? r.json() : Promise.reject()))
+      .then(async p => { await registerMaterials(p.materials); return p; })
       .then(p => { setElements((p.elements_data || []).filter(e => e && typeof e.type === 'string')); setName(p.name || ''); setFacade(p.facade || null); })
       .catch(fromDraft);
   }, [projectId]);

@@ -10,6 +10,7 @@ import { CATALOG, CATEGORIES, catalogItem } from '../utils/furnitureCatalog';
 import { drawSymbol } from '../utils/planSymbols';
 import { HouseModel } from './Canvas3D';
 import { formatArea, formatMoney, isImperial } from '../utils/units';
+import { registerMaterials } from '../utils/materialScan';
 
 /*
  * Room Designer: furnish one room yourself. Pick pieces from the catalogue, drag them where you want
@@ -160,6 +161,7 @@ export default function RoomDesigner() {
         if (!r.ok) throw new Error(r.status === 404 ? "This project doesn't exist any more." : `Couldn't load the project (${r.status}).`);
         return r.json();
       })
+      .then(async p => { await registerMaterials(p.materials); return p; })
       .then(setProject)
       .catch(e => setLoadError(e.message));
   }, [projectId, navigate]);

@@ -6,6 +6,8 @@
   PUT    /api/projects/{id}/facade            {"facade": {...}}
   GET    /api/projects/{id}/progress          the build's progress
   PUT    /api/projects/{id}/progress          {"progress": {...}}
+  PUT    /api/projects/{id}/materials         {"materials": [...]}  materials scanned from photos
+  POST   /api/ai/identify-material            {"image"} -> what the material is, when an AI key is set
 
 Sizes are capped: a style 64 KB, a facade 16 KB, progress 12 MB (site photos are small JPEGs).
 """
@@ -33,6 +35,27 @@ class FacadeIn(BaseModel):
 
 class ProgressIn(BaseModel):
     progress: dict
+
+
+class ScannedMaterial(BaseModel):
+    id: str = Field(pattern=r"^scan_[a-z0-9]{4,16}$")
+    name: str = Field(min_length=1, max_length=60)
+    kind: str = Field(max_length=20)
+    color: str = Field(default="#999999", max_length=9)
+    image: str = Field(max_length=400_000)
+    tile_m: float = Field(default=0.8, ge=0.1, le=5)
+    price: float | None = Field(default=None, ge=0, le=2000)
+
+
+class MaterialsIn(BaseModel):
+    materials: list[ScannedMaterial] = Field(max_length=30)
+
+
+class IdentifyIn(BaseModel):
+    image: str = Field(max_length=400_000)
+
+
+MATERIAL_KINDS = ["wood", "marble", "granite", "terrazzo", "stone", "brick", "terracotta", "concrete", "tile", "other"]
 
 
 def _size(obj) -> int:
@@ -89,5 +112,47 @@ def make_router(get_db, get_current_user, owned_project) -> APIRouter:
         project.progress = req.progress
         db.commit()
         return {"status": "success"}
+
+    @router.put("/api/projects/{project_id}/materials")
+    def set_materials(project_id: int, req: MaterialsIn, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+        project = owned_project(project_id, db, user)
+        for m in req.materials:
+            if not m.image.startswith("data:image/jpeg;base64,") and not m.image.startswith("data:image/png;base64,"):
+                raise HTTPException(400, "A material's picture must be a JPEG or PNG.")
+        project.materials = [m.model_dump() for m in req.materials]
+        db.commit()
+        return {"status": "success", "count": len(req.materials)}
+
+    @router.post("/api/ai/identify-material")
+    def identify_material(req: IdentifyIn):
+        """What a photographed material is, from a vision model. Without a GROQ_API_KEY it answers
+        {"source": "none"} and the Studio uses its own colour-and-texture reading."""
+        import os
+        key = os.getenv("GROQ_API_KEY")
+        if not key or not req.image.startswith("data:image/"):
+            return {"source": "none"}
+        try:
+            from groq import Groq
+            client = Groq(api_key=key, timeout=30)
+            res = client.chat.completions.create(
+                model=os.getenv("VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct"),
+                messages=[{"role": "user", "content": [
+                    {"type": "text", "text": (
+                        "This is a close-up photo of a building material sample. Answer with JSON only: "
+                        '{"kind": one of ' + json.dumps(MATERIAL_KINDS) + ', "name": a short shop-style name such as '
+                        '"Statuario marble", "Teak wood", "Black galaxy granite", "Kota stone", "Red wire-cut brick" '
+                        '(at most 4 words), "confidence": 0 to 1, "alternatives": up to 2 other likely kinds from the list}')},
+                    {"type": "image_url", "image_url": {"url": req.image}},
+                ]}],
+                response_format={"type": "json_object"}, temperature=0.1, max_tokens=200,
+            )
+            out = json.loads(res.choices[0].message.content or "{}")
+            kind = out.get("kind") if out.get("kind") in MATERIAL_KINDS else "other"
+            alts = [k for k in (out.get("alternatives") or []) if k in MATERIAL_KINDS and k != kind][:2]
+            return {"source": "ai", "kind": kind, "name": str(out.get("name") or "")[:60],
+                    "confidence": float(out.get("confidence") or 0), "alternatives": alts}
+        except Exception as e:                      # the Studio falls back to its own reading
+            print(f"identify-material failed: {e}")
+            return {"source": "none"}
 
     return router

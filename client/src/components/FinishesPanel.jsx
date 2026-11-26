@@ -3,7 +3,7 @@ import { Canvas } from '@react-three/fiber';
 import { Check, Eye, Paintbrush, Lamp, Pipette, Grid3x3, AppWindow } from 'lucide-react';
 import { WINDOW_FRAMES, WINDOW_TREATMENTS } from './Canvas3D';
 import InfoTip from './InfoTip';
-import { ARCHITECTURAL_TEXTURES, WOOD_FINISHES, PAINT_COLOURS, PLAIN_WALL, WALLPAPERS, CLADDING } from '../utils/textureLibrary';
+import { ARCHITECTURAL_TEXTURES, WOOD_FINISHES, PAINT_COLOURS, PLAIN_WALL, WALLPAPERS, CLADDING, SCANNED_WALLS } from '../utils/textureLibrary';
 import { FLOOR_FINISHES, floorSwatch } from '../utils/floorFinishes';
 import { formatMoney } from '../utils/units';
 import { CEILING_STYLES, LIGHT_TYPES, CEILING_COLOURS, RoomCeiling, RoomLight } from './Ceilings';
@@ -246,7 +246,7 @@ export default function FinishesPanel({ elements, floor, brush, setBrush, onPain
               </div>
             </div>
 
-            {[['WALLPAPER', WALLPAPERS], ['STONE CLADDING', CLADDING]].map(([title, list]) => (
+            {[['YOUR MATERIALS', SCANNED_WALLS], ['WALLPAPER', WALLPAPERS], ['STONE CLADDING', CLADDING]].filter(([, list]) => list.length).map(([title, list]) => (
               <div key={title}>
                 <p className="mb-1.5 label-caps">{title}</p>
                 <div className="grid grid-cols-3 gap-2">

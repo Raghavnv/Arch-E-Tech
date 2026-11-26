@@ -5,7 +5,7 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Menu, MousePointer2, Box, Home, PenTool, LayoutTemplate, 
   Settings, Save, FileText, ChevronRight, Calculator, CheckCircle, 
-  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen, FileUp, Compass, Ruler, PenLine, ShieldCheck, Share2, Zap, Sofa, HardHat, Clapperboard, Smartphone, Palette, ChefHat, ClipboardList, ListChecks, Landmark, Columns3, ImagePlus 
+  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen, FileUp, Compass, Ruler, PenLine, ShieldCheck, Share2, Zap, Sofa, HardHat, Clapperboard, Smartphone, Palette, ChefHat, ClipboardList, ListChecks, Landmark, Columns3, ImagePlus, ShoppingBag 
 } from 'lucide-react';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
@@ -19,6 +19,8 @@ import FittedModal from './FittedModal';
 import FacadeModal from './FacadeModal';
 import CompareOptions from './CompareOptions';
 import PhotoMatch from './PhotoMatch';
+import MaterialScan from './MaterialScan';
+import ShoppingList from './ShoppingList';
 import { applyFacade, DEFAULT_FACADE } from '../utils/facade';
 import { downloadFinishSchedule } from '../utils/finishSchedule';
 import { setSideRange } from '../utils/designStyles';
@@ -28,6 +30,7 @@ import Mark from './Mark';
 import { measurement, currencySymbol, currencyCode, CURRENCY, formatSize } from '../utils/units';
 import { computeCosts } from '../utils/costs';
 import { downloadPlanSheet } from '../utils/planSheet';
+import { registerMaterials } from '../utils/materialScan';
 
 
 // saved plans can contain empty or broken entries (older versions, interrupted saves); one of them used to
@@ -77,6 +80,8 @@ export default function Studio() {
   const [facadeOpen, setFacadeOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [photoOpen, setPhotoOpen] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
+  const [projectMaterials, setProjectMaterials] = useState([]);   // materials scanned from photos
   const [projectSite, setProjectSite] = useState(null);   // the plot, when the project has one   // what is selected on the 2D plan, for "edit this"
   const [smartSnap, setSmartSnap] = useState(() => localStorage.getItem('pref_smart_snap') === '1');
   const toggleSmartSnap = () => setSmartSnap(on => {
@@ -224,6 +229,9 @@ export default function Studio() {
         if (!res.ok) throw new Error(`Load failed (${res.status})`);
         const data = await res.json();
         if (!isMounted) return;
+        await registerMaterials(data.materials);         // scanned floors and walls, before the plan draws
+        if (!isMounted) return;
+        setProjectMaterials(data.materials || []);
         setProjectName(data.name || '');
         setProjectSite(data.site || null);
         setProjectFacade(data.facade || null);
@@ -782,6 +790,7 @@ export default function Studio() {
           <LoanPanel elements={canvasElements} projectId={projectId} apiUrl={API_URL} onClose={() => setToolPanel(null)}
             houseCost={costData.total / CURRENCY[currencyCode()].rate * CURRENCY.INR.rate} />
         )}
+        {toolPanel === 'shop' && <ShoppingList elements={canvasElements} projectId={projectId} projectName={projectName} onClose={() => setToolPanel(null)} />}
         {toolPanel === 'comfort' && <ComfortPanel elements={canvasElements} floor={activeFloor} north={northOf()} onClose={() => setToolPanel(null)} />}
         {toolPanel === 'materials' && (
           <MaterialsPanel elements={canvasElements} projectName={projectName} apiUrl={API_URL} onClose={() => setToolPanel(null)} />
@@ -1112,6 +1121,8 @@ export default function Studio() {
             onClick: () => setStyleOpen(true) },
           { id: 'photo', icon: ImagePlus, label: 'Match a photo', desc: 'Paint, floor and accents from a room you love', accent: true, disabled: !canvasElements.some(e => e.type === 'room'),
             onClick: () => setPhotoOpen(true) },
+          { id: 'scan', icon: ScanLine, label: 'Scan a material', desc: 'Photograph wood, marble, stone or tile and lay it on the house', accent: true,
+            disabled: !canvasElements.some(e => e.type === 'room'), onClick: () => setScanOpen(true) },
           { id: 'compare', icon: Columns3, label: 'Compare options', desc: 'Versions side by side; the client votes', disabled: !projectId,
             onClick: () => setCompareOpen(true) },
           { id: 'fitted', icon: ChefHat, label: 'Kitchen & wardrobes', desc: 'Modular kitchen and fitted wardrobes', disabled: !canvasElements.some(e => e.type === 'room'),
@@ -1135,6 +1146,8 @@ export default function Studio() {
           { id: 'cost', icon: Calculator, label: 'Cost takeoff', desc: `${money(costData.total)} estimated`, onClick: () => setShowCostModal(true) },
           { id: 'loan', icon: Landmark, label: 'Home loan & EMI', desc: 'Monthly EMI, what a bank would lend, payments while it is built', active: toolPanel === 'loan',
             disabled: !canvasElements.some(e => e.type === 'room'), onClick: () => setToolPanel(t => (t === 'loan' ? null : 'loan')) },
+          { id: 'shop', icon: ShoppingBag, label: 'Shopping list', desc: 'Every piece to buy, room by room, with shop links', active: toolPanel === 'shop',
+            disabled: !canvasElements.some(e => typeof e.type === 'string' && e.type.startsWith('furniture_')), onClick: () => setToolPanel(t => (t === 'shop' ? null : 'shop')) },
           { id: 'tracker', icon: ListChecks, label: 'Construction tracker', desc: 'Phases, spend against the estimate, site photos', disabled: !projectId,
             onClick: () => flushSave(`/tracker?projectId=${projectId}`) },
           { id: 'materials', icon: HardHat, label: 'Materials & schedule', desc: 'Cement, steel, bricks… and a build timeline', active: toolPanel === 'materials',
@@ -1271,6 +1284,8 @@ export default function Studio() {
       {videoOpen && <VideoTour projectId={projectId} elements={canvasElements} projectName={projectName} facade={projectFacade} onClose={() => setVideoOpen(false)} />}
       {compareOpen && <CompareOptions projectId={projectId} apiUrl={API_URL} elements={canvasElements} site={{ ...(projectSite || {}), north: northOf() }}
         onUse={(els) => { setCanvasElements(cleanElements(els)); setActiveFloor(1); }} onClose={() => setCompareOpen(false)} />}
+      {scanOpen && <MaterialScan projectId={projectId} apiUrl={API_URL} elements={canvasElements} setElements={(els) => setCanvasElements(cleanElements(els))}
+        materials={projectMaterials} setMaterials={setProjectMaterials} onClose={() => setScanOpen(false)} />}
       {photoOpen && <PhotoMatch elements={canvasElements} setElements={(els) => setCanvasElements(cleanElements(els))} onClose={() => setPhotoOpen(false)} />}
       {facadeOpen && <FacadeModal elements={canvasElements} facade={projectFacade} onClose={() => setFacadeOpen(false)}
         onSave={saveFacade} />}

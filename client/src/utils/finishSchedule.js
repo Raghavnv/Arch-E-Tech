@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import { formatArea, formatMoney } from './units';
 import { roomsAlong } from './designStyles';
-import { ARCHITECTURAL_TEXTURES, WOOD_FINISHES, WALLPAPERS, CLADDING, PAINT_COLOURS } from './textureLibrary';
+import { ARCHITECTURAL_TEXTURES, WOOD_FINISHES, WALLPAPERS, CLADDING, PAINT_COLOURS, SCANNED_WALLS } from './textureLibrary';
 import { FLOOR_BY_ID } from './floorFinishes';
 import { CEILING_STYLES, LIGHT_TYPES } from '../components/Ceilings';
 import { WINDOW_FRAMES, WINDOW_TREATMENTS } from '../components/Canvas3D';
@@ -36,7 +36,7 @@ function describe(f) {
   if (f.isColor) return { name: paintName(f.material), kind: 'paint', swatch: f.material };
   const id = f.material;
   const kind = /^wood_/.test(id) ? 'wood' : /^wp_/.test(id) ? 'wallpaper' : /^clad_/.test(id) ? 'cladding' : 'tile';
-  return { name: FINISH_NAMES[id] || 'Finish', kind, swatch: null };
+  return { name: FINISH_NAMES[id] || SCANNED_WALLS.find(t => t.id === id)?.name || 'Finish', kind, swatch: null };
 }
 
 /** What a room's walls carry: [{ name, kind, swatch, m2, band }], from its own side of each wall. */

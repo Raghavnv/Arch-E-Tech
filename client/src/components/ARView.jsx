@@ -7,6 +7,7 @@ import { USDZExporter } from 'three/examples/jsm/exporters/USDZExporter.js';
 import QRCode from 'qrcode';
 import { ArrowLeft, Box, Home, Loader2, Maximize, Move, RotateCcw, RotateCw, Smartphone, X } from 'lucide-react';
 import { HouseModel, PLAN_SCALE } from './Canvas3D';
+import { registerMaterials } from '../utils/materialScan';
 
 /*
  * AR view: the house in the real world through a phone's camera.
@@ -115,6 +116,7 @@ export default function ARView() {
         if (!r.ok) throw new Error("This project couldn't be loaded.");
         return r.json();
       })
+      .then(async p => { await registerMaterials(p.materials); return p; })
       .then(setProject)
       .catch(e => setError(e.message));
   }, [projectId, navigate]);

@@ -34,6 +34,8 @@ class Project(Base):
     progress = Column(JSON, nullable=True)
     # plan options kept side by side and the client's votes on them (see options.py)
     options = Column(JSON, nullable=True)
+    # materials scanned from photos: [{id, name, kind, color, image (JPEG data URL), tile_m, price}]
+    materials = Column(JSON, nullable=True)
     
     owner_id = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.datetime.utcnow)

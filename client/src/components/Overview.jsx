@@ -5,6 +5,7 @@ import Canvas3D from './Canvas3D';
 import Mark from './Mark';
 import { formatArea, formatSize, currencySymbol, currencyCode, CURRENCY } from '../utils/units';
 import { computeCosts } from '../utils/costs';
+import { registerMaterials } from '../utils/materialScan';
 
 /*
  * Overview: a full-screen presentation of a finished house that plays on its own: the title card,
@@ -271,7 +272,7 @@ export default function Overview() {
         return r.json();
       }),
       fetch(`${API_URL}/api/projects/${projectId}/renders`, { headers }).then(r => (r.ok ? r.json() : [])).catch(() => []),
-    ]).then(([p, list]) => { setProject(p); setRenders(list); }).catch(e => setError(e.message));
+    ]).then(async ([p, list]) => { await registerMaterials(p.materials); setProject(p); setRenders(list); }).catch(e => setError(e.message));
   }, [projectId, navigate]);
 
   const elements = useMemo(() => (project?.elements_data || []).filter(e => e && typeof e === 'object' && typeof e.type === 'string'), [project]);

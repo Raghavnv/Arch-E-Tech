@@ -289,6 +289,9 @@ export const PAINT_COLOURS = [
   { group: 'Greens', colours: [['Mint', '#cfe3d2'], ['Sage', '#a8b79c'], ['Olive', '#7d7f4f'], ['Forest', '#2f4a3a'], ['Pistachio', '#c4d39f'], ['Eucalyptus', '#7f9c8f']] },
 ];
 
+/** Materials the owner scanned from photos (see materialScan.js), as wall finishes: { id, name, color, url, tag }. */
+export const SCANNED_WALLS = [];
+
 export const PLAIN_WALL = { id: 'mat_plain', name: 'Plain', color: '#f4f4f5' };
 
 // -------------------------------------------------------------------------------------------

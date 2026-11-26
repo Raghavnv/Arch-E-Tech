@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import * as THREE from 'three';
-import { ARCHITECTURAL_TEXTURES, WOOD_FINISHES, WALLPAPERS, CLADDING } from './textureLibrary';
-const ALL_FINISHES = () => [...ARCHITECTURAL_TEXTURES, ...WOOD_FINISHES, ...WALLPAPERS, ...CLADDING];
+import { ARCHITECTURAL_TEXTURES, WOOD_FINISHES, WALLPAPERS, CLADDING, SCANNED_WALLS } from './textureLibrary';
+const ALL_FINISHES = () => [...ARCHITECTURAL_TEXTURES, ...WOOD_FINISHES, ...WALLPAPERS, ...CLADDING, ...SCANNED_WALLS];
 
 /*
  * Wall textures for the 3D views.
