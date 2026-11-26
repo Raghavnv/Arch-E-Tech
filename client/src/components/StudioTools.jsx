@@ -101,7 +101,7 @@ export function AutoDetectPanel({ elements, setElements, onClose }) {
               </li>
             ))}
           </ul>
-          <button onClick={add} className="mt-4 w-full rounded-lg bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-indigo-500">
+          <button onClick={add} className="btn-primary mt-4 w-full">
             Add {found.length} room{found.length > 1 ? 's' : ''} to the plan
           </button>
         </>
@@ -153,7 +153,7 @@ export function AiLayoutPanel({ elements, setElements, onClose, apiUrl }) {
       <button
         onClick={generate}
         disabled={busy}
-        className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+        className="btn-primary mt-3 w-full"
       >
         {busy ? <><Loader2 className="h-4 w-4 animate-spin" /> Designing the plan…</> : done ? 'Try another variation' : 'Generate plan'}
       </button>
@@ -262,7 +262,7 @@ export function ConceptVizPanel({ elements, projectId, onClose, apiUrl }) {
               placeholder={mode === 'cutaway' ? 'Optional: e.g. warm evening light, lots of plants' : 'Optional: e.g. sloped roof, stone cladding, a pool'}
               className="w-full resize-none rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-2 text-xs text-white placeholder:text-zinc-600 focus:border-indigo-500 focus:outline-none"
             />
-            <button onClick={generate} disabled={busy} className="rounded-lg bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50">
+            <button onClick={generate} disabled={busy} className="btn-primary">
               {image ? 'Render again' : 'Render concept'}
             </button>
             {image && (
@@ -351,7 +351,7 @@ export function EditPanel({ elements, setElements, selected, apiUrl, onClose }) 
       <button
         onClick={() => run()}
         disabled={busy || !text.trim()}
-        className="flex h-[60px] shrink-0 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-40"
+        className="btn-primary h-[60px] shrink-0"
       >
         {busy ? <><Loader2 className="h-4 w-4 animate-spin" /> Editing…</> : 'Apply'}
       </button>
@@ -425,7 +425,7 @@ export function RoomsPanel({ elements, setElements, onClose }) {
               );
             })}
           </ul>
-          <button onClick={apply} disabled={!changed} className="mt-4 w-full rounded-lg bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-40">
+          <button onClick={apply} disabled={!changed} className="btn-primary mt-4 w-full disabled:opacity-40">
             Save room names
           </button>
         </>
@@ -551,7 +551,7 @@ export function BudgetPanel({ elements, setElements, costs, projectId, apiUrl, o
       </div>
 
       <button onClick={analyse} disabled={!budget || busy}
-        className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-40">
+        className="btn-primary mt-4 w-full">
         {busy ? <><Loader2 className="h-4 w-4 animate-spin" /> Looking through the plan…</> : advice ? 'Look again' : gap > 0 ? 'Find where to save' : 'Find savings anyway'}
       </button>
       {error && <ErrorLine>{error}</ErrorLine>}
@@ -576,7 +576,7 @@ export function BudgetPanel({ elements, setElements, costs, projectId, apiUrl, o
                       <p className="mt-1 text-xs leading-relaxed text-zinc-400">{s.detail}</p>
                       {s.edit && (
                         <button onClick={() => apply(s, i)} disabled={applying !== null || applied.has(i)}
-                          className="mt-2 rounded-md border border-zinc-700 px-2.5 py-1 text-[11px] text-zinc-200 hover:bg-zinc-800 disabled:opacity-60">
+                          className="btn-secondary mt-2 px-2.5 py-1 text-[11px]">
                           {applied.has(i) ? <span className="flex items-center gap-1 text-emerald-300"><Check className="h-3 w-3" /> Applied to the plan</span>
                             : applying === i ? 'Changing the plan…' : 'Apply to plan'}
                         </button>
@@ -681,7 +681,7 @@ export function VastuPanel({ elements, site, projectId, apiUrl, onClose }) {
               </li>
             ))}
           </ul>
-          <button onClick={() => check()} className="mt-3 w-full rounded-lg border border-zinc-700 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800">
+          <button onClick={() => check()} className="btn-secondary mt-3 w-full py-1.5 text-xs">
             Check again
           </button>
           <p className="mt-2 text-[10px] leading-snug text-zinc-600">Rooms are placed in the 3 × 3 grid of directions by their centre. Guidance only.</p>
@@ -759,7 +759,7 @@ export function RulesPanel({ elements, site, projectId, apiUrl, onClose }) {
         </div>
       )}
       <button onClick={check} disabled={busy}
-        className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-100 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-white disabled:opacity-50">
+        className="btn-primary mt-3 w-full py-1.5 text-xs">
         {busy ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking…</> : 'Check the plan'}
       </button>
       {error && <ErrorLine>{error}</ErrorLine>}
@@ -771,7 +771,7 @@ export function RulesPanel({ elements, site, projectId, apiUrl, onClose }) {
           </p>
           {groups.map(g => (
             <div key={g} className="mt-3">
-              <p className="font-mono text-[10px] tracking-[0.2em] text-zinc-500">{g.toUpperCase()}</p>
+              <p className="label-caps">{g.toUpperCase()}</p>
               <ul className="mt-1.5 space-y-2">
                 {report.checks.filter(c => c.group === g).map((c, i) => (
                   <li key={i} className="rounded-lg border border-zinc-800 bg-zinc-900 p-2.5">
@@ -851,7 +851,7 @@ export function SharePanel({ projectId, apiUrl, onClose }) {
       <div className="mt-3 flex gap-2">
         <input value={label} onChange={(e) => setLabel(e.target.value)} onKeyDown={(e) => e.stopPropagation()} maxLength={80}
           placeholder="Who is it for? (optional)" className="min-w-0 flex-1 rounded bg-zinc-900 px-2 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-        <button onClick={create} disabled={busy} className="rounded bg-zinc-100 px-3 text-xs font-semibold text-zinc-950 hover:bg-white disabled:opacity-50">
+        <button onClick={create} disabled={busy} className="btn-primary px-3 py-0 text-xs">
           {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'New link'}
         </button>
       </div>
@@ -864,7 +864,7 @@ export function SharePanel({ projectId, apiUrl, onClose }) {
       )}
       {data && (
         <>
-          <p className="mt-4 font-mono text-[10px] tracking-[0.2em] text-zinc-500">LINKS</p>
+          <p className="mt-4 label-caps">LINKS</p>
           {data.shares.length === 0 && <p className="mt-1 text-xs text-zinc-500">No links yet.</p>}
           <ul className="mt-1.5 space-y-1.5">
             {data.shares.map(s => (
@@ -880,7 +880,7 @@ export function SharePanel({ projectId, apiUrl, onClose }) {
               </li>
             ))}
           </ul>
-          <p className="mt-4 font-mono text-[10px] tracking-[0.2em] text-zinc-500">COMMENTS</p>
+          <p className="mt-4 label-caps">COMMENTS</p>
           {data.comments.length === 0 && <p className="mt-1 text-xs text-zinc-500">None yet.</p>}
           <ul className="mt-1.5 space-y-1.5">
             {data.comments.map(c => (
@@ -947,7 +947,7 @@ export function ServicesPanel({ elements, floor, projectName, site, north, apiUr
             <ServicesPreview elements={onFloor} points={here} />
           </div>
           <div>
-            <p className="font-mono text-[10px] tracking-[0.2em] text-zinc-500">{floor === 1 ? 'GROUND FLOOR' : `FLOOR ${floor}`} · WHOLE HOUSE</p>
+            <p className="label-caps">{floor === 1 ? 'GROUND FLOOR' : `FLOOR ${floor}`} · WHOLE HOUSE</p>
             <ul className="mt-2 space-y-1">
               {Object.entries(data.counts).map(([type, n]) => (
                 <li key={type} className="flex items-center justify-between text-xs">
@@ -961,10 +961,10 @@ export function ServicesPanel({ elements, floor, projectName, site, north, apiUr
               <div className="mt-1 flex justify-between"><span className="text-zinc-400">Plumbing points</span><span className="text-zinc-100">{formatMoney(cost('plumbing'))}</span></div>
               <p className="mt-1.5 text-[10px] leading-snug text-zinc-500">Rough wiring and piping cost per point; fittings and fixtures extra.</p>
             </div>
-            <button onClick={download} className="mt-3 w-full rounded-lg bg-zinc-100 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-white">
+            <button onClick={download} className="btn-primary mt-3 w-full py-1.5 text-xs">
               Download drawings (PDF)
             </button>
-            <button onClick={run} className="mt-2 w-full rounded-lg border border-zinc-700 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800">Lay out again</button>
+            <button onClick={run} className="btn-secondary mt-2 w-full py-1.5 text-xs">Lay out again</button>
             <p className="mt-2 text-[10px] leading-snug text-zinc-600">A starting point following common practice, for your electrician and plumber to confirm.</p>
           </div>
         </div>
@@ -1090,8 +1090,8 @@ export function MaterialsPanel({ elements, projectName, apiUrl, onClose }) {
               <button key={id} onClick={() => setTab(id)} className={`-mb-px border-b-2 px-3 py-1.5 ${tab === id ? 'border-zinc-100 text-white' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}>{label}</button>
             ))}
             <span className="ml-auto flex gap-1.5 pb-1">
-              <button onClick={() => setEditing(e => !e)} className="rounded-md border border-zinc-700 px-2 py-1 text-[11px] text-zinc-200 hover:bg-zinc-800">{editing ? 'Close prices' : 'My prices'}</button>
-              <button onClick={csv} className="flex items-center gap-1 rounded-md bg-zinc-100 px-2 py-1 text-[11px] font-semibold text-zinc-950 hover:bg-white"><Download className="h-3 w-3" /> CSV</button>
+              <button onClick={() => setEditing(e => !e)} className="btn-secondary px-2 py-1 text-[11px]">{editing ? 'Close prices' : 'My prices'}</button>
+              <button onClick={csv} className="btn-primary gap-1 px-2 py-1 text-[11px]"><Download className="h-3 w-3" /> CSV</button>
             </span>
           </div>
 
@@ -1112,7 +1112,7 @@ export function MaterialsPanel({ elements, projectName, apiUrl, onClose }) {
                 </label>
               </div>
               <div className="mt-2 flex gap-2">
-                <button onClick={applyRates} className="rounded-md bg-zinc-100 px-3 py-1 text-[11px] font-semibold text-zinc-950">Recalculate</button>
+                <button onClick={applyRates} className="btn-primary px-3 py-1 text-[11px]">Recalculate</button>
                 <button onClick={resetRates} className="rounded-md border border-zinc-700 px-3 py-1 text-[11px] text-zinc-300">Use defaults</button>
               </div>
             </div>
@@ -1183,7 +1183,7 @@ function Gantt({ data }) {
                 {Array.from({ length: months }).map((_, m) => (
                   <span key={m} className="absolute inset-y-0 w-px bg-zinc-800" style={{ left: `${(m * 30.4 / total) * 100}%` }} />
                 ))}
-                <span className="absolute inset-y-0.5 rounded-sm bg-gradient-to-r from-amber-500/80 to-orange-500/80"
+                <span className="absolute inset-y-0.5 rounded-sm bg-indigo-500/80"
                   style={{ left: `${(p.start_day / total) * 100}%`, width: `${Math.max(1, (p.days / total) * 100)}%` }}
                   title={`Day ${p.start_day + 1}–${p.start_day + p.days}`} />
               </span>
@@ -1250,7 +1250,7 @@ export function ComfortPanel({ elements, floor, north, onClose }) {
                         <div key={k} className="rounded bg-zinc-900 py-1"><p className="text-[9px] text-zinc-500">{k}</p><p className="font-semibold" style={{ color: scoreTone(v) }}>{v}</p></div>
                       ))}
                     </div>
-                    <ul className="space-y-1">{r.tips.map((t, i) => <li key={i} className="flex gap-1.5"><span className="text-orange-300">›</span>{t}</li>)}</ul>
+                    <ul className="space-y-1">{r.tips.map((t, i) => <li key={i} className="flex gap-1.5"><span className="text-indigo-400">›</span>{t}</li>)}</ul>
                   </div>
                 )}
               </li>
@@ -1258,7 +1258,7 @@ export function ComfortPanel({ elements, floor, north, onClose }) {
           </ul>
         </div>
         <div>
-          <p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">{floor === 1 ? 'GROUND FLOOR' : `FLOOR ${floor}`}</p>
+          <p className="mb-1.5 label-caps">{floor === 1 ? 'GROUND FLOOR' : `FLOOR ${floor}`}</p>
           <svg viewBox={`${x0 - pad} ${y0 - pad} ${x1 - x0 + 2 * pad} ${y1 - y0 + 2 * pad}`} className="w-full rounded-lg bg-zinc-900/60">
             {rooms.map(r => {
               const c = byId[r.id];

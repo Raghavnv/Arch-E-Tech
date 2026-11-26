@@ -241,7 +241,7 @@ export default function ImportPlanModal({ onClose, mode = 'new', floorLabel = 't
             {error && <p className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-200">{error}</p>}
             <div className="flex justify-end">
               <button onClick={read} disabled={!file || step === 'reading' || configured === false}
-                className="flex items-center gap-2 rounded-full bg-zinc-100 px-5 py-2 text-sm font-semibold text-zinc-950 transition-colors hover:bg-white disabled:opacity-40">
+                className="btn-primary px-5 py-2">
                 {step === 'reading' ? <><Loader2 className="h-4 w-4 animate-spin" /> Reading the plan…</> : 'Read plan'}
               </button>
             </div>
@@ -257,18 +257,18 @@ export default function ImportPlanModal({ onClose, mode = 'new', floorLabel = 't
             </div>
             <div className="flex flex-col gap-4 overflow-y-auto border-t border-zinc-800 p-4 md:border-l md:border-t-0">
               <div>
-                <p className="font-mono text-[10px] tracking-[0.2em] text-zinc-500">FOUND</p>
+                <p className="label-caps">FOUND</p>
                 <p className="mt-1 text-sm text-zinc-200">
                   {counts.rooms} rooms · {counts.walls} walls · {counts.doors} doors · {counts.windows} windows
                 </p>
                 <p className="mt-1 text-xs text-zinc-500">About {formatArea(totalArea)} of rooms</p>
               </div>
               <div>
-                <p className="font-mono text-[10px] tracking-[0.2em] text-zinc-500">SCALE</p>
+                <p className="label-caps">SCALE</p>
                 <p className="mt-1 text-xs text-zinc-400">{scaleNote}</p>
                 {!measuring ? (
                   <button onClick={() => { setMeasuring(true); setPoints([]); }}
-                    className="mt-2 flex items-center gap-2 rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800">
+                    className="btn-secondary mt-2 gap-2 px-3 py-1.5 text-xs">
                     <Ruler className="h-3.5 w-3.5" /> Measure a known length
                   </button>
                 ) : (
@@ -282,7 +282,7 @@ export default function ImportPlanModal({ onClose, mode = 'new', floorLabel = 't
                         <input autoFocus type="number" min="0" step="0.1" value={lengthText}
                           onChange={(e) => setLengthText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') applyScale(); }}
                           className="w-full rounded bg-zinc-950 px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-                        <button onClick={applyScale} className="rounded bg-zinc-100 px-2.5 text-xs font-semibold text-zinc-950">Set</button>
+                        <button onClick={applyScale} className="btn-primary px-2.5 py-0 text-xs">Set</button>
                       </div>
                     )}
                     <button onClick={() => { setMeasuring(false); setPoints([]); }} className="text-[11px] text-zinc-500 hover:text-zinc-300">Cancel</button>
@@ -290,7 +290,7 @@ export default function ImportPlanModal({ onClose, mode = 'new', floorLabel = 't
                 )}
               </div>
               <div>
-                <p className="font-mono text-[10px] tracking-[0.2em] text-zinc-500">ORIGINAL DRAWING</p>
+                <p className="label-caps">ORIGINAL DRAWING</p>
                 <input type="range" min="0" max="1" step="0.05" value={drawingOpacity}
                   onChange={(e) => setDrawingOpacity(Number(e.target.value))} className="mt-2 w-full accent-indigo-500" />
               </div>
@@ -301,11 +301,11 @@ export default function ImportPlanModal({ onClose, mode = 'new', floorLabel = 't
               {error && <p className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-200">{error}</p>}
               <div className="mt-auto flex gap-2">
                 <button onClick={() => setStep('pick')} disabled={step === 'saving'}
-                  className="flex-1 rounded-full border border-zinc-700 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800 disabled:opacity-40">
+                  className="btn-secondary flex-1 px-3 py-2 text-xs">
                   Back
                 </button>
                 <button onClick={accept} disabled={step === 'saving'}
-                  className="flex flex-[2] items-center justify-center gap-1.5 rounded-full bg-zinc-100 px-3 py-2 text-xs font-semibold text-zinc-950 hover:bg-white disabled:opacity-60">
+                  className="btn-primary flex-[2] px-3 py-2 text-xs">
                   {step === 'saving' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                   {mode === 'replace' ? `Use on ${floorLabel}` : 'Create project'}
                 </button>

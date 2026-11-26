@@ -47,7 +47,7 @@ function Preview({ elements, room }) {
 }
 
 const Chip = ({ on, onClick, children, title }) => (
-  <button title={title} onClick={onClick} className={`rounded-lg border px-2 py-1.5 text-left text-[11px] ${on ? 'border-amber-400/60 bg-amber-500/10 text-white' : 'border-zinc-800 text-zinc-300 hover:border-zinc-600'}`}>{children}</button>
+  <button title={title} onClick={onClick} className={`${on ? 'chip-on' : 'chip'}`}>{children}</button>
 );
 const Dots = ({ list, value, onChange }) => (
   <div className="flex flex-wrap gap-1.5">
@@ -88,7 +88,7 @@ export default function FittedModal({ elements, onApply, onClose }) {
         <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto p-5 md:grid-cols-[1fr_300px]">
           <div className="space-y-3">
             <div>
-              <p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">ROOM</p>
+              <p className="mb-1.5 label-caps">ROOM</p>
               <div className="flex flex-wrap gap-1">
                 {list.map(r => <Chip key={r.id} on={room?.id === r.id} onClick={() => { setRoomId(r.id); setDone(''); }}>{r.name}</Chip>)}
                 {!list.length && <p className="text-xs text-zinc-500">This plan has no {tab === 'kitchen' ? 'kitchen' : 'bedroom'} yet.</p>}
@@ -97,31 +97,31 @@ export default function FittedModal({ elements, onApply, onClose }) {
             {tab === 'kitchen' ? (
               <>
                 <div>
-                  <p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">LAYOUT</p>
+                  <p className="mb-1.5 label-caps">LAYOUT</p>
                   <div className="grid grid-cols-3 gap-1.5">{KITCHEN_LAYOUTS.map(l => <Chip key={l.id} title={l.desc} on={k.layout === l.id} onClick={() => setK({ ...k, layout: l.id })}>{l.name}</Chip>)}</div>
                 </div>
-                <div><p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">CABINETS</p><Dots list={CABINET_FINISHES} value={k.cabinet} onChange={v => setK({ ...k, cabinet: v })} /></div>
-                <div><p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">COUNTERTOP</p><Dots list={COUNTERTOPS} value={k.counter} onChange={v => setK({ ...k, counter: v })} /></div>
+                <div><p className="mb-1.5 label-caps">CABINETS</p><Dots list={CABINET_FINISHES} value={k.cabinet} onChange={v => setK({ ...k, cabinet: v })} /></div>
+                <div><p className="mb-1.5 label-caps">COUNTERTOP</p><Dots list={COUNTERTOPS} value={k.counter} onChange={v => setK({ ...k, counter: v })} /></div>
                 <div>
-                  <p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">BACKSPLASH</p>
+                  <p className="mb-1.5 label-caps">BACKSPLASH</p>
                   <div className="grid grid-cols-4 gap-1.5">{BACKSPLASHES.map(([n, v]) => <Chip key={n} on={k.backsplash === v} onClick={() => setK({ ...k, backsplash: v })}>{n}</Chip>)}</div>
                 </div>
                 <div className="flex flex-wrap gap-3 text-xs text-zinc-300">
                   {[['fridge', 'Fridge'], ['tower', 'Oven & microwave tower'], ['dishwasher', 'Dishwasher']].map(([key, label]) => (
-                    <label key={key} className="flex items-center gap-1.5"><input type="checkbox" className="accent-orange-500" checked={k[key]} onChange={() => setK({ ...k, [key]: !k[key] })} /> {label}</label>
+                    <label key={key} className="flex items-center gap-1.5"><input type="checkbox" className="accent-indigo-500" checked={k[key]} onChange={() => setK({ ...k, [key]: !k[key] })} /> {label}</label>
                   ))}
                 </div>
               </>
             ) : (
               <>
-                <div><p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">DOORS</p><div className="grid grid-cols-3 gap-1.5">{WARDROBE_STYLES.map(s => <Chip key={s.id} on={wd.style === s.id} onClick={() => setWd({ ...wd, style: s.id })}>{s.name}</Chip>)}</div></div>
-                <div><p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">FINISH</p><Dots list={WARDROBE_FINISHES} value={wd.finish} onChange={v => setWd({ ...wd, finish: v })} /></div>
+                <div><p className="mb-1.5 label-caps">DOORS</p><div className="grid grid-cols-3 gap-1.5">{WARDROBE_STYLES.map(s => <Chip key={s.id} on={wd.style === s.id} onClick={() => setWd({ ...wd, style: s.id })}>{s.name}</Chip>)}</div></div>
+                <div><p className="mb-1.5 label-caps">FINISH</p><Dots list={WARDROBE_FINISHES} value={wd.finish} onChange={v => setWd({ ...wd, finish: v })} /></div>
                 <div>
-                  <p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">WIDTH</p>
+                  <p className="mb-1.5 label-caps">WIDTH</p>
                   <div className="grid grid-cols-4 gap-1.5">{[['full', 'Whole wall'], ['1.8', '1.8 m'], ['2.4', '2.4 m'], ['3', '3 m']].map(([v, n]) => <Chip key={v} on={wd.width === v} onClick={() => setWd({ ...wd, width: v })}>{n}</Chip>)}</div>
                 </div>
                 <div>
-                  <p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">WALL</p>
+                  <p className="mb-1.5 label-caps">WALL</p>
                   <div className="grid grid-cols-5 gap-1.5">{[['auto', 'Best'], ['N', 'Top'], ['S', 'Bottom'], ['W', 'Left'], ['E', 'Right']].map(([v, n]) => <Chip key={v} on={wd.wall === v} onClick={() => setWd({ ...wd, wall: v })}>{n}</Chip>)}</div>
                 </div>
               </>
@@ -131,7 +131,7 @@ export default function FittedModal({ elements, onApply, onClose }) {
             {room && <Preview elements={result?.elements || elements} room={room} />}
             {result?.why && <p className="text-[11px] text-amber-200">{result.why}</p>}
             <p className="text-[11px] text-zinc-400">{result?.count || 0} {tab === 'kitchen' ? 'modules' : 'sections'} · about {formatMoney(cost)}</p>
-            <button onClick={apply} disabled={!result?.count} className="w-full rounded-xl bg-gradient-to-r from-orange-400 to-rose-500 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-40">
+            <button onClick={apply} disabled={!result?.count} className="btn-primary w-full">
               Put it in {room?.name || 'the room'}
             </button>
             {done && <p className="flex items-start gap-1.5 text-[11px] text-emerald-300"><Check className="mt-0.5 h-3 w-3 shrink-0" /> {done}</p>}

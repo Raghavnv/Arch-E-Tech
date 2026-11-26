@@ -263,13 +263,13 @@ export default function ARView() {
               </div>
 
               {xrOK ? (
-                <button onClick={startAR} className="flex items-center justify-center gap-2 rounded-xl bg-zinc-100 px-5 py-3 text-sm font-semibold text-zinc-950">
+                <button onClick={startAR} className="btn-primary px-5 py-3">
                   <Smartphone className="h-4 w-4" /> Start AR
                 </button>
               ) : ios ? (
                 usdz && !busy ? (
                   <a rel="ar" href={`${usdz}#allowsContentScaling=${mode === 'model' ? 1 : 0}`}
-                    className="flex items-center justify-center gap-2 rounded-xl bg-zinc-100 px-5 py-3 text-sm font-semibold text-zinc-950">
+                    className="btn-primary px-5 py-3">
                     {/* Quick Look opens only from a link that holds an image */}
                     <img src={qr || 'data:image/gif;base64,R0lGODlhAQABAAAAACw='} alt="" className="hidden" />
                     <Smartphone className="h-4 w-4" /> Open in AR

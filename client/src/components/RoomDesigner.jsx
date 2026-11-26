@@ -512,7 +512,7 @@ export default function RoomDesigner() {
       <header className="flex flex-wrap items-center gap-3 border-b border-zinc-800 px-4 py-2.5">
         <button onClick={() => go(`/studio?projectId=${projectId}`)} className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white" title="Back to Studio"><ArrowLeft className="h-4 w-4" /></button>
         <div className="min-w-0">
-          <p className="font-mono text-[10px] tracking-[0.25em] text-zinc-500">ROOM DESIGNER</p>
+          <p className="label-caps">ROOM DESIGNER</p>
           <select value={room.id} onChange={(e) => switchRoom(e.target.value)} className="-ml-1 rounded bg-transparent text-sm font-semibold text-zinc-100 focus:outline-none">
             {rooms.map(r => <option key={r.id} value={r.id} className="bg-zinc-900">{r.name}{(r.floor || 1) > 1 ? ` (floor ${r.floor})` : ''}</option>)}
           </select>
@@ -526,11 +526,11 @@ export default function RoomDesigner() {
           <button onClick={undo} disabled={history.at === 0} title="Undo (Ctrl/Cmd+Z)" className="rounded-lg p-1.5 text-zinc-300 hover:bg-zinc-800 disabled:opacity-30"><Undo2 className="h-4 w-4" /></button>
           <button onClick={redo} disabled={history.at >= history.list.length - 1} title="Redo (Ctrl/Cmd+Shift+Z)" className="rounded-lg p-1.5 text-zinc-300 hover:bg-zinc-800 disabled:opacity-30"><Redo2 className="h-4 w-4" /></button>
           <button onClick={() => go(`/render-studio?projectId=${projectId}&room=${encodeURIComponent(room.id)}`)}
-            className="flex items-center gap-1.5 rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800" title="Save, then make a photo of this room with your furniture">
+            className="btn-secondary gap-1.5 px-3 py-1.5 text-xs" title="Save, then make a photo of this room with your furniture">
             <Sparkles className="h-3.5 w-3.5" /> Make it a photo
           </button>
           <button onClick={saveRoom} disabled={save === 'saving' || save === 'saved'}
-            className="flex items-center gap-1.5 rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-white disabled:opacity-60">
+            className="btn-primary px-3 py-1.5 text-xs">
             {save === 'saving' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : save === 'saved' ? <Check className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
             {save === 'saved' ? 'Saved' : save === 'saving' ? 'Saving…' : 'Save room'}
           </button>
@@ -590,7 +590,7 @@ export default function RoomDesigner() {
         <aside className="w-72 shrink-0 overflow-y-auto border-l border-zinc-800 p-4">
           {sel ? (
             <div>
-              <p className="font-mono text-[10px] tracking-[0.2em] text-zinc-500">SELECTED</p>
+              <p className="label-caps">SELECTED</p>
               <p className="mt-1 text-sm font-medium">{selItem?.name || sel.type.replace('furniture_', '')}</p>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 {[['w', 'Width'], ['d', 'Depth']].map(([key, label]) => (
@@ -604,7 +604,7 @@ export default function RoomDesigner() {
               <p className="mt-2 text-[10px] text-zinc-500">Height {selItem ? (imperial ? `${(selItem.h * 3.28084).toFixed(1)} ft` : `${selItem.h.toFixed(2)} m`) : '—'} · facing {Math.round(sel.angle)}°</p>
               <div className="mt-3 flex gap-1.5">
                 {[[-90, <RotateCcw key="a" className="h-3.5 w-3.5" />, '90°'], [-15, null, '15°'], [15, null, '15°'], [90, <RotateCw key="b" className="h-3.5 w-3.5" />, '90°']].map(([by, icon, label], i) => (
-                  <button key={i} onClick={() => rotate(sel.id, by)} className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-zinc-700 py-1 text-[10px] text-zinc-200 hover:bg-zinc-800" title={`Turn ${by > 0 ? 'right' : 'left'} ${Math.abs(by)}°`}>
+                  <button key={i} onClick={() => rotate(sel.id, by)} className="btn-secondary flex-1 gap-1 py-1 text-[10px]" title={`Turn ${by > 0 ? 'right' : 'left'} ${Math.abs(by)}°`}>
                     {icon || (by > 0 ? '↻' : '↺')} {label}
                   </button>
                 ))}
@@ -627,7 +627,7 @@ export default function RoomDesigner() {
                 </p>
               )}
               <div className="mt-3 flex gap-1.5">
-                <button onClick={() => duplicate(sel.id)} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-zinc-700 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800"><Copy className="h-3.5 w-3.5" /> Duplicate</button>
+                <button onClick={() => duplicate(sel.id)} className="btn-secondary flex-1 gap-1.5 py-1.5 text-xs"><Copy className="h-3.5 w-3.5" /> Duplicate</button>
                 <button onClick={() => remove(sel.id)} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-rose-500/40 py-1.5 text-xs text-rose-200 hover:bg-rose-500/10"><Trash2 className="h-3.5 w-3.5" /> Remove</button>
               </div>
             </div>
@@ -636,7 +636,7 @@ export default function RoomDesigner() {
           )}
 
           <div className="mt-6 border-t border-zinc-800 pt-4">
-            <p className="font-mono text-[10px] tracking-[0.2em] text-zinc-500">THIS ROOM</p>
+            <p className="label-caps">THIS ROOM</p>
             <dl className="mt-2 space-y-1 text-xs">
               <div className="flex justify-between"><dt className="text-zinc-400">Pieces</dt><dd>{items.length}</dd></div>
               <div className="flex justify-between"><dt className="text-zinc-400">Furniture cost</dt><dd>{formatMoney(cost)}</dd></div>

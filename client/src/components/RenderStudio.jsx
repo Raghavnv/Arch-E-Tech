@@ -484,7 +484,7 @@ export default function RenderStudio() {
                       <button
                         onClick={() => makeEmpty(room)}
                         disabled={!!roomBusy}
-                        className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-zinc-200 disabled:opacity-40"
+                        className="btn-primary py-2"
                       >
                         <Camera className="h-4 w-4" /> Capture from 3D house
                       </button>
@@ -527,7 +527,7 @@ export default function RenderStudio() {
                   <button
                     onClick={() => furnish(room)}
                     disabled={!enabled || !shot?.empty_image || !!roomBusy}
-                    className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-40"
+                    className="btn-primary py-2"
                   >
                     <Sparkles className="h-4 w-4" /> {shot?.furnished_image ? 'Furnish again' : 'Furnish this room'}
                   </button>
@@ -535,7 +535,7 @@ export default function RenderStudio() {
                     <button
                       onClick={() => makeEmpty(room)}
                       disabled={!!roomBusy}
-                      className="flex items-center gap-2 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800 disabled:opacity-40"
+                      className="btn-secondary gap-2 px-3 py-2 text-sm"
                       title="Captures the room again from the 3D house; the furnished picture is cleared because it would no longer match"
                     >
                       <RefreshCw className="h-4 w-4" /> Capture again
@@ -543,19 +543,19 @@ export default function RenderStudio() {
                   )}
                   {room.furnished && shot?.empty_source !== 'model_furnished' && (
                     <button onClick={() => makeEmpty(room, true)} disabled={!!roomBusy}
-                      className="flex items-center gap-2 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800 disabled:opacity-40"
+                      className="btn-secondary gap-2 px-3 py-2 text-sm"
                       title="Captures the room with the furniture you placed, so the AI makes your own arrangement real">
                       <Camera className="h-4 w-4" /> Capture with my furniture
                     </button>
                   )}
                   <Link to={`/room-designer?projectId=${projectId}&room=${encodeURIComponent(room.key)}`}
-                    className="flex items-center gap-2 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800">
+                    className="btn-secondary gap-2 px-3 py-2 text-sm">
                     <Sofa className="h-4 w-4" /> Design it myself
                   </Link>
                   <button
                     onClick={() => fileRef.current?.click()}
                     disabled={!!roomBusy}
-                    className="flex items-center gap-2 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800 disabled:opacity-40"
+                    className="btn-secondary gap-2 px-3 py-2 text-sm"
                   >
                     <Upload className="h-4 w-4" /> Use my own photo
                   </button>

@@ -127,7 +127,7 @@ export default function ConstructionTracker() {
       <header className="sticky top-0 z-20 flex flex-wrap items-center gap-3 border-b border-zinc-800 bg-zinc-950/90 px-5 py-3 backdrop-blur">
         <Link to={`/studio?projectId=${projectId}`} className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white"><ArrowLeft className="h-4 w-4" /></Link>
         <div>
-          <p className="font-mono text-[10px] tracking-[0.25em] text-zinc-500">CONSTRUCTION TRACKER</p>
+          <p className="label-caps">CONSTRUCTION TRACKER</p>
           <p className="text-sm font-semibold">{project.name}</p>
         </div>
         <label className="ml-auto flex items-center gap-2 text-xs text-zinc-400">Work started
@@ -143,7 +143,7 @@ export default function ConstructionTracker() {
           <div className="rounded-xl border border-zinc-800 p-4">
             <p className="text-[11px] text-zinc-500">Built so far</p>
             <p className="mt-1 text-2xl font-semibold">{stats.pct}%</p>
-            <div className="mt-2 h-1.5 rounded-full bg-zinc-800"><div className="h-full rounded-full bg-gradient-to-r from-orange-400 to-rose-500" style={{ width: `${stats.pct}%` }} /></div>
+            <div className="mt-2 h-1.5 rounded-full bg-zinc-800"><div className="h-full rounded-full bg-indigo-500" style={{ width: `${stats.pct}%` }} /></div>
             <p className="mt-1.5 text-[10px] text-zinc-500">The plan says {stats.plannedPct}% by today</p>
           </div>
           <div className="rounded-xl border border-zinc-800 p-4">
@@ -165,7 +165,7 @@ export default function ConstructionTracker() {
 
         {/* the timeline: planned bars, coloured by status, with today */}
         <section className="rounded-xl border border-zinc-800 p-4">
-          <p className="mb-3 font-mono text-[10px] tracking-[0.15em] text-zinc-500">TIMELINE</p>
+          <p className="mb-3 label-caps">TIMELINE</p>
           <div className="relative space-y-1">
             {stats.elapsed > 0 && stats.elapsed < plan.total_days && (
               <div className="pointer-events-none absolute inset-y-0 z-10 w-px bg-rose-400" style={{ left: `calc(35% + ${(stats.elapsed / plan.total_days) * 65}%)` }}>
@@ -218,11 +218,11 @@ export default function ConstructionTracker() {
                     <div className="grid gap-3 sm:grid-cols-2">
                       <label className="text-[11px] text-zinc-400">Spent on this phase (₹)
                         <input type="number" min="0" value={s.spent ?? ''} onChange={(e) => setPhase(p.key, { spent: e.target.value === '' ? undefined : Number(e.target.value) })}
-                          className="mt-1 w-full rounded-lg bg-zinc-900 px-2.5 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-orange-500" />
+                          className="mt-1 w-full rounded-lg bg-zinc-900 px-2.5 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-indigo-500" />
                       </label>
                       <label className="text-[11px] text-zinc-400">Notes
                         <textarea rows={2} value={s.notes || ''} onChange={(e) => setPhase(p.key, { notes: e.target.value })} placeholder="Contractor, delays, what was used…"
-                          className="mt-1 w-full rounded-lg bg-zinc-900 px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-orange-500" />
+                          className="mt-1 w-full rounded-lg bg-zinc-900 px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500" />
                       </label>
                     </div>
                     <div>

@@ -52,7 +52,7 @@ export default function DesignStyleModal({ elements, onApply, onClose, onSee }) 
       <div className="flex max-h-[92vh] w-[min(940px,100%)] flex-col rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl">
         <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-3">
           <div>
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-white"><Sparkles className="h-4 w-4 text-orange-300" /> Design my house</h3>
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-white"><Sparkles className="h-4 w-4 text-indigo-400" /> Design my house</h3>
             <p className="text-[11px] text-zinc-500">One style for every room: wall colours and a feature wall, floors, ceilings and lights, and decor. Undo (Ctrl/Cmd+Z) takes it back.</p>
           </div>
           <button onClick={onClose} className="rounded p-1 text-zinc-500 hover:bg-zinc-800 hover:text-white"><X className="h-4 w-4" /></button>
@@ -60,9 +60,9 @@ export default function DesignStyleModal({ elements, onApply, onClose, onSee }) 
 
         <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-5 md:grid-cols-[1fr_17rem]">
           <div className="grid grid-cols-2 content-start gap-3 sm:grid-cols-3">
-            {mine.length > 0 && <p className="col-span-full font-mono text-[10px] tracking-[0.15em] text-orange-300/90">YOUR STYLES</p>}
+            {mine.length > 0 && <p className="col-span-full label-caps">YOUR STYLES</p>}
             {mine.map(s => (
-              <div key={s.id} className={`relative overflow-hidden rounded-xl border text-left ${styleId === s.id ? 'border-orange-400/70 ring-2 ring-orange-400/30' : 'border-zinc-800'}`}>
+              <div key={s.id} className={`relative overflow-hidden rounded-xl border text-left ${styleId === s.id ? 'border-indigo-500 ring-1 ring-indigo-500/40' : 'border-zinc-800'}`}>
                 <button onClick={() => { setStyleId(s.id); setDone(null); }} className="block w-full text-left">
                   <div className="flex h-10">{(s.swatch || []).map((c, i) => <span key={i} className="flex-1" style={{ background: c }} />)}</div>
                   <div className="p-2.5"><p className="text-xs font-semibold text-white">{s.name}</p><p className="text-[10px] text-zinc-500">Saved from a house</p></div>
@@ -70,10 +70,10 @@ export default function DesignStyleModal({ elements, onApply, onClose, onSee }) 
                 <button onClick={() => removeStyle(s)} title="Delete this style" className="absolute right-1.5 top-1.5 rounded bg-black/60 p-1 text-zinc-300 hover:text-rose-300"><Trash2 className="h-3 w-3" /></button>
               </div>
             ))}
-            {mine.length > 0 && <p className="col-span-full mt-1 font-mono text-[10px] tracking-[0.15em] text-zinc-500">BUILT IN</p>}
+            {mine.length > 0 && <p className="col-span-full mt-1 label-caps">BUILT IN</p>}
             {DESIGN_STYLES.map(s => (
               <button key={s.id} onClick={() => { setStyleId(s.id); setDone(null); }}
-                className={`overflow-hidden rounded-xl border text-left transition ${styleId === s.id ? 'border-orange-400/70 ring-2 ring-orange-400/30' : 'border-zinc-800 hover:border-zinc-600'}`}>
+                className={`overflow-hidden rounded-xl border text-left transition ${styleId === s.id ? 'border-indigo-500 ring-1 ring-indigo-500/40' : 'border-zinc-800 hover:border-zinc-600'}`}>
                 <div className="flex h-14">
                   {s.swatch.map((c, i) => <span key={i} className="flex-1" style={{ background: c }} />)}
                 </div>
@@ -87,7 +87,7 @@ export default function DesignStyleModal({ elements, onApply, onClose, onSee }) 
 
           <div className="space-y-3">
             <div className="rounded-xl border border-zinc-800 p-3 text-[11px]">
-              <p className="font-mono text-[10px] tracking-[0.15em] text-zinc-500">{style.name.toUpperCase()}</p>
+              <p className="label-caps">{style.name.toUpperCase()}</p>
               <dl className="mt-2 space-y-1.5 text-zinc-300">
                 <div><dt className="text-zinc-500">Living room</dt><dd>{FLOOR_BY_ID[style.floors.living || style.floors.default]?.name} floor · {nameOf(CEILING_STYLES, living('living')[0])} · {nameOf(LIGHT_TYPES, living('living')[1])}</dd></div>
                 <div><dt className="text-zinc-500">Master bedroom</dt><dd>{FLOOR_BY_ID[style.floors.master_bedroom || style.floors.default]?.name} floor · {nameOf(CEILING_STYLES, living('master_bedroom')[0])} · {nameOf(LIGHT_TYPES, living('master_bedroom')[1])}</dd></div>
@@ -98,13 +98,13 @@ export default function DesignStyleModal({ elements, onApply, onClose, onSee }) 
             <div className="space-y-1.5">
               {[['walls', 'Walls: colours and a feature wall'], ['floors', 'Floors'], ['ceilings', 'Ceilings and lights'], ['decor', 'Decor: rugs, plants, lamps, wall art']].map(([k, label]) => (
                 <label key={k} className="flex items-center gap-2 text-xs text-zinc-300">
-                  <input type="checkbox" checked={parts[k]} onChange={() => toggle(k)} className="accent-orange-500" /> {label}
+                  <input type="checkbox" checked={parts[k]} onChange={() => toggle(k)} className="accent-indigo-500" /> {label}
                 </label>
               ))}
             </div>
             <button onClick={apply} disabled={!Object.values(parts).some(Boolean)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-400 to-rose-500 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-40">
-              <Paintbrush className="h-4 w-4" /> Design the house in {style.name}
+              className="btn-primary w-full">
+              <Paintbrush className="h-4 w-4" /> Apply {style.name}
             </button>
             {done && (
               <div className="rounded-lg bg-emerald-500/10 p-2.5 text-[11px] text-emerald-200">
@@ -119,7 +119,7 @@ export default function DesignStyleModal({ elements, onApply, onClose, onSee }) 
               <div className="mt-2 flex gap-1.5">
                 <input value={saveName} onChange={(e) => setSaveName(e.target.value)} placeholder="Name it" maxLength={80}
                   className="min-w-0 flex-1 rounded-lg bg-zinc-900 px-2 py-1.5 text-xs text-white placeholder:text-zinc-600 focus:outline-none" />
-                <button onClick={saveStyle} className="flex items-center gap-1 rounded-lg border border-zinc-700 px-2.5 text-xs text-zinc-200 hover:bg-zinc-800"><Save className="h-3.5 w-3.5" /> Save</button>
+                <button onClick={saveStyle} className="btn-secondary gap-1 px-2.5 text-xs"><Save className="h-3.5 w-3.5" /> Save</button>
               </div>
               {saveMsg && <p className="mt-1.5 text-[10px] text-emerald-300">{saveMsg}</p>}
             </div>

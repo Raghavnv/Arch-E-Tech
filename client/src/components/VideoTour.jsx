@@ -263,27 +263,27 @@ export default function VideoTour({ projectId, elements, projectName, onClose, f
           {!busy && state !== 'done' && (
             <>
               <button disabled={state === 'loading' || !site} onClick={() => start(true)}
-                className="flex items-center gap-1.5 rounded-lg bg-zinc-100 px-3.5 py-2 text-xs font-semibold text-zinc-950 hover:bg-white disabled:opacity-50">
+                className="btn-primary px-3.5 py-2 text-xs">
                 <span className="h-2.5 w-2.5 rounded-full bg-red-600" /> Record video
               </button>
               <button disabled={state === 'loading' || !site} onClick={() => start(false)}
-                className="flex items-center gap-1.5 rounded-lg border border-zinc-700 px-3 py-2 text-xs text-zinc-200 hover:bg-zinc-800 disabled:opacity-50">
+                className="btn-secondary gap-1.5 px-3 py-2 text-xs">
                 <Play className="h-3.5 w-3.5" /> Preview
               </button>
             </>
           )}
           {busy && (
-            <button onClick={stop} className="flex items-center gap-1.5 rounded-lg border border-zinc-700 px-3 py-2 text-xs text-zinc-200 hover:bg-zinc-800">
+            <button onClick={stop} className="btn-secondary gap-1.5 px-3 py-2 text-xs">
               <Square className="h-3.5 w-3.5" /> Stop
             </button>
           )}
           {state === 'done' && video && (
             <>
-              <a href={video.url} download={fileName} className="flex items-center gap-1.5 rounded-lg bg-zinc-100 px-3.5 py-2 text-xs font-semibold text-zinc-950 hover:bg-white">
+              <a href={video.url} download={fileName} className="btn-primary px-3.5 py-2 text-xs">
                 <Download className="h-3.5 w-3.5" /> Download ({(video.blob.size / 1e6).toFixed(1)} MB, {video.ext.toUpperCase()})
               </a>
-              {canShare && <button onClick={share} className="flex items-center gap-1.5 rounded-lg border border-zinc-700 px-3 py-2 text-xs text-zinc-200 hover:bg-zinc-800"><Share2 className="h-3.5 w-3.5" /> Share</button>}
-              <button onClick={() => { setState('ready'); setVideo(null); }} className="rounded-lg border border-zinc-700 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800">Record again</button>
+              {canShare && <button onClick={share} className="btn-secondary gap-1.5 px-3 py-2 text-xs"><Share2 className="h-3.5 w-3.5" /> Share</button>}
+              <button onClick={() => { setState('ready'); setVideo(null); }} className="btn-secondary px-3 py-2 text-xs">Record again</button>
             </>
           )}
           <span className="ml-auto text-[10px] text-zinc-600">Keep this tab open while it records; it plays in real time.</span>

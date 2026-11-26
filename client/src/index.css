@@ -31,6 +31,26 @@
   --color-indigo-950: #351a10;
 }
 
+/* Buttons and choices inside every feature, in the front page's style: a bone main button with dark
+   text, quiet charcoal secondary buttons, and terracotta (the "indigo" scale) marking what is selected. */
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-md bg-zinc-200 px-4 py-2.5 text-sm font-semibold text-zinc-950 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-zinc-200;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs font-medium text-zinc-200 transition-colors hover:border-zinc-500 hover:bg-zinc-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .chip {
+    @apply rounded-md border border-zinc-800 px-2 py-1.5 text-left text-[11px] text-zinc-300 transition-colors hover:border-zinc-600 hover:bg-zinc-900;
+  }
+  .chip-on {
+    @apply rounded-md border border-indigo-500/70 bg-indigo-500/10 px-2 py-1.5 text-left text-[11px] text-white;
+  }
+  .label-caps {
+    @apply text-[10px] font-bold uppercase tracking-widest text-zinc-500;
+  }
+}
+
 /* landing: lines that draw themselves, and content that settles in */
 @keyframes draw { to { stroke-dashoffset: 0; } }
 .draw-in { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 1.6s cubic-bezier(.65,0,.35,1) forwards; }

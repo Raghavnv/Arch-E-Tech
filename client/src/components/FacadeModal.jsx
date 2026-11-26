@@ -13,14 +13,14 @@ import {
  * balcony railings, the gate, the compound wall and outdoor lights, previewed on the house's own street.
  */
 const Chip = ({ on, onClick, children }) => (
-  <button onClick={onClick} className={`rounded-lg border px-2 py-1.5 text-left text-[11px] ${on ? 'border-amber-400/60 bg-amber-500/10 text-white' : 'border-zinc-800 text-zinc-300 hover:border-zinc-600'}`}>{children}</button>
+  <button onClick={onClick} className={`${on ? 'chip-on' : 'chip'}`}>{children}</button>
 );
 const Dots = ({ list, value, onChange }) => (
   <div className="flex flex-wrap gap-1.5">
     {list.map(([name, hex]) => <button key={name} title={name} onClick={() => onChange(hex)} style={{ background: hex }} className={`h-6 w-6 rounded-full border-2 ${value === hex ? 'border-indigo-400' : 'border-zinc-700'}`} />)}
   </div>
 );
-const Label = ({ children }) => <p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">{children}</p>;
+const Label = ({ children }) => <p className="mb-1.5 label-caps">{children}</p>;
 
 export default function FacadeModal({ elements, facade: start, onSave, onClose }) {
   const [f, setF] = useState(() => ({ ...DEFAULT_FACADE, ...(start || {}) }));
@@ -35,7 +35,7 @@ export default function FacadeModal({ elements, facade: start, onSave, onClose }
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
       <div className="flex max-h-[94vh] w-[min(1100px,100%)] flex-col rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl">
         <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-3">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-white"><Home className="h-4 w-4 text-orange-300" /> Front elevation</h3>
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-white"><Home className="h-4 w-4 text-indigo-400" /> Front elevation</h3>
           <button onClick={onClose} className="rounded p-1 text-zinc-500 hover:bg-zinc-800 hover:text-white"><X className="h-4 w-4" /></button>
         </div>
         <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 lg:grid-cols-[1fr_300px]">
@@ -98,11 +98,11 @@ export default function FacadeModal({ elements, facade: start, onSave, onClose }
               <Label>OUTDOOR LIGHTS</Label>
               <div className="space-y-1 text-xs text-zinc-300">
                 {[['sconces', 'Wall lights by the door'], ['bollards', 'Bollards along the path'], ['uplights', 'Uplights on the front']].map(([k, n]) => (
-                  <label key={k} className="flex items-center gap-2"><input type="checkbox" className="accent-orange-500" checked={!!f.lights?.[k]} onChange={() => set({ lights: { ...f.lights, [k]: !f.lights?.[k] } })} /> {n}</label>
+                  <label key={k} className="flex items-center gap-2"><input type="checkbox" className="accent-indigo-500" checked={!!f.lights?.[k]} onChange={() => set({ lights: { ...f.lights, [k]: !f.lights?.[k] } })} /> {n}</label>
                 ))}
               </div>
             </div>
-            <button onClick={() => { onSave(f); setDone(true); }} className="w-full rounded-xl bg-gradient-to-r from-orange-400 to-rose-500 py-2.5 text-sm font-semibold text-white hover:brightness-110">Use this front</button>
+            <button onClick={() => { onSave(f); setDone(true); }} className="btn-primary w-full">Use this front</button>
             {done && <p className="flex items-center gap-1.5 text-[11px] text-emerald-300"><Check className="h-3 w-3" /> Saved. It shows in 3D, the Immersive View, photos, the video and AR.</p>}
           </div>
         </div>

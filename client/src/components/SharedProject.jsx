@@ -24,9 +24,9 @@ function BuildProgress({ progress }) {
     <div className="mt-5 rounded-2xl border border-zinc-800 p-4">
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium">Build progress</p>
-        <p className="text-sm font-semibold text-orange-300">{pct}%</p>
+        <p className="text-sm font-semibold text-indigo-300">{pct}%</p>
       </div>
-      <div className="mt-2 h-1.5 rounded-full bg-zinc-800"><div className="h-full rounded-full bg-gradient-to-r from-orange-400 to-rose-500" style={{ width: `${pct}%` }} /></div>
+      <div className="mt-2 h-1.5 rounded-full bg-zinc-800"><div className="h-full rounded-full bg-indigo-500" style={{ width: `${pct}%` }} /></div>
       <ul className="mt-3 grid gap-1 sm:grid-cols-2">
         {phases.map(p => (
           <li key={p.key} className="flex items-center gap-2 text-[11px]">
@@ -116,7 +116,7 @@ export default function SharedProject() {
         <div className="flex items-center gap-3">
           <Mark className="h-7 w-7" />
           <div>
-            <p className="font-mono text-[10px] tracking-[0.25em] text-zinc-500">SHARED PLAN{data.shared_by ? ` · FROM ${data.shared_by.toUpperCase()}` : ''}</p>
+            <p className="label-caps">SHARED PLAN{data.shared_by ? ` · FROM ${data.shared_by.toUpperCase()}` : ''}</p>
             <h1 className="text-lg font-semibold">{data.name || 'Untitled home'}</h1>
           </div>
         </div>
@@ -171,7 +171,7 @@ export default function SharedProject() {
             <div className="mt-2 flex items-center justify-between">
               {room ? <button onClick={() => setRoom(null)} className="text-[11px] text-zinc-500 hover:text-zinc-300">Comment on the whole plan instead</button> : <span />}
               <button onClick={sendComment} disabled={!body.trim() || !!busy}
-                className="flex items-center gap-1.5 rounded-full bg-zinc-100 px-4 py-1.5 text-xs font-semibold text-zinc-950 disabled:opacity-40">
+                className="btn-primary px-4 py-1.5 text-xs">
                 {busy === 'comment' && <Loader2 className="h-3 w-3 animate-spin" />} Send
               </button>
             </div>
@@ -196,7 +196,7 @@ export default function SharedProject() {
           {formError && <p className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-200">{formError}</p>}
 
           <div>
-            <p className="font-mono text-[10px] tracking-[0.2em] text-zinc-500">COMMENTS</p>
+            <p className="label-caps">COMMENTS</p>
             {data.comments.length === 0 && <p className="mt-2 text-xs text-zinc-500">No comments yet.</p>}
             <ul className="mt-2 space-y-2">
               {[...data.comments].reverse().map(c => (

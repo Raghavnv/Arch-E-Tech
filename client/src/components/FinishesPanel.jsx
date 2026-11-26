@@ -60,7 +60,7 @@ function WindowsTab({ rooms, onSetWindows }) {
   return (
     <div className="custom-scrollbar space-y-3 overflow-y-auto p-3">
       <div>
-        <p className="mb-1.5 flex items-center justify-between font-mono text-[10px] tracking-[0.15em] text-zinc-500">
+        <p className="mb-1.5 flex items-center justify-between label-caps">
           ROOMS <button onClick={() => setPicked(picked.length === rooms.length ? [] : rooms.map(r => r.id))} className="font-sans text-[10px] normal-case tracking-normal text-indigo-300">{picked.length === rooms.length ? 'None' : 'All'}</button>
         </p>
         <div className="flex flex-wrap gap-1">
@@ -71,26 +71,26 @@ function WindowsTab({ rooms, onSetWindows }) {
         </div>
       </div>
       <div>
-        <p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">FRAMES</p>
+        <p className="mb-1.5 label-caps">FRAMES</p>
         <div className="grid grid-cols-2 gap-1.5">
           {Object.entries(WINDOW_FRAMES).map(([id, f]) => (
-            <button key={id} onClick={() => setFrame(id)} className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 text-[11px] ${frame === id ? 'border-amber-400/60 bg-amber-500/10 text-white' : 'border-zinc-800 text-zinc-300'}`}>
+            <button key={id} onClick={() => setFrame(id)} className={`flex items-center gap-2 ${frame === id ? 'chip-on' : 'chip'}`}>
               <span className="h-3.5 w-3.5 rounded-sm border border-zinc-600" style={{ background: f.color }} /> {f.name}
             </button>
           ))}
         </div>
       </div>
       <div>
-        <p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">CURTAINS & BLINDS</p>
+        <p className="mb-1.5 label-caps">CURTAINS & BLINDS</p>
         <div className="grid grid-cols-2 gap-1.5">
           {WINDOW_TREATMENTS.map(t => (
-            <button key={t.id} onClick={() => setTreatment(t.id)} className={`rounded-lg border px-2 py-1.5 text-left text-[11px] ${treatment === t.id ? 'border-amber-400/60 bg-amber-500/10 text-white' : 'border-zinc-800 text-zinc-300'}`}>{t.name}</button>
+            <button key={t.id} onClick={() => setTreatment(t.id)} className={`${treatment === t.id ? 'chip-on' : 'chip'}`}>{t.name}</button>
           ))}
         </div>
       </div>
       {treatment !== 'none' && (
         <div>
-          <p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">FABRIC</p>
+          <p className="mb-1.5 label-caps">FABRIC</p>
           <div className="flex flex-wrap gap-1.5">
             {FABRICS.map(([name, hex]) => (
               <button key={hex} title={name} onClick={() => setFabric(hex)} style={{ background: hex }} className={`h-6 w-6 rounded-full border-2 ${fabric === hex ? 'border-indigo-400' : 'border-zinc-700'}`} />
@@ -98,7 +98,7 @@ function WindowsTab({ rooms, onSetWindows }) {
           </div>
         </div>
       )}
-      <button onClick={apply} className="w-full rounded-lg bg-zinc-100 py-2 text-xs font-semibold text-zinc-950 hover:bg-white">Apply to the windows of {picked.length || 'the picked'} room{picked.length === 1 ? '' : 's'}</button>
+      <button onClick={apply} className="btn-primary w-full py-2 text-xs">Apply to the windows of {picked.length || 'the picked'} room{picked.length === 1 ? '' : 's'}</button>
       {done && <p className="flex items-start gap-1.5 text-[11px] text-emerald-300"><Check className="mt-0.5 h-3 w-3 shrink-0" /> {done}</p>}
     </div>
   );
@@ -117,7 +117,7 @@ function FloorsTab({ rooms, onSetFlooring }) {
   return (
     <div className="custom-scrollbar space-y-3 overflow-y-auto p-3">
       <div>
-        <p className="mb-1.5 flex items-center justify-between font-mono text-[10px] tracking-[0.15em] text-zinc-500">
+        <p className="mb-1.5 flex items-center justify-between label-caps">
           ROOMS <button onClick={() => setPicked(picked.length === rooms.length ? [] : rooms.map(r => r.id))} className="font-sans text-[10px] normal-case tracking-normal text-indigo-300">{picked.length === rooms.length ? 'None' : 'All'}</button>
         </p>
         <div className="flex flex-wrap gap-1">
@@ -134,7 +134,7 @@ function FloorsTab({ rooms, onSetFlooring }) {
       {done && <p className="flex items-start gap-1.5 text-[11px] text-emerald-300"><Check className="mt-0.5 h-3 w-3 shrink-0" /> {done}</p>}
       {groups.map(g => (
         <div key={g}>
-          <p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">{g.toUpperCase()}</p>
+          <p className="mb-1.5 label-caps">{g.toUpperCase()}</p>
           <div className="grid grid-cols-3 gap-2">
             {FLOOR_FINISHES.filter(f => f.group === g).map(f => (
               <Swatch key={f.id} title={`${f.name} · ${formatMoney(f.price)}/m²`} onClick={() => apply(f)} style={{ background: f.color }}>
@@ -145,7 +145,7 @@ function FloorsTab({ rooms, onSetFlooring }) {
           </div>
         </div>
       ))}
-      <button onClick={() => apply(null)} className="w-full rounded-lg border border-zinc-700 py-1.5 text-[11px] text-zinc-300 hover:bg-zinc-800">Back to the standard floor</button>
+      <button onClick={() => apply(null)} className="btn-secondary w-full py-1.5 text-[11px]">Back to the standard floor</button>
     </div>
   );
 }
@@ -201,7 +201,7 @@ export default function FinishesPanel({ elements, floor, brush, setBrush, onPain
             {brush && (
               <div className="mt-2 space-y-1.5">
                 <div className="flex gap-1.5">
-                  <button onClick={onPaintAll} className="flex-1 rounded-lg bg-indigo-600 py-1.5 text-[11px] font-semibold text-white hover:bg-indigo-500">Every wall</button>
+                  <button onClick={onPaintAll} className="btn-primary flex-1 py-1.5 text-[11px]">Every wall</button>
                   <button onClick={() => setBrush(null)} className="rounded-lg bg-zinc-800 px-3 py-1.5 text-[11px] text-zinc-200 hover:bg-zinc-700">Done</button>
                 </div>
                 <div className="flex gap-1.5">
@@ -209,7 +209,7 @@ export default function FinishesPanel({ elements, floor, brush, setBrush, onPain
                     <option value="">Walls of one room…</option>
                     {rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                   </select>
-                  <button disabled={!accentRoom} onClick={() => onPaintRoom(accentRoom)} className="rounded-lg border border-zinc-700 px-3 py-1.5 text-[11px] text-zinc-200 hover:bg-zinc-800 disabled:opacity-40">Apply</button>
+                  <button disabled={!accentRoom} onClick={() => onPaintRoom(accentRoom)} className="btn-secondary px-3 py-1.5 text-[11px]">Apply</button>
                 </div>
               </div>
             )}
@@ -217,7 +217,7 @@ export default function FinishesPanel({ elements, floor, brush, setBrush, onPain
           <div className="custom-scrollbar space-y-4 overflow-y-auto p-3">
             {PAINT_COLOURS.map(g => (
               <div key={g.group}>
-                <p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">{g.group.toUpperCase()}</p>
+                <p className="mb-1.5 label-caps">{g.group.toUpperCase()}</p>
                 <div className="grid grid-cols-6 gap-1.5">
                   {g.colours.map(([name, hex]) => (
                     <Swatch key={hex} title={name} active={brush?.id === `paint_${hex}`} onClick={() => setBrush(brush?.id === `paint_${hex}` ? null : { id: `paint_${hex}`, name, color: hex })}
@@ -235,7 +235,7 @@ export default function FinishesPanel({ elements, floor, brush, setBrush, onPain
             </label>
 
             <div>
-              <p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">WOOD PANELLING</p>
+              <p className="mb-1.5 label-caps">WOOD PANELLING</p>
               <div className="grid grid-cols-3 gap-2">
                 {WOOD_FINISHES.map(m => (
                   <Swatch key={m.id} title={`${m.name} · ${m.tag}`} active={brush?.id === m.id} onClick={() => setBrush(brush?.id === m.id ? null : m)} style={{ background: m.color }}>
@@ -248,7 +248,7 @@ export default function FinishesPanel({ elements, floor, brush, setBrush, onPain
 
             {[['WALLPAPER', WALLPAPERS], ['STONE CLADDING', CLADDING]].map(([title, list]) => (
               <div key={title}>
-                <p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">{title}</p>
+                <p className="mb-1.5 label-caps">{title}</p>
                 <div className="grid grid-cols-3 gap-2">
                   {list.map(m => (
                     <Swatch key={m.id} title={m.name} active={brush?.id === m.id} onClick={() => setBrush(brush?.id === m.id ? null : m)} style={{ background: m.color }}>
@@ -261,7 +261,7 @@ export default function FinishesPanel({ elements, floor, brush, setBrush, onPain
             ))}
 
             <div>
-              <p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">STONE, TILE & PLASTER</p>
+              <p className="mb-1.5 label-caps">STONE, TILE & PLASTER</p>
               <div className="grid grid-cols-3 gap-2">
                 {[PLAIN_WALL, ...ARCHITECTURAL_TEXTURES].map(m => (
                   <Swatch key={m.id} title={m.name} active={brush?.id === m.id} onClick={() => setBrush(brush?.id === m.id ? null : m)} style={{ background: m.color || '#333' }}>
@@ -280,7 +280,7 @@ export default function FinishesPanel({ elements, floor, brush, setBrush, onPain
           </div>
 
           <div>
-            <p className="mb-1.5 flex items-center justify-between font-mono text-[10px] tracking-[0.15em] text-zinc-500">
+            <p className="mb-1.5 flex items-center justify-between label-caps">
               ROOMS <button onClick={() => setPicked(picked.length === rooms.length ? [] : rooms.map(r => r.id))} className="font-sans text-[10px] normal-case tracking-normal text-indigo-300 hover:text-indigo-200">{picked.length === rooms.length ? 'None' : 'All'}</button>
             </p>
             <div className="flex flex-wrap gap-1">
@@ -295,29 +295,29 @@ export default function FinishesPanel({ elements, floor, brush, setBrush, onPain
           </div>
 
           <div>
-            <p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">CEILING</p>
+            <p className="mb-1.5 label-caps">CEILING</p>
             <div className="grid grid-cols-2 gap-1.5">
               {CEILING_STYLES.map(s => (
                 <button key={s.id} onClick={() => setStyle(s.id)} title={s.desc}
-                  className={`rounded-lg border px-2 py-1.5 text-left text-[11px] ${style === s.id ? 'border-amber-400/60 bg-amber-500/10 text-white' : 'border-zinc-800 text-zinc-300 hover:border-zinc-600'}`}>
+                  className={`${style === s.id ? 'chip-on' : 'chip'}`}>
                   {s.name}
                 </button>
               ))}
             </div>
           </div>
           <div>
-            <p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">LIGHT</p>
+            <p className="mb-1.5 label-caps">LIGHT</p>
             <div className="grid grid-cols-2 gap-1.5">
               {LIGHT_TYPES.map(l => (
                 <button key={l.id} onClick={() => setLight(l.id)} title={l.desc}
-                  className={`rounded-lg border px-2 py-1.5 text-left text-[11px] ${light === l.id ? 'border-amber-400/60 bg-amber-500/10 text-white' : 'border-zinc-800 text-zinc-300 hover:border-zinc-600'}`}>
+                  className={`${light === l.id ? 'chip-on' : 'chip'}`}>
                   {l.name}
                 </button>
               ))}
             </div>
           </div>
           <div>
-            <p className="mb-1.5 font-mono text-[10px] tracking-[0.15em] text-zinc-500">CEILING COLOUR</p>
+            <p className="mb-1.5 label-caps">CEILING COLOUR</p>
             <div className="flex gap-1.5">
               {CEILING_COLOURS.map(([name, hex]) => (
                 <button key={hex} title={name} onClick={() => setColor(hex)} style={{ background: hex }}
@@ -327,11 +327,11 @@ export default function FinishesPanel({ elements, floor, brush, setBrush, onPain
           </div>
 
           <button onClick={apply} disabled={!chosen.length}
-            className="w-full rounded-lg bg-zinc-100 py-2 text-xs font-semibold text-zinc-950 hover:bg-white disabled:opacity-40">
+            className="btn-primary w-full py-2 text-xs">
             {chosen.length ? `Apply to ${chosen.length === 1 ? first.name : `${chosen.length} rooms`}` : 'Pick rooms above to apply'}
           </button>
           {applied && <p className="flex items-start gap-1.5 text-[11px] text-emerald-300"><Check className="mt-0.5 h-3 w-3 shrink-0" /> {applied}.</p>}
-          <button onClick={onWalk} className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-zinc-700 py-1.5 text-[11px] text-zinc-200 hover:bg-zinc-800">
+          <button onClick={onWalk} className="btn-secondary w-full gap-1.5 py-1.5 text-[11px]">
             <Eye className="h-3.5 w-3.5" /> {roofOff ? 'Put the roof on and walk through' : 'Walk through to see it'}
           </button>
           <p className="text-[10px] leading-snug text-zinc-600">Ceilings show from inside: in the walkthrough, in Photo Render captures and the video tour. Costs are added to the takeoff.</p>
