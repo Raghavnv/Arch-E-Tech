@@ -751,71 +751,13 @@ export default function Studio() {
       </aside>
 
       {/* Main Canvas Area */}
-      <main id="studio-canvas-container" className="flex-1 relative bg-zinc-950 flex flex-col" style={{ '--dock': dockOpen ? '18.5rem' : '3.25rem' }}>
+      <main id="studio-canvas-container" className="flex-1 relative bg-zinc-950 flex flex-col" style={{ '--dock': '1rem' }}>
         {!leftOpen && (
           <button onClick={() => setLeftOpen(true)} title="Show the tools panel"
             className="absolute left-4 top-6 z-30 flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950/90 px-3 py-2 text-xs text-zinc-300 shadow-xl backdrop-blur-xl hover:text-white">
             <PanelLeftOpen className="h-4 w-4" /> Tools
           </button>
         )}
-        <FeatureDock open={dockOpen} setOpen={setDockOpen} groups={[
-          { title: 'VIEW', items: [
-            { id: 'walk', icon: Eye, label: 'Walkthrough', desc: 'Walk the rooms at eye level', info: 'walkthrough', active: walkthroughMode && activeTab === '3D',
-              onClick: () => { setActiveTab('3D'); setWalkthroughMode(true); } },
-            { id: 'immersive', icon: Trees, label: 'Immersive View', desc: 'The house on its street', info: 'immersive',
-              onClick: () => flushSave(projectId ? `/immersive?projectId=${projectId}` : '/immersive') },
-            { id: 'ar', icon: Smartphone, label: 'View in AR', desc: 'The house on your phone camera, model or life size', disabled: !projectId,
-              onClick: () => flushSave(`/ar?projectId=${projectId}`) },
-            { id: 'video', icon: Clapperboard, label: 'Video tour', desc: 'A film of the house to send', disabled: !canvasElements.some(e => e.type === 'room'),
-              onClick: () => setVideoOpen(true) },
-            { id: 'facade', icon: Home, label: 'Front elevation', desc: 'Exterior paint, cladding, roof, gate and lights', disabled: !canvasElements.some(e => e.type === 'room'),
-              onClick: () => setFacadeOpen(true) },
-            { id: 'designer', icon: Sofa, label: 'Room Designer', desc: 'Furnish a room yourself', disabled: !projectId,
-              onClick: () => flushSave(`/room-designer?projectId=${projectId}`) },
-            { id: 'overview', icon: Play, label: 'Overview', desc: 'A presentation of the whole house', info: 'overview', disabled: !projectId,
-              onClick: () => flushSave(`/overview?projectId=${projectId}`) },
-          ] },
-          { title: 'AI', items: [
-            { id: 'style', icon: Palette, label: 'Design my house', desc: 'A whole interior style in one click', accent: true, disabled: !canvasElements.some(e => e.type === 'room'),
-              onClick: () => setStyleOpen(true) },
-            { id: 'fitted', icon: ChefHat, label: 'Kitchen & wardrobes', desc: 'Modular kitchen and fitted wardrobes', disabled: !canvasElements.some(e => e.type === 'room'),
-              onClick: () => setFittedOpen(true) },
-            { id: 'import', icon: FileUp, label: 'Import plan', desc: 'Trace a drawing into this floor',
-              onClick: () => setImportOpen(true) },
-            { id: 'render', icon: Sparkles, label: isCapturingForRender ? 'Opening…' : 'Photo Render', desc: 'Every room as a photo', info: 'render', accent: true,
-              onClick: handleOpenRenderStudio },
-            { id: 'concept', icon: ImageIcon, label: 'Concept Viz', desc: '3D cutaway or exterior image', info: 'concept', active: toolPanel === 'concept',
-              onClick: () => openTool('concept') },
-            { id: 'services', icon: Zap, label: 'Electrical & plumbing', desc: 'Light, power and water points', active: toolPanel === 'services',
-              onClick: () => setToolPanel(t => (t === 'services' ? null : 'services')) },
-            { id: 'comfort', icon: Sun, label: 'Daylight & comfort', desc: 'Light, sun, heat and air in every room', active: toolPanel === 'comfort',
-              onClick: () => setToolPanel(t => (t === 'comfort' ? null : 'comfort')) },
-            { id: 'vastu', icon: Compass, label: 'Vastu check', desc: 'The plan against Vastu guidelines', active: toolPanel === 'vastu',
-              onClick: () => setToolPanel(t => (t === 'vastu' ? null : 'vastu')) },
-            { id: 'budget', icon: Wallet, label: 'Budget Advisor', desc: 'Find where to cut back', info: 'budget', accent: true, active: toolPanel === 'budget',
-              onClick: () => setToolPanel(t => (t === 'budget' ? null : 'budget')) },
-          ] },
-          { title: 'REPORTS', items: [
-            { id: 'cost', icon: Calculator, label: 'Cost takeoff', desc: `${money(costData.total)} estimated`, onClick: () => setShowCostModal(true) },
-            { id: 'tracker', icon: ListChecks, label: 'Construction tracker', desc: 'Phases, spend against the estimate, site photos', disabled: !projectId,
-              onClick: () => flushSave(`/tracker?projectId=${projectId}`) },
-            { id: 'materials', icon: HardHat, label: 'Materials & schedule', desc: 'Cement, steel, bricks… and a build timeline', active: toolPanel === 'materials',
-              onClick: () => setToolPanel(t => (t === 'materials' ? null : 'materials')) },
-            { id: 'share', icon: Share2, label: 'Share with client', desc: 'View-only link, comments, approval', active: toolPanel === 'share',
-              onClick: () => setToolPanel(t => (t === 'share' ? null : 'share')) },
-            { id: 'rules', icon: ShieldCheck, label: 'Building rules', desc: 'Room sizes, light and plot limits', active: toolPanel === 'rules',
-              onClick: () => setToolPanel(t => (t === 'rules' ? null : 'rules')) },
-            { id: 'sheet', icon: Ruler, label: exporting === 'sheet' ? 'Drawing sheet…' : 'Plan sheet (PDF)',
-              desc: 'Dimensioned A3 drawing, every floor', disabled: !!exporting, onClick: exportPlanSheet },
-            { id: 'dxf', icon: PenLine, label: exporting === 'dxf' ? 'Exporting…' : 'CAD drawing (DXF)',
-              desc: `${activeFloor === 1 ? 'Ground floor' : `Floor ${activeFloor}`} for AutoCAD and other CAD apps`, disabled: !!exporting,
-              onClick: exportDxf },
-            { id: 'finishes', icon: ClipboardList, label: 'Finish schedule (PDF)', desc: 'Room by room: paints, floors, ceilings, curtains, furniture',
-              onClick: () => downloadFinishSchedule(canvasElements, { project: projectName || 'House' }) },
-            { id: 'pdf', icon: FileText, label: isGeneratingPDF ? 'Building PDF…' : 'PDF Report', desc: 'Plan, costs and notes', disabled: isGeneratingPDF,
-              onClick: generatePDFReport },
-          ] },
-        ]} />
         {toolPanel === 'services' && (
           <ServicesPanel elements={canvasElements} floor={activeFloor} projectName={projectName} site={projectSite}
             north={northOf()} apiUrl={API_URL} onClose={() => setToolPanel(null)} />
@@ -1124,6 +1066,66 @@ export default function Studio() {
           </button>
         </div>
       </main>
+
+      {/* Right sidebar: every feature */}
+      <FeatureDock open={dockOpen} setOpen={setDockOpen} groups={[
+        { title: 'VIEW', items: [
+          { id: 'walk', icon: Eye, label: 'Walkthrough', desc: 'Walk the rooms at eye level', info: 'walkthrough', active: walkthroughMode && activeTab === '3D',
+            onClick: () => { setActiveTab('3D'); setWalkthroughMode(true); } },
+          { id: 'immersive', icon: Trees, label: 'Immersive View', desc: 'The house on its street', info: 'immersive',
+            onClick: () => flushSave(projectId ? `/immersive?projectId=${projectId}` : '/immersive') },
+          { id: 'ar', icon: Smartphone, label: 'View in AR', desc: 'The house on your phone camera, model or life size', disabled: !projectId,
+            onClick: () => flushSave(`/ar?projectId=${projectId}`) },
+          { id: 'video', icon: Clapperboard, label: 'Video tour', desc: 'A film of the house to send', disabled: !canvasElements.some(e => e.type === 'room'),
+            onClick: () => setVideoOpen(true) },
+          { id: 'facade', icon: Home, label: 'Front elevation', desc: 'Exterior paint, cladding, roof, gate and lights', disabled: !canvasElements.some(e => e.type === 'room'),
+            onClick: () => setFacadeOpen(true) },
+          { id: 'designer', icon: Sofa, label: 'Room Designer', desc: 'Furnish a room yourself', disabled: !projectId,
+            onClick: () => flushSave(`/room-designer?projectId=${projectId}`) },
+          { id: 'overview', icon: Play, label: 'Overview', desc: 'A presentation of the whole house', info: 'overview', disabled: !projectId,
+            onClick: () => flushSave(`/overview?projectId=${projectId}`) },
+        ] },
+        { title: 'AI', items: [
+          { id: 'style', icon: Palette, label: 'Design my house', desc: 'A whole interior style in one click', accent: true, disabled: !canvasElements.some(e => e.type === 'room'),
+            onClick: () => setStyleOpen(true) },
+          { id: 'fitted', icon: ChefHat, label: 'Kitchen & wardrobes', desc: 'Modular kitchen and fitted wardrobes', disabled: !canvasElements.some(e => e.type === 'room'),
+            onClick: () => setFittedOpen(true) },
+          { id: 'import', icon: FileUp, label: 'Import plan', desc: 'Trace a drawing into this floor',
+            onClick: () => setImportOpen(true) },
+          { id: 'render', icon: Sparkles, label: isCapturingForRender ? 'Opening…' : 'Photo Render', desc: 'Every room as a photo', info: 'render', accent: true,
+            onClick: handleOpenRenderStudio },
+          { id: 'concept', icon: ImageIcon, label: 'Concept Viz', desc: '3D cutaway or exterior image', info: 'concept', active: toolPanel === 'concept',
+            onClick: () => openTool('concept') },
+          { id: 'services', icon: Zap, label: 'Electrical & plumbing', desc: 'Light, power and water points', active: toolPanel === 'services',
+            onClick: () => setToolPanel(t => (t === 'services' ? null : 'services')) },
+          { id: 'comfort', icon: Sun, label: 'Daylight & comfort', desc: 'Light, sun, heat and air in every room', active: toolPanel === 'comfort',
+            onClick: () => setToolPanel(t => (t === 'comfort' ? null : 'comfort')) },
+          { id: 'vastu', icon: Compass, label: 'Vastu check', desc: 'The plan against Vastu guidelines', active: toolPanel === 'vastu',
+            onClick: () => setToolPanel(t => (t === 'vastu' ? null : 'vastu')) },
+          { id: 'budget', icon: Wallet, label: 'Budget Advisor', desc: 'Find where to cut back', info: 'budget', accent: true, active: toolPanel === 'budget',
+            onClick: () => setToolPanel(t => (t === 'budget' ? null : 'budget')) },
+        ] },
+        { title: 'REPORTS', items: [
+          { id: 'cost', icon: Calculator, label: 'Cost takeoff', desc: `${money(costData.total)} estimated`, onClick: () => setShowCostModal(true) },
+          { id: 'tracker', icon: ListChecks, label: 'Construction tracker', desc: 'Phases, spend against the estimate, site photos', disabled: !projectId,
+            onClick: () => flushSave(`/tracker?projectId=${projectId}`) },
+          { id: 'materials', icon: HardHat, label: 'Materials & schedule', desc: 'Cement, steel, bricks… and a build timeline', active: toolPanel === 'materials',
+            onClick: () => setToolPanel(t => (t === 'materials' ? null : 'materials')) },
+          { id: 'share', icon: Share2, label: 'Share with client', desc: 'View-only link, comments, approval', active: toolPanel === 'share',
+            onClick: () => setToolPanel(t => (t === 'share' ? null : 'share')) },
+          { id: 'rules', icon: ShieldCheck, label: 'Building rules', desc: 'Room sizes, light and plot limits', active: toolPanel === 'rules',
+            onClick: () => setToolPanel(t => (t === 'rules' ? null : 'rules')) },
+          { id: 'sheet', icon: Ruler, label: exporting === 'sheet' ? 'Drawing sheet…' : 'Plan sheet (PDF)',
+            desc: 'Dimensioned A3 drawing, every floor', disabled: !!exporting, onClick: exportPlanSheet },
+          { id: 'dxf', icon: PenLine, label: exporting === 'dxf' ? 'Exporting…' : 'CAD drawing (DXF)',
+            desc: `${activeFloor === 1 ? 'Ground floor' : `Floor ${activeFloor}`} for AutoCAD and other CAD apps`, disabled: !!exporting,
+            onClick: exportDxf },
+          { id: 'finishes', icon: ClipboardList, label: 'Finish schedule (PDF)', desc: 'Room by room: paints, floors, ceilings, curtains, furniture',
+            onClick: () => downloadFinishSchedule(canvasElements, { project: projectName || 'House' }) },
+          { id: 'pdf', icon: FileText, label: isGeneratingPDF ? 'Building PDF…' : 'PDF Report', desc: 'Plan, costs and notes', disabled: isGeneratingPDF,
+            onClick: generatePDFReport },
+        ] },
+      ]} />
 
       {/* Cost Takeoff Modal */}
       {showCostModal && (

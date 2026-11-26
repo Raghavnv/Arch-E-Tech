@@ -305,8 +305,8 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
 
     // Initialize Fabric canvas
     fabricRef.current = new fabric.Canvas(canvasRef.current, {
-      width: window.innerWidth - 320,
-      height: window.innerHeight,
+      width: containerRef.current?.clientWidth || window.innerWidth - 320,
+      height: containerRef.current?.clientHeight || window.innerHeight,
       backgroundColor: blueprintMode ? '#1e3a8a' : '#0f0e0d',
       selectionColor: 'rgba(255,255,255,0.08)',
       selectionBorderColor: 'rgba(255,255,255,0.25)',
@@ -331,8 +331,10 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
     }
 
     const handleResize = () => {
-      canvas.setWidth(window.innerWidth - 320);
-      canvas.setHeight(window.innerHeight);
+      // the canvas fills its own box, which shrinks and grows as the side panels open and close
+      const box = containerRef.current;
+      canvas.setWidth(box?.clientWidth || window.innerWidth - 320);
+      canvas.setHeight(box?.clientHeight || window.innerHeight);
       canvas.renderAll();
       updateSelectedHUD();
     };
@@ -398,6 +400,8 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
     };
 
     window.addEventListener('resize', handleResize);
+    const sizeWatch = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(handleResize) : null;
+    if (sizeWatch && containerRef.current) sizeWatch.observe(containerRef.current);
     window.addEventListener('keydown', handleKeyDown);
 
     // Zooming logic
@@ -588,6 +592,7 @@ export default function Canvas2D({ elements, drawingMode, setCanvasElements, blu
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      sizeWatch?.disconnect();
       window.removeEventListener('keydown', handleKeyDown);
       canvas.dispose();
       if (fabricRef.current === canvas) fabricRef.current = null;   // effects re-run in StrictMode: never keep a disposed canvas

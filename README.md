@@ -106,7 +106,7 @@ Links can be turned off at any time.
 - **(i) tips** next to each feature explain what it does.
 
 ### Feature dock
-A panel on the right of the Studio with a **Start here** grid of the headline features (Walkthrough, Photo Render, Room Designer, Video tour, AR, Materials & schedule), a search box and every feature by colour-coded group. Shrunk, it stays an icon rail with the headline features one click away, and first-time users get a pointer to it:
+The Studio's right sidebar, styled like the left Tools panel: a search box, then every feature as an icon grid under three headings (View & present, Design, Reports & export), all visible at once. The plan canvas sits between the two sidebars and resizes when either is hidden; hidden, the right sidebar becomes a slim rail of icons:
 
 | Group   | Feature        | What it does |
 |---------|----------------|--------------|
