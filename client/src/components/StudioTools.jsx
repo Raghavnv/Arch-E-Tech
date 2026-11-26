@@ -1,3 +1,5 @@
+import { applyClientOps, editCatalog } from '../utils/editOps';
+import OutdoorOptions, { promptWithFloors } from './OutdoorOptions';
 import { useEffect, useMemo, useState } from 'react';
 import { X, Loader2, AlertTriangle, Download, ScanLine, LayoutTemplate, Image as ImageIcon, Wand2 as Wand, Home, Bookmark, Check, Wallet, Sun } from 'lucide-react';
 import { detectRooms } from '../utils/detectRooms';
@@ -14,7 +16,7 @@ import { assessComfort, CITIES } from '../utils/comfort';
 const KINDS = [
   ['living', 'Living room'], ['dining', 'Dining room'], ['kitchen', 'Kitchen'], ['master_bedroom', 'Master bedroom'],
   ['bedroom', 'Bedroom'], ['bathroom', 'Bathroom'], ['study', 'Study'], ['utility', 'Utility'], ['closet', 'Walk-in closet'], ['lounge', 'Lounge'],
-  ['hallway', 'Hallway'], ['balcony', 'Balcony'], ['patio', 'Patio'],
+  ['hallway', 'Hallway'], ['balcony', 'Balcony'], ['patio', 'Patio'], ['terrace', 'Terrace'], ['deck', 'Deck'],
 ];
 const KIND_NAME = Object.fromEntries(KINDS);
 const STYLE_IDS = ['modern', 'japandi', 'scandinavian', 'industrial', 'contemporary', 'indian'];
@@ -118,13 +120,15 @@ export function AiLayoutPanel({ elements, setElements, onClose, apiUrl }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [done, setDone] = useState(false);
+  const [outdoor, setOutdoor] = useState({ patio: false, balcony: false, terrace: false });
+  const [floors, setFloors] = useState(0);
   const hasPlan = elements.some(e => e.type === 'wall');
 
   const generate = async () => {
     setBusy(true); setError(null); setDone(false);
     try {
       localStorage.setItem('ai_layout_prompt', prompt);
-      const data = await post(`${apiUrl}/api/ai/generate-plan`, { prompt: prompt.trim() || 'A modern 2 bedroom house' });
+      const data = await post(`${apiUrl}/api/ai/generate-plan`, { prompt: promptWithFloors(prompt.trim() || 'A modern 2 bedroom house', floors), outdoor });
       if (!data.elements?.length) throw new Error('The generator returned an empty plan. Try describing it differently.');
       setElements(data.elements);
       setDone(true);
@@ -149,6 +153,7 @@ export function AiLayoutPanel({ elements, setElements, onClose, apiUrl }) {
       <p className="mt-1.5 text-[11px] text-zinc-500">
         Mention bedrooms, bathrooms, a study, dining or a total area; anything you leave out gets a sensible default.
       </p>
+      <div className="mt-3"><OutdoorOptions value={outdoor} onChange={setOutdoor} floors={floors} onFloors={setFloors} compact /></div>
       {hasPlan && <p className="mt-2 text-[11px] text-amber-300/90">This replaces the current plan. Press Ctrl+Z (⌘Z) to get it back.</p>}
       <button
         onClick={generate}
@@ -295,13 +300,14 @@ const EXAMPLES = {
   door: ['Make this door narrower', 'Make it 3 ft wide', 'Move it 2 ft to the left'],
   window: ['Make this window wider', 'Make it 6 ft long', 'Delete this window'],
   wall: ['Extend this wall by 3 ft', 'Shorten it by 2 ft', 'Add a window in the middle of it'],
-  none: ['Make the kitchen door 3 ft wide', 'Add a window to the living room', 'Make the master bedroom bigger'],
+  none: ['Make the master bedroom 1 m wider', 'Add a balcony to the master bedroom', 'Add a patio off the living room', 'Put a door between the kitchen and the dining room', 'Split the study into a study and a bathroom', 'Paint the living room sage with a teak feature wall', 'Herringbone oak floors in all bedrooms', 'Cove ceiling with a chandelier in the dining room'],
 };
 
-export function EditPanel({ elements, setElements, selected, apiUrl, onClose }) {
+export function EditPanel({ elements, setElements, selected, floor = 1, apiUrl, onExterior, onClose }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState(null);     // { ok, text }
+  const catalog = useMemo(() => editCatalog(), []);
 
   const sel = selected[0];
   const examples = EXAMPLES[sel?.type] || (sel ? EXAMPLES.door.slice(1, 2).concat(['Delete this', 'Rotate it 90 degrees']) : EXAMPLES.none);
@@ -311,11 +317,14 @@ export function EditPanel({ elements, setElements, selected, apiUrl, onClose }) 
     if (!ask || busy) return;
     setBusy(true); setNote(null);
     try {
-      const data = await post(`${apiUrl}/api/ai/edit-plan`, { instruction: ask, elements, selected: selected.map(s => s.id) });
+      const data = await post(`${apiUrl}/api/ai/edit-plan`, { instruction: ask, elements, selected: selected.map(s => s.id), floor, catalog });
       if (data.changed > 0) {
-        setElements(data.elements);
+        // the shape comes back from the server; paints, floors, ceilings and curtains are applied here
+        const { elements: next, exterior } = applyClientOps(data.elements, data.client_ops);
+        setElements(next);
+        if (exterior) onExterior?.(exterior);
         setText('');
-        setNote({ ok: true, text: `${data.summary} Press Ctrl+Z (⌘Z) to undo.` });
+        setNote({ ok: !(data.problems || []).length, text: `${data.summary} Press Ctrl+Z (⌘Z) to undo.` });
       } else {
         setNote({ ok: false, text: data.summary });
       }
@@ -334,7 +343,7 @@ export function EditPanel({ elements, setElements, selected, apiUrl, onClose }) 
             Selected: {selected.length > 1 ? `${selected.length} items` : `${TYPE_LABEL[sel.type] || sel.type}${sel.length ? ` · ${sel.length.toFixed(1)} m` : ''}`}
           </span>
         ) : (
-          <span className="text-zinc-500">Nothing selected. Click an item on the plan to edit "this", or name what to change.</span>
+          <span className="text-zinc-500">Ask for any change in plain words: room sizes, new rooms, balconies and patios, doors, windows, furniture, paint, floors, ceilings. Several at once is fine.</span>
         )}
       </div>
       <div className="flex items-start gap-2">
@@ -343,7 +352,7 @@ export function EditPanel({ elements, setElements, selected, apiUrl, onClose }) 
         value={text}
         onChange={e => setText(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); run(); } e.stopPropagation(); }}
-        placeholder={sel ? `Describe a change to the selected ${(TYPE_LABEL[sel.type] || 'item').toLowerCase()}…` : 'e.g. make the kitchen door 3 ft wide'}
+        placeholder={sel ? `Describe a change to the selected ${(TYPE_LABEL[sel.type] || 'item').toLowerCase()}…` : 'e.g. make the master bedroom bigger and add a balcony to it'}
         className="w-full resize-none rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:border-indigo-500 focus:outline-none"
         disabled={busy}
         autoFocus
@@ -356,14 +365,14 @@ export function EditPanel({ elements, setElements, selected, apiUrl, onClose }) 
         {busy ? <><Loader2 className="h-4 w-4 animate-spin" /> Editing…</> : 'Apply'}
       </button>
       </div>
+      {note && (
+        <p className={`mt-2 rounded-lg px-3 py-2 text-xs ${note.ok ? 'bg-emerald-500/10 text-emerald-200' : 'bg-amber-500/10 text-amber-100'}`}>{note.text}</p>
+      )}
       <div className="mt-2 flex flex-wrap gap-1.5">
-        {examples.map(x => (
+        {examples.slice(0, note ? 3 : 5).map(x => (
           <button key={x} onClick={() => setText(x)} className="rounded-full border border-zinc-800 px-2 py-0.5 text-[11px] text-zinc-400 hover:border-zinc-600 hover:text-zinc-200">{x}</button>
         ))}
       </div>
-      {note && (
-        <p className={`mt-3 rounded-lg px-3 py-2 text-xs ${note.ok ? 'bg-emerald-500/10 text-emerald-200' : 'bg-amber-500/10 text-amber-100'}`}>{note.text}</p>
-      )}
     </Panel>
   );
 }
@@ -694,28 +703,30 @@ export function VastuPanel({ elements, site, projectId, apiUrl, onClose }) {
 // ------------------------------------------------------------------------------------------------
 // Building rules: room sizes (NBC 2016), light and air, and the plot's limits
 // ------------------------------------------------------------------------------------------------
-const LIMIT_FIELDS = [['coverage_pct', 'Ground coverage %', 75], ['far', 'FAR / FSI', 1.75], ['max_floors', 'Max floors', 3]];
+const LIMIT_FIELDS = [['coverage_pct', 'Coverage %'], ['far', 'FAR / FSI'], ['max_height_m', 'Height m']];
+const RULE_CITIES = ['Typical (NBC)', 'Bengaluru', 'Chennai', 'Hyderabad', 'Mumbai', 'Pune', 'Ahmedabad', 'Kolkata', 'Delhi', 'Jaipur', 'Kochi', 'Chandigarh', 'Guwahati'];
 
 export function RulesPanel({ elements, site, projectId, apiUrl, onClose }) {
   const key = `rules_limits_${projectId || 'draft'}`;
-  const [limits, setLimits] = useState(() => {
-    try { return { ...Object.fromEntries(LIMIT_FIELDS.map(([k, , d]) => [k, d])), ...JSON.parse(localStorage.getItem(key) || '{}') }; }
-    catch { return Object.fromEntries(LIMIT_FIELDS.map(([k, , d]) => [k, d])); }
-  });
+  const saved = (() => { try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch { return {}; } })();
+  const [city, setCity] = useState(saved.city || 'Typical (NBC)');
+  // limits typed here override the city's (empty = the city's own)
+  const [limits, setLimits] = useState(() => Object.fromEntries(LIMIT_FIELDS.map(([k]) => [k, saved.overrides?.[k] ?? ''])));
   // a plot typed here when the project has none (metres)
-  const [plot, setPlot] = useState({ w: '', d: '' });
+  const [plot, setPlot] = useState({ w: '', d: '', facing: 'S' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [report, setReport] = useState(null);
-  const plotSite = site?.plot_m ? site : (Number(plot.w) > 0 && Number(plot.d) > 0 ? { plot_m: [Number(plot.w), Number(plot.d)] } : null);
+  const plotSite = site?.plot_m ? site : (Number(plot.w) > 0 && Number(plot.d) > 0 ? { plot_m: [Number(plot.w), Number(plot.d)], facing: plot.facing } : null);
 
-  const check = async () => {
+  const check = async (cityNow = city, lim = limits) => {
     setBusy(true); setError(null);
-    try { localStorage.setItem(key, JSON.stringify(limits)); } catch { /* private mode */ }
+    try { localStorage.setItem(key, JSON.stringify({ city: cityNow, overrides: lim })); } catch { /* private mode */ }
     try {
+      const overrides = Object.fromEntries(Object.entries(lim).filter(([, v]) => v !== '' && Number(v) > 0).map(([k, v]) => [k, Number(v)]));
       const res = await fetch(`${apiUrl}/api/ai/building-check`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ elements, site: plotSite, limits: Object.fromEntries(Object.entries(limits).map(([k, v]) => [k, Number(v)])) }),
+        body: JSON.stringify({ elements, site: plotSite, limits: overrides, city: cityNow }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || `The server answered ${res.status}.`);
@@ -729,7 +740,7 @@ export function RulesPanel({ elements, site, projectId, apiUrl, onClose }) {
   };
 
   useEffect(() => {
-    const t = setTimeout(check, 0);           // the fetch starts after this render
+    const t = setTimeout(() => check(), 0);           // the fetch starts after this render
     return () => clearTimeout(t);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -738,34 +749,59 @@ export function RulesPanel({ elements, site, projectId, apiUrl, onClose }) {
   return (
     <Panel icon={Check} title="Building rules" onClose={onClose}>
       <p className="text-[11px] leading-snug text-zinc-500">
-        Room sizes follow the National Building Code of India 2016. Plot limits differ by city: set your local authority's.
+        Room sizes follow the National Building Code of India 2016. Plot limits are each city's typical bye-laws for a small
+        house plot; they change with the zone and road width, so confirm with your local authority before applying.
       </p>
-      <div className="mt-3 grid grid-cols-3 gap-2">
+      <label className="mt-3 block text-[10px] text-zinc-400">City
+        <select value={city} onChange={(e) => { setCity(e.target.value); check(e.target.value); }}
+          className="mt-1 w-full rounded bg-zinc-900 px-2 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+          {RULE_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+      </label>
+      <div className="mt-2 grid grid-cols-3 gap-2">
         {LIMIT_FIELDS.map(([k, label]) => (
           <label key={k} className="text-[10px] text-zinc-400">{label}
-            <input type="number" min="0" step="0.05" value={limits[k]} onChange={(e) => setLimits(l => ({ ...l, [k]: e.target.value }))}
-              className="mt-1 w-full rounded bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+            <input type="number" min="0" step="0.05" value={limits[k]} placeholder={report?.limits?.[k] != null ? String(report.limits[k]) : 'none'}
+              onChange={(e) => setLimits(l => ({ ...l, [k]: e.target.value }))}
+              className="mt-1 w-full rounded bg-zinc-900 px-2 py-1 text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
           </label>
         ))}
       </div>
       {!site?.plot_m && (
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          {[['w', 'Plot frontage (m)'], ['d', 'Plot depth (m)']].map(([k, label]) => (
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          {[['w', 'Frontage (m)'], ['d', 'Depth (m)']].map(([k, label]) => (
             <label key={k} className="text-[10px] text-zinc-400">{label}
               <input type="number" min="0" step="0.1" value={plot[k]} onChange={(e) => setPlot(p => ({ ...p, [k]: e.target.value }))}
                 className="mt-1 w-full rounded bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
             </label>
           ))}
+          <label className="text-[10px] text-zinc-400">Road on the
+            <select value={plot.facing} onChange={(e) => setPlot(p => ({ ...p, facing: e.target.value }))}
+              className="mt-1 w-full rounded bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:outline-none">
+              {[['N', 'North'], ['S', 'South'], ['E', 'East'], ['W', 'West']].map(([v, n]) => <option key={v} value={v}>{n}</option>)}
+            </select>
+          </label>
         </div>
       )}
-      <button onClick={check} disabled={busy}
+      <button onClick={() => check()} disabled={busy}
         className="btn-primary mt-3 w-full py-1.5 text-xs">
         {busy ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking…</> : 'Check the plan'}
       </button>
+      {report && !busy && (
+        <div className={`mt-4 rounded-lg border p-3 ${report.fails ? 'border-rose-500/30 bg-rose-500/5' : 'border-emerald-500/30 bg-emerald-500/5'}`}>
+          <p className={`text-sm font-semibold ${report.fails ? 'text-rose-200' : 'text-emerald-200'}`}>{report.verdict}</p>
+          <p className="mt-0.5 text-[11px] text-zinc-500">{report.city} · {report.authority}</p>
+          {report.fixes?.length > 0 && (
+            <ul className="mt-2 space-y-1 text-[11px] text-zinc-300">
+              {report.fixes.map((f, i) => <li key={i} className="flex gap-1.5"><span className="text-indigo-400">›</span>{f}</li>)}
+            </ul>
+          )}
+        </div>
+      )}
       {error && <ErrorLine>{error}</ErrorLine>}
       {report && !busy && (
         <>
-          <p className="mt-4 text-sm text-zinc-200">
+          <p className="mt-3 text-[11px] text-zinc-500">
             {report.fails ? `${report.fails} problem${report.fails > 1 ? 's' : ''}` : 'No problems'}
             {report.warnings ? `, ${report.warnings} warning${report.warnings > 1 ? 's' : ''}` : ''}
           </p>
@@ -1277,6 +1313,194 @@ export function ComfortPanel({ elements, floor, north, onClose }) {
             })}
           </svg>
           <p className="mt-1.5 text-[10px] leading-snug text-zinc-500"><span className="text-sky-300">Blue</span> marks a window, <span className="text-orange-300">orange</span> one facing the hot afternoon sun. Green rooms are bright and airy; red ones need attention.</p>
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+// ------------------------------------------------------------------------------------------------
+// Home loan & EMI: what the house costs each month, what a bank would lend, and how the loan is
+// paid out stage by stage while it is built (interest-only "pre-EMI" until the keys)
+// ------------------------------------------------------------------------------------------------
+const lakh = (v) => {
+  const n = Math.round(Number(v) || 0);
+  if (Math.abs(n) >= 1e7) return `₹${(n / 1e7).toFixed(2)} Cr`;
+  if (Math.abs(n) >= 1e5) return `₹${(n / 1e5).toFixed(2)} L`;
+  return `₹${n.toLocaleString('en-IN')}`;
+};
+const rupees = (v) => `₹${Math.round(Number(v) || 0).toLocaleString('en-IN')}`;
+const emiOf = (P, ratePct, years) => {
+  const r = ratePct / 1200, n = Math.round(years * 12);
+  if (P <= 0 || n <= 0) return 0;
+  if (r === 0) return P / n;
+  const k = (1 + r) ** n;
+  return (P * r * k) / (k - 1);
+};
+const loanFor = (emi, ratePct, years) => {
+  const r = ratePct / 1200, n = Math.round(years * 12);
+  if (emi <= 0 || n <= 0) return 0;
+  if (r === 0) return emi * n;
+  const k = (1 + r) ** n;
+  return (emi * (k - 1)) / (r * k);
+};
+// RBI's loan-to-value limits for home loans
+const ltvCap = (cost) => (cost <= 30e5 ? 0.9 : cost <= 75e5 ? 0.8 : 0.75);
+
+export function LoanPanel({ elements, houseCost, projectId, apiUrl, onClose }) {
+  const key = `loan_${projectId || 'draft'}`;
+  const saved = (() => { try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch { return {}; } })();
+  const [f, setF] = useState(() => ({
+    cost: Math.round(houseCost || 0), land: 0, savings: Math.round((houseCost || 0) * 0.25), income: 150000, other: 0,
+    rate: 8.5, years: 20, ...saved,
+  }));
+  const [phases, setPhases] = useState(null);
+  const set = (k, v) => setF(x => { const n = { ...x, [k]: v }; try { localStorage.setItem(key, JSON.stringify(n)); } catch { /* private */ } return n; });
+
+  useEffect(() => {
+    let off = false;
+    fetch(`${apiUrl}/api/ai/quantities`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ elements }) })
+      .then(r => (r.ok ? r.json() : null)).then(d => { if (!off && d?.phases) setPhases(d); }).catch(() => {});
+    return () => { off = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const num = (k) => Math.max(0, Number(f[k]) || 0);
+  const total = num('cost') + num('land');
+  const capLoan = total * ltvCap(total);
+  const asked = Math.max(0, total - num('savings'));
+  const loan = Math.min(asked, capLoan);
+  const shortBy = asked - loan;                                  // more savings needed to meet the bank's limit
+  const rate = num('rate'), years = Math.min(30, Math.max(1, num('years')));
+  const emi = emiOf(loan, rate, years);
+  const totalPaid = emi * years * 12;
+  const interest = totalPaid - loan;
+  // banks keep all EMIs to about half the take-home pay
+  const maxEmi = Math.max(0, num('income') * 0.5 - num('other'));
+  const eligible = loanFor(maxEmi, rate, years);
+  const afford = emi <= maxEmi + 1;
+
+  // the loan paid out with the build: own money first, then the bank pays each stage as it is reached
+  const schedule = useMemo(() => {
+    if (!phases?.phases?.length || loan <= 0) return null;
+    const costs = phases.phases.map(p => Math.max(0, p.cost || 0));
+    const sum = costs.reduce((a, b) => a + b, 0) || 1;
+    const scale = num('cost') / sum;
+    let own = Math.max(0, num('savings') - num('land')), drawn = 0, pre = 0;
+    const months = Math.max(1, Math.ceil(phases.total_days / 30));
+    const rows = phases.phases.map((p, i) => {
+      let need = costs[i] * scale;
+      const fromOwn = Math.min(own, need);
+      own -= fromOwn; need -= fromOwn;
+      const fromLoan = Math.min(need, loan - drawn);
+      drawn += fromLoan;
+      const monthIn = Math.floor((p.start_day + p.days) / 30);
+      // interest only, on what has been paid out, until the house is finished
+      pre += fromLoan * (rate / 1200) * Math.max(0, months - monthIn);
+      return { name: p.name, month: monthIn + 1, own: fromOwn, loan: fromLoan, drawn };
+    }).filter(r => r.own + r.loan > 0);
+    return { rows, pre, months };
+  }, [phases, loan, rate, f.cost, f.savings, f.land]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // principal and interest each year
+  const years_ = useMemo(() => {
+    const out = []; let bal = loan; const r = rate / 1200;
+    for (let y = 1; y <= years; y++) {
+      let p = 0, i = 0;
+      for (let m = 0; m < 12 && bal > 0.5; m++) { const it = bal * r; const pr = Math.min(bal, emi - it); i += it; p += pr; bal -= pr; }
+      out.push({ y, p, i, bal });
+    }
+    return out;
+  }, [loan, rate, years, emi]);
+  const maxYear = Math.max(1, ...years_.map(y => y.p + y.i));
+
+  const field = (k, label, step = 1000, suffix) => (
+    <label key={k} className="text-[10px] text-zinc-400">{label}
+      <div className="mt-1 flex items-center rounded bg-zinc-900 focus-within:ring-1 focus-within:ring-indigo-500">
+        {!suffix && <span className="pl-2 text-xs text-zinc-500">₹</span>}
+        <input type="number" min="0" step={step} value={f[k]} onChange={(e) => set(k, e.target.value)}
+          className="w-full bg-transparent px-2 py-1.5 text-xs text-zinc-100 focus:outline-none" />
+        {suffix && <span className="pr-2 text-xs text-zinc-500">{suffix}</span>}
+      </div>
+    </label>
+  );
+
+  return (
+    <Panel icon={Wallet} title="Home loan & EMI" onClose={onClose} wide>
+      <div className="grid gap-4 md:grid-cols-[230px_1fr]">
+        <div className="space-y-2.5">
+          {field('cost', 'Cost to build (from the estimate)', 10000)}
+          {field('land', 'Plot cost, if borrowing for it too', 10000)}
+          {field('savings', 'Your own money (down payment)', 10000)}
+          <div className="grid grid-cols-2 gap-2">
+            {field('rate', 'Interest', 0.05, '%')}
+            {field('years', 'Tenure', 1, 'yrs')}
+          </div>
+          {field('income', 'Monthly take-home pay', 5000)}
+          {field('other', 'Other EMIs you pay now', 1000)}
+          {Math.abs(num('cost') - (houseCost || 0)) > 1000 && houseCost > 0 && (
+            <button onClick={() => set('cost', Math.round(houseCost))} className="text-[11px] text-indigo-300 hover:text-indigo-200">Use the current estimate ({lakh(houseCost)})</button>
+          )}
+        </div>
+        <div>
+          <div className="grid grid-cols-3 gap-2">
+            {[['Monthly EMI', rupees(emi), afford ? 'text-white' : 'text-rose-200'], ['Loan', lakh(loan), 'text-white'], ['Total interest', lakh(interest), 'text-white']].map(([k, v, c]) => (
+              <div key={k} className="rounded-lg border border-zinc-800 bg-zinc-900 p-2.5">
+                <p className="label-caps">{k}</p>
+                <p className={`mt-1 text-lg font-semibold ${c}`}>{v}</p>
+              </div>
+            ))}
+          </div>
+          <ul className="mt-3 space-y-1.5 text-[11px] leading-snug text-zinc-300">
+            <li className="flex gap-1.5"><span className="text-indigo-400">›</span>
+              <span>Over {years} years you repay {lakh(totalPaid)}: {lakh(loan)} borrowed and {lakh(interest)} interest ({loan > 0 ? Math.round((interest / loan) * 100) : 0}% on top).</span></li>
+            <li className="flex gap-1.5"><span className={afford ? 'text-emerald-400' : 'text-rose-400'}>›</span>
+              <span>{afford
+                ? `Banks usually keep all EMIs under half your take-home pay: you could borrow up to about ${lakh(eligible)}, so this loan fits.`
+                : `This EMI is more than banks allow on ${rupees(num('income'))} a month (about ${rupees(maxEmi)} for all EMIs). You could borrow about ${lakh(eligible)}: put in more of your own money, take a longer tenure or a cheaper design.`}</span></li>
+            {shortBy > 1 && (
+              <li className="flex gap-1.5"><span className="text-amber-400">›</span>
+                <span>Banks lend at most {Math.round(ltvCap(total) * 100)}% of {lakh(total)} (RBI's limit), so you need about {lakh(shortBy)} more of your own money; the loan above is capped.</span></li>
+            )}
+            {schedule && (
+              <li className="flex gap-1.5"><span className="text-indigo-400">›</span>
+                <span>While it is built (about {schedule.months} months), the bank pays each stage as it is reached and you pay interest only on what's been paid out: about {lakh(schedule.pre)} in all before the full EMI starts.</span></li>
+            )}
+            <li className="flex gap-1.5"><span className="text-indigo-400">›</span>
+              <span>Under the old tax regime, interest up to ₹2 lakh a year (section 24b) and principal up to ₹1.5 lakh (80C) can be deducted for a home you live in.</span></li>
+          </ul>
+          <p className="label-caps mt-4">EACH YEAR</p>
+          <div className="mt-2 flex h-24 items-end gap-px" role="img" aria-label="Principal and interest paid each year">
+            {years_.map(y => (
+              <div key={y.y} className="group relative flex flex-1 flex-col justify-end" title={`Year ${y.y}: ${lakh(y.p)} principal, ${lakh(y.i)} interest, ${lakh(y.bal)} left`}>
+                <div className="bg-zinc-500/70" style={{ height: `${(y.i / maxYear) * 96}px` }} />
+                <div className="bg-indigo-500" style={{ height: `${(y.p / maxYear) * 96}px` }} />
+              </div>
+            ))}
+          </div>
+          <div className="mt-1 flex justify-between text-[10px] text-zinc-500">
+            <span>Year 1</span>
+            <span className="flex items-center gap-3"><span className="flex items-center gap-1"><span className="h-2 w-2 bg-indigo-500" /> Principal</span><span className="flex items-center gap-1"><span className="h-2 w-2 bg-zinc-500/70" /> Interest</span></span>
+            <span>Year {years}</span>
+          </div>
+          {schedule && (
+            <>
+              <p className="label-caps mt-4">PAID OUT WITH THE BUILD</p>
+              <table className="mt-1.5 w-full text-[11px]">
+                <thead><tr className="text-left text-zinc-500"><th className="py-1 font-normal">Stage</th><th className="font-normal">Month</th><th className="text-right font-normal">Your money</th><th className="text-right font-normal">Loan</th></tr></thead>
+                <tbody>
+                  {schedule.rows.map((r, i) => (
+                    <tr key={i} className="border-t border-zinc-800/70">
+                      <td className="max-w-[220px] truncate py-1 pr-2 text-zinc-300" title={r.name}>{r.name}</td>
+                      <td className="text-zinc-400">{r.month}</td>
+                      <td className="text-right text-zinc-300">{r.own ? lakh(r.own) : '–'}</td>
+                      <td className="text-right text-zinc-100">{r.loan ? lakh(r.loan) : '–'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
+          <p className="mt-3 text-[10px] leading-snug text-zinc-500">An estimate to plan with, not a loan offer: banks set the rate, fees and amount from your credit record. Check with your bank before you commit.</p>
         </div>
       </div>
     </Panel>

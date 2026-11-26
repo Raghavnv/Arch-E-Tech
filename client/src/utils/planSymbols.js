@@ -81,6 +81,8 @@ const FLOORS = {
   bathroom:       { tint: 'rgba(56,189,248,0.17)', pattern: 'tile' },
   balcony:        { tint: 'rgba(200,121,74,0.12)', pattern: 'tile' },
   patio:          { tint: 'rgba(200,121,74,0.10)', pattern: 'tile' },
+  terrace:        { tint: 'rgba(200,121,74,0.10)', pattern: 'tile' },
+  deck:           { tint: 'rgba(180,140,100,0.14)', pattern: 'wood' },
 };
 
 export function drawRoom(ctx, w, h, { kind, flooring, blueprint = false } = {}) {

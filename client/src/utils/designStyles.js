@@ -246,7 +246,7 @@ export function applyDesignStyle(elements, style, parts = { walls: true, floors:
       summary.rooms += 1;
       const next = { ...e };
       if (parts.floors) { const fl = pick(style.floors, e.kind); if (fl) next.flooring = fl; }
-      if (parts.ceilings && e.kind !== 'balcony') {
+      if (parts.ceilings && !['balcony', 'patio', 'terrace', 'deck'].includes(e.kind)) {
         const [cs, light] = pick(style.ceilings, e.kind) || ['plain', 'flush'];
         next.ceiling = { style: cs, light, color: '#f3f1ed' };
       }

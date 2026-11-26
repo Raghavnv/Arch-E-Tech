@@ -42,7 +42,9 @@ Write the house you want in plain English. The prompt is read for:
 - open or closed kitchen
 - total area in sq ft or m²
 - number of floors and how bedrooms split between them (2-1, 1-2, 2-2 …)
-- balcony, patio, study and other rooms
+- balcony, patio, terrace, study and other rooms
+
+**Outdoor spaces:** tick Patio, Balcony or Terrace on the form (or say so in the prompt). A patio is built off the living or dining room on the ground floor, away from the front door. Balconies go off the master bedroom (or another bedroom) on each upper floor, with railings and a wide door. The terrace takes the open roof of the floor below where there is one, or is built off the family lounge. A balcony or terrace on a one-storey house offers to make it two floors. Sizes and sides change every time, so houses still come out different.
 
 The planner picks similar reference houses, asks the LLM to design a new layout, then cleans and validates it. Bedrooms are spread around the house rather than lined up. If the LLM's answer is unusable, a reference plan is adapted instead, so a plan is always produced.
 
@@ -72,8 +74,21 @@ Studio → REPORTS:
 Studio → **Building rules** checks every room against the National Building Code of India 2016 minimums (habitable
 room 9.5 m² and 2.4 m wide, kitchen 5.0 m² / 1.8 m, bathroom 1.8 m² / 1.2 m, separate WC 1.1 m² / 0.9 m), that
 habitable rooms and kitchens have windows (and, as many bye-laws ask, at least a tenth of the floor area), and the
-plot's ground coverage, FAR / FSI, number of floors and setbacks against limits you set for your city
-(defaults: 75%, 1.75, 3 floors). Guidance only: local bye-laws can differ.
+plot against the **city's** typical bye-laws for a small house plot: Bengaluru, Chennai, Hyderabad, Mumbai, Pune,
+Ahmedabad, Kolkata, Delhi, Jaipur, Kochi, Chandigarh, Guwahati, or the National Building Code. For each it checks
+ground coverage, FAR / FSI, height, setbacks (by plot size, against the house's real width and depth) and parking
+(a 5 m deep front yard, a garage or a stilt floor). It answers with a verdict ("likely to meet the rules" / "needs
+changes") and specific fixes ("make the house 1.7 m narrower along the road", "remove about 12 m² from the top floor").
+Balconies, terraces and patios are left out of the built-up area. Any limit can be overridden. Bye-laws change with the
+zone and road width, so this is guidance to confirm with the local authority, not an approval.
+
+### Home loan & EMI
+Studio → **Home loan & EMI**: the monthly EMI, total interest and repayments for the house (the live estimate, plus the
+plot if it's being financed), what a bank would lend on your take-home pay (EMIs kept under half of it), RBI's
+loan-to-value limit (90 / 80 / 75% by loan size) and the down payment it needs. The loan is paid out stage by stage with
+the build schedule (your money first, then the bank's), with the interest-only "pre-EMI" during construction. A chart
+shows principal and interest each year, plus a note on the old-regime tax deductions (24b, 80C). An estimate to plan
+with, not a loan offer.
 
 ### Electrical and plumbing
 Studio → **Electrical & plumbing** lays out a first set of points from the plan: lights, fans, switchboards by the
@@ -98,7 +113,7 @@ Links can be turned off at any time.
 - **Smart Snap:** walls snap to each other's ends, to right angles and to the grid.
 - **Auto Detect:** finds the rooms enclosed by your walls and labels them.
 - **AI Layout:** generate or regenerate the layout from a prompt while you are in the Studio.
-- **AI Edit:** a popup at the bottom of the grid where you type changes like "make this door narrower", "extend the north wall by 1 m", or "remove the study". The LLM returns a small list of updates, deletions and additions, so nothing else in the plan changes.
+- **AI Edit:** type any change in plain words, several at once: "make the master bedroom 1 m wider and add a balcony to it", "add a patio off the living room", "put a door between the kitchen and the dining room", "split the study into a study and a bathroom", "merge the dining and living rooms", "turn the closet into a pooja room", "add two plants to the lounge", "paint the living room sage with a teak feature wall", "herringbone floors in all bedrooms", "cove ceiling with a chandelier in the dining room", "make the whole house Japandi", "paint the exterior navy". The AI only chooses *what* to do. The Studio does the geometry: moving a room's wall moves the wall itself, keeps corners joined, shrinks the neighbouring room and carries doors, windows and furniture along. New rooms get walls, a door and windows, outdoor spaces get railings, and openings go in free stretches of real walls. It works on every floor. Without `GROQ_API_KEY` a built-in parser understands the same kinds of requests.
 - **Rooms:** rename rooms and see each room's area.
 - **Material Painter:** apply textures to walls and floors; click another texture to switch directly.
 - Undo and redo (Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z), autosave to the server with a sync indicator.
@@ -252,7 +267,9 @@ Arch-E-Tech/
 │   ├── plan_designer.py         Reference-guided LLM layout, validation, adapt_reference
 │   ├── reference_plans.py       Library of reference house plans
 │   ├── multi_floor.py           Floor splitting, stair placement, balconies, railings
-│   ├── plan_editor.py           AI Edit: sentence → validated update/delete/add operations
+│   ├── plan_editor.py           AI Edit: request → actions (AI or parser), carried out, summary
+│   ├── plan_actions.py          The edits themselves: move walls, add rooms / outdoor spaces, doors, windows, furniture
+│   ├── edit_intents.py          Plain-English request parser (works without an AI key)
 │   ├── budget_advisor.py        Budget Advisor (Groq + rule fallback)
 │   ├── render_ai.py             Cloudflare Workers AI prompts and image calls
 │   ├── layout_generator.py      Procedural layouts: a different house for almost every brief; fits plots
@@ -347,7 +364,7 @@ Other scripts: `npm run build` (production build into `client/dist`), `npm run p
 ### Without API keys
 Everything still runs:
 - Plans come from the reference library instead of the LLM.
-- AI Edit says it needs `GROQ_API_KEY`; the drawing tools still work.
+- AI Edit uses its built-in parser, which understands most everyday requests (sizes, rooms, doors, windows, furniture, finishes).
 - The Budget Advisor uses its rules.
 - Photo Render still captures every room from the 3D house, and the Room Designer works fully; furnishing with AI and Concept Viz report that image generation isn't configured.
 

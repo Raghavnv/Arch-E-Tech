@@ -16,7 +16,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const PX = 20;   // canvas units per metre
 const KIND_LABEL = {
   living: 'Living room', lounge: 'Lounge', dining: 'Dining room', kitchen: 'Kitchen', master_bedroom: 'Master bedroom',
-  bedroom: 'Bedroom', bathroom: 'Bathroom', study: 'Study', utility: 'Utility', closet: 'Walk-in closet', balcony: 'Balcony', patio: 'Patio',
+  bedroom: 'Bedroom', bathroom: 'Bathroom', study: 'Study', utility: 'Utility', closet: 'Walk-in closet', balcony: 'Balcony', patio: 'Patio', terrace: 'Terrace', deck: 'Deck',
 };
 const OPEN = new Set(['living', 'dining', 'lounge']);
 const floorName = (f) => (f === 1 ? 'Ground floor' : `Floor ${f}`);

@@ -5,11 +5,11 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Menu, MousePointer2, Box, Home, PenTool, LayoutTemplate, 
   Settings, Save, FileText, ChevronRight, Calculator, CheckCircle, 
-  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen, FileUp, Compass, Ruler, PenLine, ShieldCheck, Share2, Zap, Sofa, HardHat, Clapperboard, Smartphone, Palette, ChefHat, ClipboardList, ListChecks 
+  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen, FileUp, Compass, Ruler, PenLine, ShieldCheck, Share2, Zap, Sofa, HardHat, Clapperboard, Smartphone, Palette, ChefHat, ClipboardList, ListChecks, Landmark 
 } from 'lucide-react';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
-import { AutoDetectPanel, AiLayoutPanel, ConceptVizPanel, EditPanel, RoomsPanel, BudgetPanel, VastuPanel, RulesPanel, SharePanel, ServicesPanel, MaterialsPanel, ComfortPanel } from './StudioTools';
+import { AutoDetectPanel, AiLayoutPanel, ConceptVizPanel, EditPanel, RoomsPanel, BudgetPanel, VastuPanel, RulesPanel, SharePanel, ServicesPanel, MaterialsPanel, ComfortPanel, LoanPanel } from './StudioTools';
 import FeatureDock from './FeatureDock';
 import FinishesPanel from './FinishesPanel';
 import { PLAIN_WALL } from '../utils/textureLibrary';
@@ -17,7 +17,7 @@ import VideoTour from './VideoTour';
 import DesignStyleModal from './DesignStyleModal';
 import FittedModal from './FittedModal';
 import FacadeModal from './FacadeModal';
-import { applyFacade } from '../utils/facade';
+import { applyFacade, DEFAULT_FACADE } from '../utils/facade';
 import { downloadFinishSchedule } from '../utils/finishSchedule';
 import { setSideRange } from '../utils/designStyles';
 import ImportPlanModal from './ImportPlanModal';
@@ -329,6 +329,18 @@ export default function Studio() {
   const handlePaintAllWalls = () => {
     if (!selectedMaterial) return;
     setCanvasElements(prev => prev.map(el => (el.type === 'wall' ? { ...el, ...paintFor(selectedMaterial), sides: undefined } : el)));
+  };
+
+  // the front elevation: stored on the project, painted onto the outside of the walls
+  const saveFacade = async (f) => {
+    setProjectFacade(f);
+    setCanvasElements(prev => applyFacade(prev, f));
+    if (f.roofStyle) setRoofStyle(f.roofStyle);
+    if (projectId) {
+      await fetch(`${API_URL}/api/projects/${projectId}/facade`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` }, body: JSON.stringify({ facade: f }),
+      }).catch(() => {});
+    }
   };
 
   // which way north points on the drawing (set in the Vastu check; generated plans have north up)
@@ -762,6 +774,10 @@ export default function Studio() {
           <ServicesPanel elements={canvasElements} floor={activeFloor} projectName={projectName} site={projectSite}
             north={northOf()} apiUrl={API_URL} onClose={() => setToolPanel(null)} />
         )}
+        {toolPanel === 'loan' && (
+          <LoanPanel elements={canvasElements} projectId={projectId} apiUrl={API_URL} onClose={() => setToolPanel(null)}
+            houseCost={costData.total / CURRENCY[currencyCode()].rate * CURRENCY.INR.rate} />
+        )}
         {toolPanel === 'comfort' && <ComfortPanel elements={canvasElements} floor={activeFloor} north={northOf()} onClose={() => setToolPanel(null)} />}
         {toolPanel === 'materials' && (
           <MaterialsPanel elements={canvasElements} projectName={projectName} apiUrl={API_URL} onClose={() => setToolPanel(null)} />
@@ -907,8 +923,10 @@ export default function Studio() {
           </div>
         )}
 
-        {activeTab === '2D' && toolPanel === 'edit' && (
-          <EditPanel elements={floorElements} setElements={(els) => setFloorElements(cleanElements(els))} selected={selectedEls} apiUrl={API_URL} onClose={() => setToolPanel(null)} />
+        {toolPanel === 'edit' && (
+          <EditPanel elements={canvasElements} setElements={(els) => setCanvasElements(cleanElements(els))} selected={selectedEls}
+            floor={activeFloor} apiUrl={API_URL} onExterior={(patch) => saveFacade({ ...DEFAULT_FACADE, ...(projectFacade || {}), ...patch })}
+            onClose={() => setToolPanel(null)} />
         )}
         {activeTab === '2D' && toolPanel === 'rooms' && (
           <RoomsPanel elements={canvasElements} setElements={setCanvasElements} onClose={() => setToolPanel(null)} />
@@ -1107,6 +1125,8 @@ export default function Studio() {
         ] },
         { title: 'REPORTS', items: [
           { id: 'cost', icon: Calculator, label: 'Cost takeoff', desc: `${money(costData.total)} estimated`, onClick: () => setShowCostModal(true) },
+          { id: 'loan', icon: Landmark, label: 'Home loan & EMI', desc: 'Monthly EMI, what a bank would lend, payments while it is built', active: toolPanel === 'loan',
+            disabled: !canvasElements.some(e => e.type === 'room'), onClick: () => setToolPanel(t => (t === 'loan' ? null : 'loan')) },
           { id: 'tracker', icon: ListChecks, label: 'Construction tracker', desc: 'Phases, spend against the estimate, site photos', disabled: !projectId,
             onClick: () => flushSave(`/tracker?projectId=${projectId}`) },
           { id: 'materials', icon: HardHat, label: 'Materials & schedule', desc: 'Cement, steel, bricks… and a build timeline', active: toolPanel === 'materials',
@@ -1242,16 +1262,7 @@ export default function Studio() {
         onSee={() => { setStyleOpen(false); setActiveTab('3D'); if (roofStyle === 'none') setRoofStyle('flat'); }} />}
       {videoOpen && <VideoTour projectId={projectId} elements={canvasElements} projectName={projectName} facade={projectFacade} onClose={() => setVideoOpen(false)} />}
       {facadeOpen && <FacadeModal elements={canvasElements} facade={projectFacade} onClose={() => setFacadeOpen(false)}
-        onSave={async (f) => {
-          setProjectFacade(f);
-          setCanvasElements(prev => applyFacade(prev, f));
-          if (f.roofStyle) setRoofStyle(f.roofStyle);
-          if (projectId) {
-            await fetch(`${API_URL}/api/projects/${projectId}/facade`, {
-              method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` }, body: JSON.stringify({ facade: f }),
-            }).catch(() => {});
-          }
-        }} />}
+        onSave={saveFacade} />}
       {importOpen && <ImportPlanModal onClose={() => setImportOpen(false)} mode="replace"
         floorLabel={activeFloor === 1 ? 'the ground floor' : `floor ${activeFloor}`}
         onAccept={async ({ elements }) => {

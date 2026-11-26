@@ -806,7 +806,7 @@ const FLOOR_LOOK = {
   living: ['wood', '#b98a5b'], dining: ['wood', '#b98a5b'], lounge: ['wood', '#b98a5b'],
   master_bedroom: ['wood', '#c9a77c'], bedroom: ['wood', '#c9a77c'], study: ['wood', '#a9825a'],
   kitchen: ['tile', '#d8d4cf'], utility: ['tile', '#d8d4cf'], closet: ['wood', '#a9825f'], bathroom: ['tile', '#b9d3e0'],
-  balcony: ['tile', '#a39787'], patio: ['tile', '#a39787'], hallway: ['wood', '#b98a5b'],
+  balcony: ['tile', '#a39787'], patio: ['tile', '#a39787'], terrace: ['tile', '#b4a796'], deck: ['wood', '#8a6446'], hallway: ['wood', '#b98a5b'],
 };
 const floorTextureCache = {};
 
@@ -962,6 +962,8 @@ function StoreySlab({ rooms, holes }) {
   ));
 }
 
+// outdoor spaces: open to the sky, so no roof, ceiling or slab over them
+export const OPEN_AIR = new Set(['balcony', 'patio', 'terrace', 'deck']);
 const LIT = new Set(['living', 'dining', 'lounge', 'kitchen', 'master_bedroom', 'bedroom', 'study', 'bathroom', 'utility', 'closet', 'balcony', 'hallway']);
 
 /** A ceiling over every room, in its chosen design, and its light fitting: what makes the house feel lived in.
@@ -971,13 +973,13 @@ function CeilingsAndLights({ rooms, holes, isDay, withCeiling }) {
   const lit = rooms.filter(r => LIT.has(r.kind) || r.ceiling?.light).slice(0, 18);
   return (
     <group>
-      {withCeiling && cutAll(rooms.filter(r => r.kind !== 'balcony' && !(r.ceiling?.style && r.ceiling.style !== 'plain')).map(roomRect), holes).map((p, i) => (
+      {withCeiling && cutAll(rooms.filter(r => !OPEN_AIR.has(r.kind) && !(r.ceiling?.style && r.ceiling.style !== 'plain')).map(roomRect), holes).map((p, i) => (
         <mesh key={`c-${i}`} position={[p.x + p.w / 2, WALL_HEIGHT + 0.04, p.z + p.d / 2]} receiveShadow>
           <boxGeometry args={[p.w, 0.08, p.d]} />
           <meshStandardMaterial color={rooms.find(r => { const q = roomRect(r); return p.x >= q.x - 0.01 && p.z >= q.z - 0.01 && p.x + p.w <= q.x + q.w + 0.01 && p.z + p.d <= q.z + q.d + 0.01; })?.ceiling?.color || '#f3f1ed'} roughness={0.9} />
         </mesh>
       ))}
-      {rooms.filter(r => r.kind !== 'balcony' && r.ceiling?.style && r.ceiling.style !== 'plain').map((r, i) => (
+      {rooms.filter(r => !OPEN_AIR.has(r.kind) && r.ceiling?.style && r.ceiling.style !== 'plain').map((r, i) => (
         <RoomCeiling key={`d-${r.id || i}`} rect={roomRect(r)} style={r.ceiling.style} color={r.ceiling.color || '#f3f1ed'}
           top={WALL_HEIGHT} day={isDay} holes={holes} />
       ))}
@@ -1067,7 +1069,7 @@ function Roof({ rooms, style }) {
 /** One storey: everything drawn on that floor, lifted to its height. */
 function Storey({ elements, level, isTop, onPaint, roofStyle, isDay }) {
   const { wallData, standaloneOpenings, furniture, stairs, stairHoles, railings } = useProcessedArchitecture(elements);
-  const roomRects = useMemo(() => elements.filter(el => el && el.type === 'room' && el.kind !== 'balcony').map(roomRect), [elements]);
+  const roomRects = useMemo(() => elements.filter(el => el && el.type === 'room' && !OPEN_AIR.has(el.kind)).map(roomRect), [elements]);
   const rooms = useMemo(() => elements.filter(el => el && el.type === 'room'), [elements]);
   // the slab above this storey is cut where the stairs from here come up
   const holesAbove = useMemo(() => stairs.map(stairRect), [stairs]);
@@ -1086,13 +1088,13 @@ function Storey({ elements, level, isTop, onPaint, roofStyle, isDay }) {
       {/* lower storeys always have a ceiling (the next floor's slab); the top one when the roof is on */}
       {lightsOn && <CeilingsAndLights rooms={rooms} holes={holesAbove} isDay={isDay} withCeiling={isTop} />}
       {/* a lower floor is roofed by the floor above, and by a terrace slab wherever nothing is built on it */}
-      {!isTop && cutAll(rooms.map(roomRect), holesAbove).map((p, i) => (
+      {!isTop && cutAll(rooms.filter(r => !OPEN_AIR.has(r.kind)).map(roomRect), holesAbove).map((p, i) => (
         <mesh key={`t-${i}`} position={[p.x + p.w / 2, WALL_HEIGHT + 0.1, p.z + p.d / 2]} castShadow receiveShadow>
           <boxGeometry args={[p.w + 0.2, 0.2, p.d + 0.2]} />
           <meshStandardMaterial color="#cfc8bd" roughness={0.9} />
         </mesh>
       ))}
-      {isTop && <Roof rooms={rooms.filter(r => r.kind !== 'balcony')} style={roofStyle} />}
+      {isTop && <Roof rooms={rooms.filter(r => !OPEN_AIR.has(r.kind))} style={roofStyle} />}
     </group>
     </DayContext.Provider>
   );

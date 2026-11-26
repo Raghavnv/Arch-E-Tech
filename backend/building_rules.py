@@ -16,6 +16,7 @@ guidance, not an approval.
 from __future__ import annotations
 
 import math
+import re
 
 U = 20.0                         # plan units per metre
 WINDOW_H = 1.2                   # m, assumed
@@ -27,6 +28,63 @@ ROOM_MIN = {                     # kind -> (min m2, min width m, what it is call
 WC_MIN = (1.1, 0.9, "separate WC")
 NEEDS_WINDOW = ("living", "bedroom", "master_bedroom", "study", "kitchen")
 DEFAULT_LIMITS = {"coverage_pct": 75.0, "far": 1.75, "max_floors": 3}   # typical for small residential plots
+OUTDOOR = ("balcony", "patio", "terrace", "deck")
+FLOOR_TO_FLOOR = 3.2             # m, slab to slab
+PARAPET = 1.0                    # m, on the roof
+
+# Typical limits for a small residential plot (a house on a road under ~12 m wide), by city. Bye-laws depend
+# on the zone, the road width and the year, and change: these are a starting point to check a design
+# against, to be confirmed with the local authority before applying. Setbacks: (plot area up to m2,
+# front, rear, each side) in metres, the first row that fits. FAR None = no FAR cap (height and setbacks
+# control the bulk instead). parking: car spaces per 100 m2 of built-up area (at least one above 75 m2).
+CITY_RULES = {
+    "Typical (NBC)": {"coverage": 65, "far": 1.75, "height": 15.0, "floors": 4, "parking": 1.0, "authority": "National Building Code 2016",
+                      "setbacks": [(100, 1.5, 1.0, 0.0), (250, 3.0, 1.5, 1.0), (500, 3.0, 3.0, 1.5), (1e9, 4.5, 3.0, 3.0)]},
+    "Bengaluru": {"coverage": 75, "coverage_big": (360, 65), "far": 1.75, "height": 15.0, "floors": 4, "parking": 1.0, "authority": "BBMP Building Bye-laws",
+                  "setbacks": [(120, 1.0, 0.75, 0.75), (240, 1.5, 1.0, 1.0), (500, 3.0, 1.5, 1.5), (1e9, 4.0, 2.0, 2.0)]},
+    "Chennai": {"coverage": 70, "far": 2.0, "height": 12.0, "floors": 4, "parking": 1.0, "authority": "TN Combined Development & Building Rules 2019",
+                "setbacks": [(100, 1.5, 1.0, 0.0), (300, 1.5, 1.5, 1.0), (1e9, 3.0, 1.5, 1.5)]},
+    "Hyderabad": {"coverage": 75, "far": None, "height": 10.0, "floors": 3, "parking": 1.0, "authority": "GHMC (GO 168)",
+                  "setbacks": [(100, 1.5, 0.5, 0.5), (200, 1.5, 1.0, 1.0), (300, 3.0, 1.0, 1.0), (500, 3.0, 1.5, 1.5), (1e9, 3.0, 2.0, 2.0)]},
+    "Mumbai": {"coverage": 60, "far": 2.0, "height": 24.0, "floors": 7, "parking": 1.0, "authority": "DCPR 2034 (base FSI with premium and TDR)",
+               "setbacks": [(300, 3.0, 2.25, 1.5), (1e9, 3.0, 3.0, 3.0)]},
+    "Pune": {"coverage": 60, "far": 1.1, "height": 15.0, "floors": 4, "parking": 1.0, "authority": "UDCPR 2020 (base FSI; premium and TDR can add more)",
+             "setbacks": [(150, 2.0, 1.0, 1.0), (500, 3.0, 1.5, 1.5), (1e9, 4.5, 3.0, 3.0)]},
+    "Ahmedabad": {"coverage": 60, "far": 1.8, "height": 15.0, "floors": 4, "parking": 1.0, "authority": "CGDCR 2017",
+                  "setbacks": [(150, 2.25, 1.5, 0.0), (500, 3.0, 1.5, 1.5), (1e9, 4.5, 3.0, 3.0)]},
+    "Kolkata": {"coverage": 65, "far": 1.75, "height": 12.5, "floors": 4, "parking": 1.0, "authority": "KMC Building Rules 2009",
+                "setbacks": [(200, 1.2, 2.0, 1.2), (500, 2.0, 3.0, 1.5), (1e9, 3.0, 4.0, 2.0)]},
+    "Delhi": {"coverage_tiers": [(100, 90), (250, 75), (750, 75), (1e9, 50)], "far_tiers": [(100, 3.5), (250, 3.0), (750, 2.25), (1e9, 1.5)],
+              "height": 15.0, "floors": 4, "parking": 1.0, "authority": "Unified Building Bye-laws 2016 / MPD-2021",
+              "setbacks": [(100, 0.0, 0.0, 0.0), (250, 3.0, 2.0, 0.0), (500, 4.0, 3.0, 3.0), (1e9, 6.0, 3.0, 3.0)]},
+    "Jaipur": {"coverage": 60, "far": 1.8, "height": 15.0, "floors": 4, "parking": 1.0, "authority": "JDA Building Bye-laws 2020",
+               "setbacks": [(150, 2.0, 1.5, 0.0), (500, 3.0, 2.0, 2.0), (1e9, 6.0, 3.0, 3.0)]},
+    "Kochi": {"coverage": 65, "far": 3.0, "height": 10.0, "floors": 3, "parking": 1.0, "authority": "Kerala Municipality Building Rules 2019",
+              "setbacks": [(1e9, 3.0, 1.5, 1.2)]},
+    "Chandigarh": {"coverage": 60, "far": 1.5, "height": 11.0, "floors": 3, "parking": 1.0, "authority": "Chandigarh Building Rules (Urban) 2017",
+                   "setbacks": [(250, 3.0, 2.5, 0.0), (1e9, 4.5, 3.0, 1.5)]},
+    "Guwahati": {"coverage": 50, "far": 1.75, "height": 15.0, "floors": 4, "parking": 1.0, "authority": "GMDA Building Bye-laws 2014",
+                 "setbacks": [(200, 3.0, 1.5, 1.5), (1e9, 4.5, 3.0, 3.0)]},
+}
+CITIES = list(CITY_RULES)
+
+
+def city_limits(city: str | None, plot_area: float | None) -> dict:
+    """Coverage %, FAR, height, floors, parking and setbacks for a city and plot size."""
+    rule = CITY_RULES.get(city or "", CITY_RULES["Typical (NBC)"])
+    a = plot_area or 150
+    cov = rule.get("coverage")
+    if rule.get("coverage_big") and a > rule["coverage_big"][0]:
+        cov = rule["coverage_big"][1]
+    if rule.get("coverage_tiers"):
+        cov = next(c for up, c in rule["coverage_tiers"] if a <= up)
+    far = rule.get("far")
+    if rule.get("far_tiers"):
+        far = next(f for up, f in rule["far_tiers"] if a <= up)
+    front, rear, side = next((f, r, s) for up, f, r, s in rule["setbacks"] if a <= up)
+    return {"city": city if city in CITY_RULES else "Typical (NBC)", "authority": rule["authority"], "coverage_pct": cov, "far": far,
+            "max_height_m": rule["height"], "max_floors": rule["floors"], "parking_per_100m2": rule["parking"],
+            "setbacks_m": {"front": front, "rear": rear, "sides": side}}
 
 
 def _room_box(e):
@@ -49,8 +107,11 @@ def _windows_of(room, windows):
     return total
 
 
-def check(elements: list[dict], site: dict | None = None, limits: dict | None = None) -> dict:
-    limits = {**DEFAULT_LIMITS, **{k: v for k, v in (limits or {}).items() if v}}
+def check(elements: list[dict], site: dict | None = None, limits: dict | None = None, city: str | None = None) -> dict:
+    plot_ = (site or {}).get("plot_m")
+    base = city_limits(city, plot_[0] * plot_[1] if plot_ else None)
+    over = {k: v for k, v in (limits or {}).items() if v not in (None, "", 0)}
+    limits = {**DEFAULT_LIMITS, **{k: v for k, v in base.items() if v is not None or k == "far"}, **over}
     els = [e for e in elements if isinstance(e, dict) and e.get("type")]
     rooms = [e for e in els if e["type"] == "room" and e.get("kind")]
     floors = sorted({e.get("floor") or 1 for e in els})
@@ -101,35 +162,82 @@ def check(elements: list[dict], site: dict | None = None, limits: dict | None = 
 
     # ---- plot limits -------------------------------------------------------------------------------
     plot = (site or {}).get("plot_m")
+    fixes = []
+    indoor = [r for r in rooms if r.get("kind") not in OUTDOOR]
+    n_floors = len({r.get("floor") or 1 for r in indoor}) or 1
+    height = n_floors * FLOOR_TO_FLOOR + PARAPET
+    add("Plot", "Height", "pass" if height <= limits["max_height_m"] + 0.01 else "fail",
+        f"About {height:.1f} m to the top of the parapet ({n_floors} floor{'s' if n_floors > 1 else ''} at {FLOOR_TO_FLOOR} m); limit {limits['max_height_m']:.1f} m.")
+    if height > limits["max_height_m"] + 0.01:
+        fixes.append(f"Drop to {max(1, int((limits['max_height_m'] - PARAPET) // FLOOR_TO_FLOOR))} floors, or ask about a stilt (parking) floor, which some cities don't count.")
+    if n_floors > limits["max_floors"]:
+        add("Plot", "Floors", "fail", f"{n_floors} floors (limit {int(limits['max_floors'])}).")
     if plot:
         plot_area = plot[0] * plot[1]
-        per_floor = {f: sum((r.get("area") or (r["width"] / U) * (r["height"] / U)) for r in rooms if (r.get("floor") or 1) == f)
+        per_floor = {f: sum((r.get("area") or (r["width"] / U) * (r["height"] / U)) for r in indoor if (r.get("floor") or 1) == f)
                      for f in floors}
-        # rooms are measured to wall centre lines, so add ~10% for the walls themselves
+        # rooms are measured to wall centre lines, so add ~10% for the walls themselves; balconies, terraces
+        # and patios are open to the sky and left out, as most bye-laws do
         built = {f: a * 1.1 for f, a in per_floor.items()}
+        total = sum(built.values())
         coverage = 100 * built.get(floors[0], 0) / plot_area
-        far = sum(built.values()) / plot_area
-        add("Plot", "Ground coverage", "pass" if coverage <= limits["coverage_pct"] else "fail",
-            f"About {coverage:.0f}% of the {plot_area:.0f} m² plot is built on (limit {limits['coverage_pct']:.0f}%).")
-        add("Plot", "Floor area ratio (FAR / FSI)", "pass" if far <= limits["far"] else "fail",
-            f"About {far:.2f} ({sum(built.values()):.0f} m² built over all floors; limit {limits['far']}).")
-        add("Plot", "Floors", "pass" if len(floors) <= limits["max_floors"] else "fail",
-            f"{len(floors)} floor{'s' if len(floors) > 1 else ''} (limit {int(limits['max_floors'])}).")
-        buildable = (site or {}).get("buildable_m")
-        if buildable:
-            g = [r for r in rooms if (r.get("floor") or 1) == floors[0]]
+        cov_lim = limits["coverage_pct"]
+        add("Plot", "Ground coverage", "pass" if coverage <= cov_lim else "fail",
+            f"About {coverage:.0f}% of the {plot_area:.0f} m² plot is built on (limit {cov_lim:.0f}%).")
+        if coverage > cov_lim:
+            fixes.append(f"Shrink the ground floor by about {built.get(floors[0], 0) - plot_area * cov_lim / 100:.0f} m² (coverage).")
+        if limits.get("far"):
+            far = total / plot_area
+            add("Plot", "Floor area ratio (FAR / FSI)", "pass" if far <= limits["far"] + 1e-6 else "fail",
+                f"About {far:.2f} ({total:.0f} m² built over all floors; limit {limits['far']}, so up to {limits['far'] * plot_area:.0f} m²).")
+            if far > limits["far"] + 1e-6:
+                fixes.append(f"Remove about {total - limits['far'] * plot_area:.0f} m² of built-up area (FAR), e.g. from the top floor; "
+                             "turning a room into an open terrace takes it out of the count.")
+        else:
+            add("Plot", "Floor area ratio (FAR / FSI)", "info", "No FAR cap here: the height and setbacks limit the size.")
+        # setbacks: does the ground floor fit inside the plot once the open margins are left?
+        sb = limits.get("setbacks_m") or (site or {}).get("setbacks_m") or {}
+        g = [r for r in indoor if (r.get("floor") or 1) == floors[0]]
+        if g and sb:
             xs = [v for r in g for v in (_room_box(r)[0], _room_box(r)[2])]
             ys = [v for r in g for v in (_room_box(r)[1], _room_box(r)[3])]
-            w_m, d_m = (max(xs) - min(xs)) / U, (max(ys) - min(ys)) / U
-            fits = w_m <= buildable[0] + 0.3 and d_m <= buildable[1] + 0.3
-            sb = site.get("setbacks_m") or {}
-            add("Plot", "Setbacks", "pass" if fits else "fail",
-                f"The house is {w_m:.1f} × {d_m:.1f} m; the space inside the setbacks"
-                f"{f' (front {sb.get('front')} m, rear {sb.get('rear')} m, sides {sb.get('sides')} m)' if sb else ''}"
-                f" is {buildable[0]:.1f} × {buildable[1]:.1f} m.")
+            w_m, d_m = (max(xs) - min(xs)) / U + 0.2, (max(ys) - min(ys)) / U + 0.2     # out to the wall faces
+            facing = (site or {}).get("facing") or "S"
+            along, deep = (w_m, d_m) if facing in ("N", "S") else (d_m, w_m)
+            room_along = plot[0] - 2 * sb.get("sides", 0)
+            room_deep = plot[1] - sb.get("front", 0) - sb.get("rear", 0)
+            ok_a, ok_d = along <= room_along + 0.05, deep <= room_deep + 0.05
+            add("Plot", "Setbacks", "pass" if ok_a and ok_d else "fail",
+                f"Front {sb.get('front')} m, rear {sb.get('rear')} m, sides {sb.get('sides')} m leave {room_along:.1f} m along the road and {room_deep:.1f} m deep; "
+                f"the house is {along:.1f} × {deep:.1f} m.")
+            if not ok_a:
+                fixes.append(f"Make the house about {along - room_along:.1f} m narrower along the road (side setbacks).")
+            if not ok_d:
+                fixes.append(f"Make the house about {deep - room_deep:.1f} m shallower front to back (front and rear setbacks).")
+            # parking: a car (5 × 2.5 m) in the front margin, a garage room, or a stilt floor
+            # one car for a family house, two for a big one
+            need = 0 if total < 75 else 1 if total < 250 else 2
+            garage = [r for r in rooms if re.search(r"garage|parking|car\s?porch|carport", (r.get("name") or "").lower())]
+            front_open = plot[1] - deep - sb.get("rear", 0)
+            spots = len(garage) + (int(max(0.0, room_along + 2 * sb.get("sides", 0)) // 2.7) if front_open >= 5.0 else 0)
+            if need:
+                add("Plot", "Parking", "pass" if spots >= need else "fail",
+                    f"{need} car space{'s' if need > 1 else ''} needed for {total:.0f} m²; "
+                    + (f"the {front_open:.1f} m deep front yard holds {min(spots, 3)}." if front_open >= 5.0 else
+                       f"the front yard is only {max(front_open, 0):.1f} m deep (a car needs 5 m)" + (", and there's a garage." if garage else "."))
+                    )
+                if spots < need:
+                    fixes.append("Leave 5 m clear at the front for a car (push the house back), add a car porch, or put parking on a stilt floor.")
     else:
-        add("Plot", "Plot limits", "info", "Add the plot size to check ground coverage, FAR, floors and setbacks.")
+        add("Plot", "Plot limits", "info", "Add the plot size to check ground coverage, FAR, setbacks and parking.")
 
     fails = sum(c["status"] == "fail" for c in checks)
     warns = sum(c["status"] == "warn" for c in checks)
-    return {"fails": fails, "warnings": warns, "limits": limits, "checks": checks}
+    if small:
+        fixes.insert(0, f"Enlarge {', '.join(small)} to the code minimum (AI Edit: \"make {small[0].split(' (')[0]} bigger\").")
+    if no_window:
+        fixes.append(f"Add a window on an outside wall in {', '.join(no_window)}.")
+    verdict = ("Likely to meet the rules checked here" if not fails else
+               "Needs changes before it would be approved")
+    return {"fails": fails, "warnings": warns, "limits": limits, "checks": checks, "fixes": fixes, "verdict": verdict,
+            "city": limits.get("city"), "authority": limits.get("authority"), "cities": CITIES}

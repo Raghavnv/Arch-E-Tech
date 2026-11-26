@@ -25,7 +25,7 @@ const SNAP = 1;                   // 5 cm
 const WALL_SNAP = 5;              // 25 cm: a piece this close to a wall is pushed flush against it
 const KIND_LABEL = {
   living: 'Living room', lounge: 'Lounge', dining: 'Dining room', kitchen: 'Kitchen', master_bedroom: 'Master bedroom',
-  bedroom: 'Bedroom', bathroom: 'Bathroom', study: 'Study', utility: 'Utility', closet: 'Walk-in closet', balcony: 'Balcony', patio: 'Patio', hallway: 'Hallway',
+  bedroom: 'Bedroom', bathroom: 'Bathroom', study: 'Study', utility: 'Utility', closet: 'Walk-in closet', balcony: 'Balcony', patio: 'Patio', terrace: 'Terrace', deck: 'Deck', hallway: 'Hallway',
 };
 const SWATCHES = [null, '#f4f4f2', '#d6cfc2', '#c8a27a', '#5b3a29', '#27272a', '#5b6b94', '#2f6574', '#4d7c4a', '#b45309', '#be123c', '#7c3aed'];
 const newId = () => `furn_${Math.random().toString(36).slice(2, 9)}`;

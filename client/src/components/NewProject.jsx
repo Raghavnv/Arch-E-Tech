@@ -1,3 +1,4 @@
+import OutdoorOptions, { promptWithFloors } from './OutdoorOptions';
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import ImportPlanModal from './ImportPlanModal';
@@ -12,6 +13,7 @@ export default function NewProject() {
   const [importOpen, setImportOpen] = useState(false);
   // the plot is optional: frontage (along the road) x depth, which side the road is on, and Vastu
   const [plot, setPlot] = useState({ width: '', depth: '', facing: 'N', vastu: false });
+  const [outdoor, setOutdoor] = useState({ patio: false, balcony: false, terrace: false });
   const imperial = isImperial();
   const toMetres = (v) => (imperial ? Number(v) * 0.3048 : Number(v));
   const plotGiven = Number(plot.width) > 0 && Number(plot.depth) > 0;
@@ -176,6 +178,9 @@ export default function NewProject() {
                     onChange={(e) => setConfig({ ...config, prompt: e.target.value })}
                   />
                   <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+                    <OutdoorOptions value={outdoor} onChange={setOutdoor} withFloors={false} floors={config.floors || 1} onFloors={(n) => setConfig({ ...config, floors: n })} />
+                  </div>
+                  <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
                     <p className="text-sm font-medium text-zinc-300">Plot <span className="font-normal text-zinc-500">(optional)</span></p>
                     <p className="mt-0.5 text-xs text-zinc-500">The house is fitted inside the plot after setbacks, with the front door on the road side.
                       You can also write it in the prompt, e.g. "30x40 plot, east facing, vastu".</p>
@@ -232,7 +237,9 @@ export default function NewProject() {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({
-                            prompt: config.prompt || 'Default modern house',
+                            // the Number of Floors slider, unless the prompt says otherwise (the generator draws up to 3)
+                            prompt: promptWithFloors(config.prompt || 'Default modern house', Math.min(3, config.floors || 1)),
+                            outdoor,
                             ...(plotGiven ? { plot_width_m: toMetres(plot.width), plot_depth_m: toMetres(plot.depth), facing: plot.facing } : {}),
                             ...(plot.vastu ? { vastu: true } : {}),
                           }),

@@ -103,7 +103,8 @@ def _footprint(boxes, grow):
 def _floor_takeoff(els, floor):
     here = [e for e in els if (e.get("floor") or 1) == floor]
     rooms = [e for e in here if e["type"] == "room"]
-    boxes = [_box(r) for r in rooms]
+    # a ground-level patio or deck is paving outside the house, not part of the building
+    boxes = [_box(r) for r in rooms if r.get("kind") not in ("patio", "deck")]
     walls = [e for e in here if e["type"] == "wall" and (e.get("width") or 0) > 0]
     doors = [e for e in here if e["type"] == "door"]
     windows = [e for e in here if e["type"] == "window"]
@@ -144,7 +145,7 @@ def _floor_takeoff(els, floor):
     wet = [r for r in rooms if r.get("kind") in WET_KINDS]
     wet_floor = sum((r["width"] / U) * (r["height"] / U) for r in wet)
     wet_wall = sum(2 * (r["width"] + r["height"]) / U * 2.1 for r in wet)      # tiled to 2.1 m
-    balcony = sum((r["width"] / U) * (r["height"] / U) for r in rooms if r.get("kind") == "balcony")
+    balcony = sum((r["width"] / U) * (r["height"] / U) for r in rooms if r.get("kind") in ("balcony", "terrace"))
     # columns: the outline's corners, wall junctions inside, and one every 4 m along long outer runs
     junctions = max(0, len(ends) - corners)
     columns = round(corners * 0.5 + junctions * 0.25 + perimeter / 5.0)

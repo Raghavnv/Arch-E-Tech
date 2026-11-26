@@ -16,8 +16,8 @@ import { formatArea } from '../utils/units';
  */
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const W = 1280, H = 720, FADE = 0.4;
-const ORDER = ['living', 'lounge', 'dining', 'kitchen', 'master_bedroom', 'bedroom', 'study', 'balcony', 'bathroom'];
-const KIND_NAME = { living: 'Living room', lounge: 'Lounge', dining: 'Dining', kitchen: 'Kitchen', master_bedroom: 'Master bedroom', bedroom: 'Bedroom', study: 'Study', balcony: 'Balcony', bathroom: 'Bathroom', utility: 'Utility' };
+const ORDER = ['living', 'lounge', 'dining', 'kitchen', 'master_bedroom', 'bedroom', 'study', 'balcony', 'terrace', 'patio', 'deck', 'bathroom'];
+const KIND_NAME = { living: 'Living room', lounge: 'Lounge', dining: 'Dining', kitchen: 'Kitchen', master_bedroom: 'Master bedroom', bedroom: 'Bedroom', study: 'Study', balcony: 'Balcony', terrace: 'Terrace', patio: 'Patio', deck: 'Deck', bathroom: 'Bathroom', utility: 'Utility' };
 
 const ease = (x) => (x < 0 ? 0 : x > 1 ? 1 : x * x * (3 - 2 * x));
 const lerp = (a, b, k) => a + (b - a) * k;

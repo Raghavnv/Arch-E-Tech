@@ -68,6 +68,8 @@ class AIPrompt(BaseModel):
     plot_depth_m: float | None = None
     facing: Literal["N", "E", "S", "W"] | None = None
     vastu: bool | None = None
+    # outdoor spaces ticked on the form: {"patio": bool, "balcony": bool, "terrace": bool}
+    outdoor: dict | None = None
 
 class AIChatRequest(BaseModel):
     message: str
@@ -622,6 +624,8 @@ class PlanEditRequest(BaseModel):
     instruction: str
     elements: list
     selected: list[str] = []
+    floor: int = 1                  # the floor on screen; edits go there unless the request names another
+    catalog: dict | None = None     # the Studio's paints, finishes, ceilings and styles, so they can be asked for by name
 
 
 @app.post("/api/ai/edit-plan")
@@ -631,7 +635,7 @@ def edit_plan(req: PlanEditRequest):
     if not req.instruction.strip():
         raise HTTPException(status_code=400, detail="Describe the change you want.")
     try:
-        return plan_editor.ask(req.instruction, req.elements, req.selected, os.getenv("GROQ_API_KEY"))
+        return plan_editor.ask(req.instruction, req.elements, req.selected, os.getenv("GROQ_API_KEY"), req.floor, req.catalog)
     except plan_editor.EditError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -666,7 +670,7 @@ def _design_layout(prompt, program, style, rng, wishes, use_llm=True, budget_s=2
         raise HTTPException(status_code=500, detail=f"Layout generation failed: {e}")
 
 
-def _multi_floor_plan(prompt, program, floors, wishes, style, rng, source, site=None):
+def _multi_floor_plan(prompt, program, floors, wishes, style, rng, source, site=None, outdoor=None):
     """Share the rooms out over the floors, draw each floor, then stack them and add the stairs."""
     beds = sum(1 for r in program if r.kind in ("master_bedroom", "bedroom"))
     baths = sum(1 for r in program if r.kind == "bathroom" and r.name != "Powder Room")
@@ -675,7 +679,9 @@ def _multi_floor_plan(prompt, program, floors, wishes, style, rng, source, site=
     programs, master_floor = multi_floor.floor_programs(program, split, baths, powders)
     if site is not None:
         programs = [_fit_floor(prog, site) for prog in programs]
-    balcony = multi_floor.wants_balcony(prompt)
+    wants = multi_floor.wants_outdoor(prompt, outdoor)
+    # the spare upstairs room (kitchen-sized, so the floors line up) becomes an inset terrace or balcony
+    balcony = "terrace" if wants["terrace"] else "balcony" if wants["balcony"] else False
     # draw the floors a few times and keep the version where the stairs fit and the upper floors
     # sit best over the ground floor (little or nothing overhanging)
     best = None
@@ -686,7 +692,7 @@ def _multi_floor_plan(prompt, program, floors, wishes, style, rng, source, site=
             label = "Ground floor" if f == 0 else f"Floor {f + 1}"
             floor_prompt = (f"{label} of a {floors}-storey home. {prompt}" if f == 0 else
                             f"{label} of a {floors}-storey home: a family lounge at the top of the stairs and "
-                            f"{split[f]} bedroom(s). The kitchen-sized room is really a {'balcony' if balcony else 'study'}.")
+                            f"{split[f]} bedroom(s). The kitchen-sized room is really a {balcony or 'study'}.")
             floor_wishes = dict(wishes, strict_baths=True, powder=wishes.get("powder") if f == 0 else 0,
                                 open_kitchen=wishes.get("open_kitchen") if f == 0 else False)
             # only the first try asks the LLM (seconds per floor); the redraws use the fast generators
@@ -756,7 +762,8 @@ def export_dxf(req: ExportRequest):
 class BuildingCheck(BaseModel):
     elements: list
     site: dict | None = None        # the project's plot, or one entered in the panel
-    limits: dict | None = None      # coverage_pct, far, max_floors
+    limits: dict | None = None      # overrides: coverage_pct, far, max_floors, max_height_m
+    city: str | None = None         # the city whose typical bye-laws to use
 
 
 @app.post("/api/ai/building-check")
@@ -765,7 +772,7 @@ def building_check(req: BuildingCheck):
     import building_rules
     if not any(isinstance(e, dict) and e.get("type") == "room" for e in req.elements):
         raise HTTPException(status_code=400, detail="The plan has no rooms to check. Label rooms first (Rooms panel).")
-    return building_rules.check(req.elements, req.site, req.limits)
+    return building_rules.check(req.elements, req.site, req.limits, req.city)
 
 
 class ServicesRequest(BaseModel):
@@ -814,6 +821,23 @@ def vastu_check(req: VastuCheck):
 
 @app.post("/api/ai/generate-plan")
 async def generate_floor_plan(payload: AIPrompt):
+    """A house from a prompt, then the patio, balconies and terrace the owner asked for."""
+    import random
+    import plan_actions
+    res = await _generate_floor_plan(payload)
+    wants = multi_floor.wants_outdoor(payload.prompt, payload.outdoor)
+    if isinstance(res, dict) and res.get("elements") and any(wants.values()):
+        try:
+            els, notes = plan_actions.add_outdoor_spaces(res["elements"], wants, random.Random())
+            res["elements"] = els
+            if notes:
+                res["notes"] = (res.get("notes") or []) + notes
+        except Exception as e:                       # the house itself is still good
+            print(f"Outdoor spaces failed: {e}")
+    return res
+
+
+async def _generate_floor_plan(payload: AIPrompt):
     import random
     import plan_designer as pd
     from floorplan_builder import build_program, generate_layout, parse_prompt
@@ -852,7 +876,7 @@ async def generate_floor_plan(payload: AIPrompt):
                 program = program_for(site.width_m * site.depth_m * frac * n_floors)
                 beds = sum(1 for r in program if r.kind in ("master_bedroom", "bedroom"))
                 if n_floors > 1 and beds >= n_floors:
-                    res = _multi_floor_plan(payload.prompt, program, n_floors, wishes, style, rng, source, site=site)
+                    res = _multi_floor_plan(payload.prompt, program, n_floors, wishes, style, rng, source, site=site, outdoor=payload.outdoor)
                     if res:
                         if n_floors > floors:
                             notes.append(f"The rooms didn't fit on {'one floor' if floors == 1 else f'{floors} floors'} "
@@ -871,7 +895,7 @@ async def generate_floor_plan(payload: AIPrompt):
     program = program_for()
     beds = sum(1 for r in program if r.kind in ("master_bedroom", "bedroom"))
     if floors > 1 and beds >= floors:
-        res = _multi_floor_plan(payload.prompt, program, floors, wishes, style, rng, source)
+        res = _multi_floor_plan(payload.prompt, program, floors, wishes, style, rng, source, outdoor=payload.outdoor)
         return _with_site(res, None, site_info, notes) if site_info else res
 
     layout, how = _design_layout(payload.prompt, program, style, rng, wishes)

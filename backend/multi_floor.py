@@ -41,6 +41,21 @@ def wants_balcony(prompt: str) -> bool:
     return bool(re.search(r"\b(balcon(?:y|ies)|terrace|sit[- ]?out|deck)\b", (prompt or "").lower()))
 
 
+def wants_outdoor(prompt: str, asked: dict | None = None) -> dict:
+    """Which outdoor spaces the owner wants: from the form's tick boxes, or the prompt's own words."""
+    t = (prompt or "").lower()
+    neg = lambda w: re.search(r"\b(no|without|skip|don'?t want)\s+(?:a\s+|any\s+)?" + w, t)
+    out = {
+        "patio": bool(re.search(r"\b(patio|sit[- ]?out|verandah?|porch|courtyard|deck|outdoor seating)\b", t)) and not neg("patio"),
+        "balcony": bool(re.search(r"\bbalcon(?:y|ies)\b", t)) and not neg("balcon"),
+        "terrace": bool(re.search(r"\b(terrace|roof garden|roof deck)\b", t)) and not neg("terrace"),
+    }
+    for k, v in (asked or {}).items():
+        if k in out and v is not None:
+            out[k] = bool(v)
+    return out
+
+
 def split_bedrooms(beds: int, floors: int, rng: random.Random) -> list[int]:
     """Bedrooms per floor, ground first. Several sensible splits are possible; one is picked at random
     (3 bedrooms on 2 floors -> 1+2 or 2+1; 4 -> 2+2 or 1+3; ...). Every floor gets at least one."""
@@ -324,7 +339,8 @@ def place_stairs(floors_els: list[list[dict]]) -> float | None:
 # --------------------------------------------------------------------------
 # Putting it together
 # --------------------------------------------------------------------------
-def finish(floor_layouts: list, master_floor: int, balcony: bool) -> tuple[list[dict], float | None]:
+def finish(floor_layouts: list, master_floor: int, balcony) -> tuple[list[dict], float | None]:
+    """`balcony`: False, True / "balcony" (the spare upstairs room becomes an inset balcony) or "terrace"."""
     """Elements of every floor, named consistently across the house, aligned and joined by stairs."""
     floors_els = [lay.elements() for lay in floor_layouts]
 
@@ -353,7 +369,7 @@ def finish(floor_layouts: list, master_floor: int, balcony: bool) -> tuple[list[
         if f > 0:
             spare = next((e for e in els if e["type"] == "room" and e["kind"] == "kitchen"), None)
             if spare:
-                spare["kind"], spare["name"] = ("balcony", "Balcony") if balcony else ("study", "Study")
+                spare["kind"], spare["name"] = (("terrace", "Terrace") if balcony == "terrace" else ("balcony", "Balcony")) if balcony else ("study", "Study")
                 _furnish_swap(els, spare, balcony)
                 if balcony:
                     _railings_for(els, spare)

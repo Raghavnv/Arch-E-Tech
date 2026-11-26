@@ -109,6 +109,8 @@ SHELL = {
     "closet": "an empty walk-in closet, a narrow dressing room between the bedroom and its bathroom",
     "balcony": "an empty upper-floor balcony with a tiled floor, a glass-and-metal railing and an open view",
     "patio": "an empty ground-floor patio with a stone-tiled floor, opening onto the garden",
+    "terrace": "an empty open roof terrace with a tiled floor, a parapet railing and a wide sky view",
+    "deck": "an empty timber deck beside the house, opening onto the garden",
 }
 
 # what goes in when it is furnished (the user's own words come on top of this)
@@ -128,6 +130,8 @@ FURNISH = {
     "closet": "floor-to-ceiling wardrobes with open hanging rails and shelves, a full-length mirror, a pouf, soft lighting",
     "balcony": "two outdoor lounge chairs and a small side table, potted plants along the railing, a string of warm lights",
     "patio": "an outdoor dining table with chairs, a lounge sofa with cushions, potted plants, a parasol",
+    "terrace": "outdoor lounge seating, a swing, potted plants and planters along the edge, string lights",
+    "deck": "deck chairs, a low outdoor table, planters and a parasol",
 }
 
 

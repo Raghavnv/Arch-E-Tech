@@ -15,7 +15,7 @@ const SCALES = [50, 75, 100, 125, 150, 200, 250, 300, 400, 500];
 const FT = 3.28084;
 const ROOM_TINT = {
   living: [250, 243, 228], dining: [250, 240, 222], lounge: [248, 244, 232], kitchen: [250, 233, 220],
-  master_bedroom: [230, 238, 248], bedroom: [234, 241, 249], bathroom: [228, 242, 244], balcony: [235, 245, 230],
+  master_bedroom: [230, 238, 248], bedroom: [234, 241, 249], bathroom: [228, 242, 244], balcony: [235, 245, 230], patio: [238, 243, 230], terrace: [238, 243, 230], deck: [242, 236, 226],
   study: [236, 244, 234], utility: [243, 238, 230], closet: [244, 236, 226], hallway: [244, 244, 244],
 };
 

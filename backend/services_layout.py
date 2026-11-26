@@ -122,7 +122,7 @@ def layout(elements: list[dict]) -> dict:
                 offs = (0.28, 0.72) if area > 20 else (0.5,)
                 for f in offs:
                     add("light", box[0] + w * f, down, r, floor)
-            elif kind not in ("balcony",):
+            elif kind not in ("balcony", "patio", "terrace", "deck"):
                 add("light", cx, up, r, floor)
 
             # switchboard beside the door (on the side away from its hinge), else on the longest wall
@@ -162,7 +162,7 @@ def layout(elements: list[dict]) -> dict:
                 spread(1, "power")
                 add("supply", cx - 6, down, r, floor)
                 add("drain", cx + 6, down, r, floor)
-            if kind == "balcony":
+            if kind in ("balcony", "patio", "terrace", "deck"):
                 add("drain", cx, down, r, floor)
 
             # AC beside a window

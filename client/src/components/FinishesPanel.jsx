@@ -153,7 +153,7 @@ function FloorsTab({ rooms, onSetFlooring }) {
 export default function FinishesPanel({ elements, floor, brush, setBrush, onPaintAll, onPaintRoom, onSetCeiling, onSetFlooring, onSetWindows, onWalk, roofOff }) {
   const [tab, setTab] = useState('walls');
   const [custom, setCustom] = useState('#8fa3b8');
-  const rooms = useMemo(() => elements.filter(e => e.type === 'room' && (e.floor || 1) === floor && e.kind !== 'balcony'), [elements, floor]);
+  const rooms = useMemo(() => elements.filter(e => e.type === 'room' && (e.floor || 1) === floor && !['balcony', 'patio', 'terrace', 'deck'].includes(e.kind)), [elements, floor]);
   const [picked, setPicked] = useState([]);
   const chosen = rooms.filter(r => picked.includes(r.id));
   const first = chosen[0];
