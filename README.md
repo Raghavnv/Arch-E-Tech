@@ -195,6 +195,27 @@ in India; IKEA, Wayfair and Amazon in dollars or euros. Tick pieces off as bough
 is left to spend, include or leave out the fitted kitchen and bathroom, and download it as a spreadsheet (CSV). Prices
 are estimates for a mid-range piece of the size drawn, not quotes.
 
+### Drawing set (PDF)
+Studio → **Drawing set (PDF)**: the dimensioned floor plans (doors and windows tagged D1, W1… and the section line
+marked), then a site plan (plot, road, setbacks, coverage and FAR, north, rainwater tank and pit), front and side
+elevations (outside walls storey by storey, openings, railings, plinth, parapet or hipped roof, levels), section A-A
+through the stairs (slabs, cut walls, stair flight, indicative footings, levels) and the door and window schedule.
+A3, to scale. For planning; a licensed architect or engineer must check and sign drawings submitted for approval.
+
+### Solar & rainwater
+Studio → **Solar & rainwater**: rooftop solar sized to the roof and the family's use (550 W panels, about 6 m² per
+kWp, typical yields for 12 cities), its cost after the PM Surya Ghar subsidy, monthly saving and payback; and the
+rain the roofs collect, with a storage tank (20 litres per m² of roof) and recharge pits. Put it on the house: the
+panels show on the flat roof in 3D, the tank and pit on the site plan, and the building rules check counts rainwater
+harvesting, which it flags where the city requires it.
+
+### Check a contractor's quote
+Studio → **Check a quote**: paste a quote (itemised or a per sq ft package). Each trade is compared with this house's
+estimate (plus 12 % contractor's overheads and profit, and GST if the quote includes it), material rates with market
+rates, steel and cement quantities with what the design needs, and anything usually left out is listed. The questions
+to ask can be copied for the contractor. With a `GROQ_API_KEY` the quote is read by the AI model; otherwise by a
+built-in reader that handles rupees, lakhs, "@ rate" and per sq ft rates.
+
 ### Kitchen & wardrobes
 Modular kitchens laid out along a kitchen's walls, clear of its doors: straight, L, parallel, U or L with an island; sink under a window, hob with a chimney, fridge and oven tower, wall cabinets above; 8 cabinet colours, 5 countertops, and a backsplash band. Wardrobes for bedrooms: hinged, sliding or mirrored, 6 finishes, the whole wall or a set width, on the best wall or one you pick. A plan preview shows the result first.
 

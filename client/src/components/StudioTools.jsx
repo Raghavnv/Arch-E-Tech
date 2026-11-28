@@ -708,7 +708,7 @@ export function VastuPanel({ elements, site, projectId, apiUrl, onClose }) {
 const LIMIT_FIELDS = [['coverage_pct', 'Coverage %'], ['far', 'FAR / FSI'], ['max_height_m', 'Height m']];
 const RULE_CITIES = ['Typical (NBC)', 'Bengaluru', 'Chennai', 'Hyderabad', 'Mumbai', 'Pune', 'Ahmedabad', 'Kolkata', 'Delhi', 'Jaipur', 'Kochi', 'Chandigarh', 'Guwahati'];
 
-export function RulesPanel({ elements, site, projectId, apiUrl, onClose }) {
+export function RulesPanel({ elements, site, projectId, apiUrl, rainwaterTank = null, onClose }) {
   const key = `rules_limits_${projectId || 'draft'}`;
   const saved = (() => { try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch { return {}; } })();
   const [city, setCity] = useState(saved.city || 'Typical (NBC)');
@@ -728,7 +728,7 @@ export function RulesPanel({ elements, site, projectId, apiUrl, onClose }) {
       const overrides = Object.fromEntries(Object.entries(lim).filter(([, v]) => v !== '' && Number(v) > 0).map(([k, v]) => [k, Number(v)]));
       const res = await fetch(`${apiUrl}/api/ai/building-check`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ elements, site: plotSite, limits: overrides, city: cityNow }),
+        body: JSON.stringify({ elements, site: plotSite, limits: overrides, city: cityNow, rwh_tank_l: rainwaterTank }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || `The server answered ${res.status}.`);
@@ -982,7 +982,7 @@ export function ServicesPanel({ elements, floor, projectName, site, north, apiUr
   const cost = (sys) => (data ? data.points.filter(p => (PLUMB.has(p.type) ? 'plumbing' : 'electrical') === sys)
     .reduce((s, p) => s + (POINT_RATE[p.type] || 0), 0) : 0);
   const download = () => {
-    try { downloadPlanSheet(elements, { project: projectName || 'Plan', north, site, services: data }); }
+    try { downloadPlanSheet(elements, { project: projectName || 'Plan', north, site, services: data, approval: false }); }
     catch (e) { setError(e.message); }
   };
 

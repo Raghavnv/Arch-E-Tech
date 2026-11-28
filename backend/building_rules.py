@@ -68,6 +68,11 @@ CITY_RULES = {
 }
 CITIES = list(CITY_RULES)
 
+# rainwater harvesting: the plot area (m²) from which new houses must have it, typical values from each
+# city's rules (0 = every new building); cities left out don't require it for a house of this size
+RWH_FROM = {"Bengaluru": 111, "Chennai": 0, "Hyderabad": 200, "Mumbai": 300, "Pune": 300, "Delhi": 100,
+            "Jaipur": 300, "Kochi": 100, "Chandigarh": 418}
+
 
 def city_limits(city: str | None, plot_area: float | None) -> dict:
     """Coverage %, FAR, height, floors, parking and setbacks for a city and plot size."""
@@ -107,7 +112,8 @@ def _windows_of(room, windows):
     return total
 
 
-def check(elements: list[dict], site: dict | None = None, limits: dict | None = None, city: str | None = None) -> dict:
+def check(elements: list[dict], site: dict | None = None, limits: dict | None = None, city: str | None = None,
+          rwh_tank_l: float | None = None) -> dict:
     plot_ = (site or {}).get("plot_m")
     base = city_limits(city, plot_[0] * plot_[1] if plot_ else None)
     over = {k: v for k, v in (limits or {}).items() if v not in (None, "", 0)}
@@ -230,6 +236,22 @@ def check(elements: list[dict], site: dict | None = None, limits: dict | None = 
                     fixes.append("Leave 5 m clear at the front for a car (push the house back), add a car porch, or put parking on a stilt floor.")
     else:
         add("Plot", "Plot limits", "info", "Add the plot size to check ground coverage, FAR, setbacks and parking.")
+
+    # rainwater harvesting, where the city asks for it
+    city_name = limits.get("city")
+    if city_name in RWH_FROM:
+        need_from = RWH_FROM[city_name]
+        area = plot_[0] * plot_[1] if plot_ else None
+        required = need_from == 0 or (area is not None and area >= need_from)
+        if rwh_tank_l:
+            add("Plot", "Rainwater harvesting", "pass", f"Planned: a {rwh_tank_l:,.0f} litre tank with recharge.")
+        elif required:
+            add("Plot", "Rainwater harvesting", "warn", f"{city_name} requires it for new houses"
+                + (f" on plots of {need_from} m² or more" if need_from else "") + "; none is planned yet.")
+            fixes.append("Plan rainwater harvesting: Solar & rainwater sizes the tank and recharge pit for this roof.")
+        else:
+            add("Plot", "Rainwater harvesting", "info", f"{city_name} requires it on plots of {need_from} m² or more"
+                + ("" if area is not None else "; add the plot size to check") + ".")
 
     fails = sum(c["status"] == "fail" for c in checks)
     warns = sum(c["status"] == "warn" for c in checks)

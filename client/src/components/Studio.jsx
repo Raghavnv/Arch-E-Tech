@@ -5,7 +5,7 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Menu, MousePointer2, Box, Home, PenTool, LayoutTemplate, 
   Settings, Save, FileText, ChevronRight, Calculator, CheckCircle, 
-  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen, FileUp, Compass, Ruler, PenLine, ShieldCheck, Share2, Zap, Sofa, HardHat, Clapperboard, Smartphone, Palette, ChefHat, ClipboardList, ListChecks, Landmark, Columns3, ImagePlus, ShoppingBag 
+  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen, FileUp, Compass, Ruler, PenLine, ShieldCheck, Share2, Zap, Sofa, HardHat, Clapperboard, Smartphone, Palette, ChefHat, ClipboardList, ListChecks, Landmark, Columns3, ImagePlus, ShoppingBag, SunMedium, FileSearch 
 } from 'lucide-react';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
@@ -21,6 +21,8 @@ import CompareOptions from './CompareOptions';
 import PhotoMatch from './PhotoMatch';
 import MaterialScan from './MaterialScan';
 import ShoppingList from './ShoppingList';
+import SolarRain from './SolarRain';
+import QuoteCheck from './QuoteCheck';
 import { applyFacade, DEFAULT_FACADE } from '../utils/facade';
 import { downloadFinishSchedule } from '../utils/finishSchedule';
 import { setSideRange } from '../utils/designStyles';
@@ -361,7 +363,7 @@ export default function Studio() {
   const exportPlanSheet = () => {
     setExporting('sheet');
     try {
-      downloadPlanSheet(canvasElements, { project: projectName || 'Plan', north: northOf(), site: projectSite });
+      downloadPlanSheet(canvasElements, { project: projectName || 'Plan', north: northOf(), site: projectSite, roofStyle, facade: projectFacade });
     } catch (e) {
       alert(e.message);
     } finally {
@@ -790,6 +792,15 @@ export default function Studio() {
           <LoanPanel elements={canvasElements} projectId={projectId} apiUrl={API_URL} onClose={() => setToolPanel(null)}
             houseCost={costData.total / CURRENCY[currencyCode()].rate * CURRENCY.INR.rate} />
         )}
+        {toolPanel === 'solar' && (
+          <SolarRain elements={canvasElements} projectId={projectId} facade={projectFacade} north={northOf()} onClose={() => setToolPanel(null)}
+            onSave={async (patch) => {
+              // panels sit on a flat roof: show it, so they can be seen in 3D
+              if (patch.solar && roofStyle !== 'flat') setRoofStyle('flat');
+              await saveFacade({ ...DEFAULT_FACADE, ...(projectFacade || {}), ...patch });
+            }} />
+        )}
+        {toolPanel === 'quote' && <QuoteCheck elements={canvasElements} projectId={projectId} apiUrl={API_URL} onClose={() => setToolPanel(null)} />}
         {toolPanel === 'shop' && <ShoppingList elements={canvasElements} projectId={projectId} projectName={projectName} onClose={() => setToolPanel(null)} />}
         {toolPanel === 'comfort' && <ComfortPanel elements={canvasElements} floor={activeFloor} north={northOf()} onClose={() => setToolPanel(null)} />}
         {toolPanel === 'materials' && (
@@ -797,7 +808,7 @@ export default function Studio() {
         )}
         {toolPanel === 'share' && <SharePanel projectId={projectId} apiUrl={API_URL} onClose={() => setToolPanel(null)} />}
         {toolPanel === 'rules' && (
-          <RulesPanel elements={canvasElements} site={projectSite} projectId={projectId} apiUrl={API_URL} onClose={() => setToolPanel(null)} />
+          <RulesPanel elements={canvasElements} site={projectSite} projectId={projectId} apiUrl={API_URL} rainwaterTank={projectFacade?.solar?.tank_l || null} onClose={() => setToolPanel(null)} />
         )}
         {toolPanel === 'vastu' && (
           <VastuPanel elements={canvasElements} site={projectSite} projectId={projectId} apiUrl={API_URL} onClose={() => setToolPanel(null)} />
@@ -1137,6 +1148,8 @@ export default function Studio() {
             onClick: () => setToolPanel(t => (t === 'services' ? null : 'services')) },
           { id: 'comfort', icon: Sun, label: 'Daylight & comfort', desc: 'Light, sun, heat and air in every room', active: toolPanel === 'comfort',
             onClick: () => setToolPanel(t => (t === 'comfort' ? null : 'comfort')) },
+          { id: 'solar', icon: SunMedium, label: 'Solar & rainwater', desc: 'Rooftop solar, subsidy and payback; rainwater tank and pits', active: toolPanel === 'solar',
+            disabled: !canvasElements.some(e => e.type === 'room'), onClick: () => setToolPanel(t => (t === 'solar' ? null : 'solar')) },
           { id: 'vastu', icon: Compass, label: 'Vastu check', desc: 'The plan against Vastu guidelines', active: toolPanel === 'vastu',
             onClick: () => setToolPanel(t => (t === 'vastu' ? null : 'vastu')) },
           { id: 'budget', icon: Wallet, label: 'Budget Advisor', desc: 'Find where to cut back', info: 'budget', accent: true, active: toolPanel === 'budget',
@@ -1146,6 +1159,8 @@ export default function Studio() {
           { id: 'cost', icon: Calculator, label: 'Cost takeoff', desc: `${money(costData.total)} estimated`, onClick: () => setShowCostModal(true) },
           { id: 'loan', icon: Landmark, label: 'Home loan & EMI', desc: 'Monthly EMI, what a bank would lend, payments while it is built', active: toolPanel === 'loan',
             disabled: !canvasElements.some(e => e.type === 'room'), onClick: () => setToolPanel(t => (t === 'loan' ? null : 'loan')) },
+          { id: 'quote', icon: FileSearch, label: 'Check a quote', desc: "A contractor's quote against this house's estimate", active: toolPanel === 'quote',
+            disabled: !canvasElements.some(e => e.type === 'room'), onClick: () => setToolPanel(t => (t === 'quote' ? null : 'quote')) },
           { id: 'shop', icon: ShoppingBag, label: 'Shopping list', desc: 'Every piece to buy, room by room, with shop links', active: toolPanel === 'shop',
             disabled: !canvasElements.some(e => typeof e.type === 'string' && e.type.startsWith('furniture_')), onClick: () => setToolPanel(t => (t === 'shop' ? null : 'shop')) },
           { id: 'tracker', icon: ListChecks, label: 'Construction tracker', desc: 'Phases, spend against the estimate, site photos', disabled: !projectId,
@@ -1156,8 +1171,8 @@ export default function Studio() {
             onClick: () => setToolPanel(t => (t === 'share' ? null : 'share')) },
           { id: 'rules', icon: ShieldCheck, label: 'Building rules', desc: 'Room sizes, light and plot limits', active: toolPanel === 'rules',
             onClick: () => setToolPanel(t => (t === 'rules' ? null : 'rules')) },
-          { id: 'sheet', icon: Ruler, label: exporting === 'sheet' ? 'Drawing sheet…' : 'Plan sheet (PDF)',
-            desc: 'Dimensioned A3 drawing, every floor', disabled: !!exporting, onClick: exportPlanSheet },
+          { id: 'sheet', icon: Ruler, label: exporting === 'sheet' ? 'Drawing set…' : 'Drawing set (PDF)',
+            desc: 'Plans, site plan, elevations, section and schedules, A3', disabled: !!exporting, onClick: exportPlanSheet },
           { id: 'dxf', icon: PenLine, label: exporting === 'dxf' ? 'Exporting…' : 'CAD drawing (DXF)',
             desc: `${activeFloor === 1 ? 'Ground floor' : `Floor ${activeFloor}`} for AutoCAD and other CAD apps`, disabled: !!exporting,
             onClick: exportDxf },

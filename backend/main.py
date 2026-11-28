@@ -4,7 +4,7 @@ from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from datetime import datetime, timezone, timedelta
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Literal, Optional
 import jwt
 import json
@@ -766,6 +766,7 @@ class BuildingCheck(BaseModel):
     site: dict | None = None        # the project's plot, or one entered in the panel
     limits: dict | None = None      # overrides: coverage_pct, far, max_floors, max_height_m
     city: str | None = None         # the city whose typical bye-laws to use
+    rwh_tank_l: float | None = None # a rainwater tank planned in Solar & rainwater, if any
 
 
 @app.post("/api/ai/building-check")
@@ -774,7 +775,7 @@ def building_check(req: BuildingCheck):
     import building_rules
     if not any(isinstance(e, dict) and e.get("type") == "room" for e in req.elements):
         raise HTTPException(status_code=400, detail="The plan has no rooms to check. Label rooms first (Rooms panel).")
-    return building_rules.check(req.elements, req.site, req.limits, req.city)
+    return building_rules.check(req.elements, req.site, req.limits, req.city, req.rwh_tank_l)
 
 
 class ServicesRequest(BaseModel):
@@ -808,6 +809,24 @@ def quantities_api(req: QuantitiesRequest):
 class VastuCheck(BaseModel):
     elements: list
     north: Literal["up", "right", "down", "left"] = "up"
+
+
+class QuoteCheck(BaseModel):
+    text: str = Field(min_length=3, max_length=20000)
+    elements: list
+    rates: dict | None = None
+
+
+@app.post("/api/ai/check-quote")
+def check_quote(req: QuoteCheck):
+    """A contractor's quote (pasted text) checked against this house's estimate, trade by trade."""
+    import quantities
+    import quote_check
+    try:
+        q = quantities.estimate(req.elements, req.rates)
+        return quote_check.check(req.text, q, os.getenv("GROQ_API_KEY"))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/api/ai/vastu-check")

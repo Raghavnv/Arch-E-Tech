@@ -1,11 +1,14 @@
 import { jsPDF } from 'jspdf';
 import { formatArea, isImperial } from './units';
+import { addApprovalPages, markOpenings, markSection, openingTypes } from './approvalDrawings';
 
 /*
  * A dimensioned plan sheet: A3 landscape, one page per floor, drawn as vectors (not a screenshot) at a
  * standard scale. Walls are filled, doors show their swing, windows their glazing; rooms carry their name,
  * size and area; overall and wall-by-wall dimension chains run along the top and left; a north arrow,
- * scale bar, title block and room schedule complete the sheet.
+ * scale bar, title block and room schedule complete the sheet. Doors and windows carry their schedule marks,
+ * the ground floor the section line; then the site plan, elevations, section and schedules follow
+ * (approvalDrawings.js).
  */
 const U = 20;                                      // plan units per metre
 const PAGE = { w: 420, h: 297 };                  // A3 landscape, mm
@@ -251,15 +254,22 @@ function drawServices(pdf, map, points, labels, top) {
 
 /** The sheet as a jsPDF document (one A3 page per floor, plus a services page per floor when
  *  services = { points, labels } is given), and how many pages it has. */
-export function buildPlanSheet(elements, { project = 'Plan', north = 'up', site = null, services = null } = {}) {
+export function buildPlanSheet(elements, { project = 'Plan', north = 'up', site = null, services = null, roofStyle = 'flat', facade = null, approval = true } = {}) {
   const floors = [...new Set(elements.map(e => e.floor || 1))].sort((a, b) => a - b);
   const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' });
+  const { markOf } = openingTypes(elements);
   let pages = 0;
   floors.forEach((f) => {
     const els = elements.filter(e => (e.floor || 1) === f);
     if (pages) pdf.addPage('a3', 'landscape');
-    if (drawFloor(pdf, els, { project, floor: f, floors: floors.length, north, site })) pages += 1;
-    else if (pages) pdf.deletePage(pdf.getNumberOfPages());
+    const plan = drawFloor(pdf, els, { project, floor: f, floors: floors.length, north, site });
+    if (plan) {
+      pages += 1;
+      if (approval) {
+        markOpenings(pdf, els, plan.X, plan.Y, markOf);
+        if (f === floors[0]) markSection(pdf, elements, plan.X, plan.Y);
+      }
+    } else if (pages) pdf.deletePage(pdf.getNumberOfPages());
     const pts = services?.points?.filter(p => p.floor === f) || [];
     if (pts.length) {
       pdf.addPage('a3', 'landscape');
@@ -268,6 +278,7 @@ export function buildPlanSheet(elements, { project = 'Plan', north = 'up', site 
     }
   });
   if (!pages) throw new Error('There is nothing on the plan to draw yet.');
+  if (approval) pages += addApprovalPages(pdf, elements, { project, north, site, roofStyle: roofStyle === 'none' ? 'flat' : roofStyle, facade, solar: facade?.solar });
   return { pdf, pages };
 }
 

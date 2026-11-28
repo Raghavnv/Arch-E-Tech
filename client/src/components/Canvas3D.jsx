@@ -11,6 +11,7 @@ import { catalogItem, partsOf } from '../utils/furnitureCatalog';
 import { footprint, slabPieces, outline, roofRects } from '../utils/roofShape';
 import { RoomCeiling, RoomLight } from './Ceilings';
 import { FLOOR_BY_ID, floorTexture3D } from '../utils/floorFinishes';
+import { panelLayout, PANEL_SIZE } from '../utils/solar';
 
 const SCALE = 0.05; // 1 unit in 2D (px) = 0.05m in 3D (e.g. 100px = 5m)
 const WALL_HEIGHT = 3.0; // 3 meters
@@ -1023,6 +1024,35 @@ function HipRoof({ rect, eave, pitch }) {
   );
 }
 
+/** Rooftop solar panels (facade.solar from Solar & rainwater): tilted rows facing south, on stands. */
+function SolarPanels({ rects }) {
+  const solar = useContext(FacadeContext)?.solar;
+  const spots = useMemo(() => (solar?.panels ? panelLayout(rects, solar.panels, solar.north || 'up') : []), [rects, solar?.panels, solar?.north]);
+  if (!spots.length) return null;
+  const tilt = (12 * Math.PI) / 180;
+  const n = solar.north || 'up';
+  const [pl, pw] = PANEL_SIZE;
+  return (
+    <group>
+      {spots.map((p, i) => {
+        const rot = p.along === 'x' ? [n === 'down' ? -tilt : tilt, 0, 0] : [0, 0, n === 'right' ? tilt : -tilt];
+        return (
+          <group key={i} position={[p.x, WALL_HEIGHT + 0.24 + 0.45, p.z]}>
+            <mesh rotation={rot} castShadow>
+              <boxGeometry args={p.along === 'x' ? [pl, 0.04, pw] : [pw, 0.04, pl]} />
+              <meshStandardMaterial color="#1d2738" roughness={0.25} metalness={0.6} />
+            </mesh>
+            <mesh position={[0, -0.22, 0]}>
+              <boxGeometry args={[0.05, 0.45, 0.05]} />
+              <meshStandardMaterial color="#9aa0a6" metalness={0.5} roughness={0.5} />
+            </mesh>
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
 const WALL_OUTSIDE = 0.2;   // walls are 0.4 m thick on the room outline: their outer face is 0.2 m out
 
 /** Roof over the top storey, following the house's own outline: a flat slab with a parapet along
@@ -1056,6 +1086,7 @@ function Roof({ rooms, style }) {
             </mesh>
           );
         })}
+        <SolarPanels rects={rects} />
       </group>
     );
   }
