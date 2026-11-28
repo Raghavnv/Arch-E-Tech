@@ -6,7 +6,8 @@ import {
   Layout, Building, Trash2, Copy, FileText, Share2, Edit2, Eye, 
   Key, Globe, User, CheckCircle, Sparkles, X, Download, AlertCircle,
   Calculator, Check, ArrowRight, ShieldCheck, Sun, Search, Compass,
-  Activity, Layers, ArrowUpRight, Images, Play, FileUp
+  Activity, Layers, ArrowUpRight, Images, Play, FileUp,
+  Sparkles as DemoIcon,
 } from 'lucide-react';
 import PhotoGallery from './PhotoGallery';
 import ImportPlanModal from './ImportPlanModal';
@@ -215,6 +216,22 @@ export default function Dashboard() {
   };
 
   // Duplicate Project
+  // a finished sample house to explore: plan, plot, solar, options and a scanned material, copied into the account
+  const [demoBusy, setDemoBusy] = useState(false);
+  const openDemo = async () => {
+    setDemoBusy(true);
+    try {
+      const res = await fetch(`${API_URL}/api/projects/demo`, { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+      if (res.status === 401) { navigate('/auth'); return; }
+      if (!res.ok) throw new Error(`The server answered ${res.status}.`);
+      const p = await res.json();
+      try { localStorage.removeItem(`archetech_tour_${p.id}`); } catch { /* private mode */ }
+      navigate(`/studio?projectId=${p.id}&tour=1`);
+    } catch (e) {
+      showToast(`Couldn't open the demo house: ${e.message}`);
+    } finally { setDemoBusy(false); }
+  };
+
   const handleDuplicate = async (id, e) => {
     e.stopPropagation();
     setActiveMenu(null);
@@ -500,6 +517,9 @@ export default function Dashboard() {
                 <h1 className="mt-2 text-3xl font-semibold tracking-[-0.025em] text-zinc-100">Your homes</h1>
               </div>
               <div className="relative flex items-center gap-2">
+                <button onClick={openDemo} disabled={demoBusy} title="A finished sample house to explore every feature" className="flex items-center gap-2 rounded-sm border border-zinc-700 px-4 py-2.5 text-sm text-zinc-200 transition-colors hover:bg-zinc-900 disabled:opacity-50">
+                  <DemoIcon className="h-4 w-4" /> {demoBusy ? 'Opening…' : 'Demo house'}
+                </button>
                 <button onClick={() => setImportOpen(true)} className="flex items-center gap-2 rounded-sm border border-zinc-700 px-4 py-2.5 text-sm text-zinc-200 transition-colors hover:bg-zinc-900">
                   <FileUp className="h-4 w-4" /> Import plan
                 </button>
@@ -562,13 +582,18 @@ export default function Dashboard() {
               {projects.length === 0 ? (
                 <div className="text-center py-20 bg-zinc-900/40 border border-zinc-800/80 rounded-3xl p-8 max-w-lg mx-auto">
                   <Layout className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
-                  <h3 className="text-lg font-bold text-white mb-2">No blueprints found</h3>
+                  <h3 className="text-lg font-bold text-white mb-2">No homes yet</h3>
                   <p className="text-zinc-400 text-xs leading-relaxed mb-6">
-                    Create your first architectural CAD model to start designing in sub-millimeter 2D and real-time 3D.
+                    Describe your house in a sentence and get a plan, 3D model and costs in seconds. Or open the demo house: a finished home with every feature filled in, to look around first.
                   </p>
-                  <Link to="/new-project" className="inline-flex items-center gap-2 bg-white text-black px-6 py-2.5 rounded-full font-bold hover:bg-zinc-200 transition-all text-xs shadow-lg">
-                    <Plus className="w-4 h-4" /> Start Designing
-                  </Link>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Link to="/new-project" className="btn-primary px-5 py-2 text-xs">
+                      <Plus className="w-4 h-4" /> Design my home
+                    </Link>
+                    <button onClick={openDemo} disabled={demoBusy} className="btn-secondary px-5 py-2 text-xs">
+                      <DemoIcon className="w-4 h-4" /> {demoBusy ? 'Opening…' : 'Explore the demo house'}
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -216,6 +216,12 @@ rates, steel and cement quantities with what the design needs, and anything usua
 to ask can be copied for the contractor. With a `GROQ_API_KEY` the quote is read by the AI model; otherwise by a
 built-in reader that handles rupees, lakhs, "@ rate" and per sq ft rates.
 
+### Demo house and first run
+Dashboard → **Demo house** (or **Explore the demo house** on an empty dashboard) copies a finished sample home into the
+account: plan, plot, solar and rainwater, a scanned material and two layout options (`backend/demo_house.json`). The
+first time the Studio opens (and with the demo) a five-step tour shows the plan, 3D, AI Edit, the cost and sharing,
+each with a button that does it; skipping is remembered on that device.
+
 ### Plot from the map
 Studio → **Plot from map**: search the place (OpenStreetMap), switch between map and satellite, click the plot's corners
 and pick the side on the road. The plot's size, shape and area, the way it faces, which way north is on the plan, and

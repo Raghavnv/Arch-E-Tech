@@ -24,6 +24,7 @@ import ShoppingList from './ShoppingList';
 import SolarRain from './SolarRain';
 import QuoteCheck from './QuoteCheck';
 import PlotMap from './PlotMap';
+import StudioTour, { tourDone } from './StudioTour';
 import TradeLists from './TradeLists';
 import { AccessPanel, QuakePanel, FutureFloorPanel } from './HouseChecks';
 import { buildBrochure } from '../utils/clientBrochure';
@@ -89,6 +90,8 @@ export default function Studio() {
   const [photoOpen, setPhotoOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  // the first-run tour: the first time the Studio opens, and whenever the demo house opens (?tour=1)
+  const [tourOpen, setTourOpen] = useState(() => searchParams.get('tour') === '1' || !tourDone());
   const [projectMaterials, setProjectMaterials] = useState([]);   // materials scanned from photos
   const [projectSite, setProjectSite] = useState(null);   // the plot, when the project has one   // what is selected on the 2D plan, for "edit this"
   const [smartSnap, setSmartSnap] = useState(() => localStorage.getItem('pref_smart_snap') === '1');
@@ -243,6 +246,9 @@ export default function Studio() {
         setProjectName(data.name || '');
         setProjectSite(data.site || null);
         setProjectFacade(data.facade || null);
+        // the roof as last set; a flat one when solar panels are planned, so they can be seen
+        if (data.facade?.roofStyle) setRoofStyle(data.facade.roofStyle);
+        else if (data.facade?.solar?.kw) setRoofStyle('flat');
         // edits that never reached the server (refresh mid-autosave, network drop) are newer
         // than the server copy, so keep them and push them up instead of overwriting them
         if (localStorage.getItem(dirtyKey) === '1' && cachedElements) {
@@ -1340,6 +1346,14 @@ export default function Studio() {
       {videoOpen && <VideoTour projectId={projectId} elements={canvasElements} projectName={projectName} facade={projectFacade} onClose={() => setVideoOpen(false)} />}
       {compareOpen && <CompareOptions projectId={projectId} apiUrl={API_URL} elements={canvasElements} site={{ ...(projectSite || {}), north: northOf() }}
         onUse={(els) => { setCanvasElements(cleanElements(els)); setActiveFloor(1); }} onClose={() => setCompareOpen(false)} />}
+      {tourOpen && canvasElements.some(e => e.type === 'room') && (
+        <StudioTour demo={searchParams.get('tour') === '1'} onClose={() => setTourOpen(false)} actions={{
+          show3D: () => { setActiveTab('3D'); setToolPanel(null); },
+          edit: () => { setActiveTab('2D'); setToolPanel('edit'); },
+          cost: () => setShowCostModal(true),
+          share: () => setToolPanel('share'),
+        }} />
+      )}
       {mapOpen && <PlotMap site={projectSite} front={frontOf(canvasElements).side} onClose={() => setMapOpen(false)}
         onSave={async (site) => {
           if (!projectId) throw new Error('Save the project first.');

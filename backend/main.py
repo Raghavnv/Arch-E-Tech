@@ -190,6 +190,20 @@ def create_project(project: ProjectCreate, db: Session = Depends(get_db), curren
     db.refresh(new_project)
     return new_project
 
+@app.post("/api/projects/demo")
+def create_demo(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """A finished sample house for the account to explore: plan, plot, solar and rainwater, a scanned
+    material and two layout options (demo_house.json)."""
+    with open(os.path.join(os.path.dirname(__file__), "demo_house.json")) as fh:
+        demo = json.load(fh)
+    p = models.Project(name=demo["name"], elements_data=demo["elements"], site=demo["site"], facade=demo["facade"],
+                       materials=demo["materials"], options=demo["options"], owner_id=current_user.id)
+    db.add(p)
+    db.commit()
+    db.refresh(p)
+    return p
+
+
 @app.get("/api/projects/{project_id}")
 def get_project(project_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     project = db.query(models.Project).filter(models.Project.id == project_id, models.Project.owner_id == current_user.id).first()

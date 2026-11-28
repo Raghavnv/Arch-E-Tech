@@ -12,21 +12,26 @@ const HERO_PHOTO = 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c
 const RENDER_PHOTO = 'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1400&q=80';
 
 const INDEX = [
-  { sheet: 'A-101', title: 'AI Layout', text: 'Describe the home and get a complete floor plan, with bedrooms spread around the house the way architects plan them.' },
-  { sheet: 'A-102', title: 'AI Edit', text: 'Change the plan in a sentence: narrow a door, extend a wall, add a window. Every edit can be undone.' },
-  { sheet: 'A-103', title: 'Drafting tools', text: 'Smart Snap closes corners and seats doors on walls; Auto Detect turns enclosed spaces into named rooms.' },
-  { sheet: 'A-201', title: '3D model & walkthrough', text: 'The plan rises into a 3D model you can orbit, paint with real materials and walk through at eye level.' },
+  { sheet: 'A-101', title: 'A plan from a sentence', text: 'Describe the home and get a complete floor plan, on one to three floors, with patios, balconies and terraces where you want them. Mark your plot on the map and it fits the plot.' },
+  { sheet: 'A-102', title: 'Change it by asking', text: 'AI Edit makes any change you type: bigger rooms, a new bedroom, a wider door, paint, floors, a whole style. Every edit can be undone.' },
+  { sheet: 'A-103', title: 'Compare options', text: 'Keep two or three versions side by side with their cost, EMI, daylight and Vastu, and let the family vote on the share link.' },
+  { sheet: 'A-201', title: '3D, walkthrough and AR', text: 'The plan rises into a 3D house you can paint, furnish and walk through, see on its street, or stand in your plot with your phone.' },
+  { sheet: 'A-202', title: 'Finishes from a photo or a sample', text: 'Match a photo you love, or scan a real sample of wood, marble or tile with your camera and lay it on your floors and walls.' },
   { sheet: 'A-301', title: 'Photo Render', text: 'Every room as a photograph, first empty and then furnished as you describe, all in one house style.' },
-  { sheet: 'A-302', title: 'Concept views', text: 'A furnished 3D cutaway of the whole house, or the finished exterior, rendered from your own plan.' },
-  { sheet: 'A-401', title: 'Cost & checks', text: 'Area, an estimated build cost and layout checks update as you draw, and export to a PDF report.' },
+  { sheet: 'A-401', title: 'Cost, loan and quotes', text: 'A live estimate, your monthly EMI and what a bank will lend, a shopping list with shop links, and any contractor\'s quote checked line by line.' },
+  { sheet: 'A-402', title: 'Solar and rainwater', text: 'Rooftop solar sized to your roof and bills, with the PM Surya Ghar subsidy and payback; a rainwater tank and recharge pits.' },
+  { sheet: 'A-501', title: 'Rules and safety checks', text: 'Your city\'s building rules, Vastu, daylight and comfort, accessibility, earthquake and wind, and what it takes to add a floor later.' },
+  { sheet: 'A-502', title: 'Drawings and lists to build from', text: 'Plans, site plan, elevations, section and door and window schedules as an A3 set; material lists for every trade; a CAD file.' },
+  { sheet: 'A-601', title: 'Share, approve, build', text: 'A link the family can read in English, Hindi, Kannada or Tamil, a brochure PDF, and a construction tracker with site photos.' },
 ];
 
 const FAQ = [
-  { q: 'Do I need CAD experience?', a: 'No. Describe the home in plain words and a full plan is drawn for you. Editing works by dragging, or by typing the change you want.' },
-  { q: 'How accurate are the plans?', a: 'Plans are drawn to scale in metres with real wall thicknesses and door widths, and rooms are sized to usual residential minimums. Treat them as a strong first design to refine with your architect.' },
-  { q: 'What does Photo Render actually produce?', a: 'For each room of your plan it makes a photograph of the empty room in your chosen house style, then the same room furnished the way you describe. Save the ones you like to your gallery.' },
-  { q: 'Can I walk through the house?', a: 'Yes. Switch to the 3D view and start the walkthrough to move through the rooms at eye level.' },
-  { q: 'Is my work saved?', a: 'Projects, renders and saved photos are stored with your account and kept in sync as you work.' },
+  { q: 'Do I need CAD experience?', a: 'No. Describe the home in plain words and a full plan is drawn for you. Change it by dragging, or by typing what you want. There is a finished demo house to look around first.' },
+  { q: 'How accurate are the plans and costs?', a: 'Plans are drawn to scale with real wall thicknesses and door widths, and rooms are sized to the National Building Code minimums. Costs use typical Indian rates for materials and labour. Treat both as a strong start to refine with your architect and contractor.' },
+  { q: 'Can I submit the drawings for approval?', a: 'The drawing set (plans, site plan, elevations, section, schedules) is a complete first draft. A licensed architect or engineer has to check, complete and sign drawings before they go to your city.' },
+  { q: 'Which cities do the rules cover?', a: 'Typical limits for Bengaluru, Chennai, Hyderabad, Mumbai, Pune, Ahmedabad, Kolkata, Delhi, Jaipur, Kochi, Chandigarh and Guwahati, and the National Building Code elsewhere. They vary by zone and road width, so confirm with your local authority.' },
+  { q: 'Can my family see it without an account?', a: 'Yes. Share a link: they can see the plan, comment on rooms, vote between options and approve, in English, Hindi, Kannada or Tamil.' },
+  { q: 'What happens to my photos?', a: 'Photos you use to match finishes or scan a material are read in your browser and not uploaded. Projects, renders and saved photos are stored with your account.' },
 ];
 
 // a dimension line with end ticks and a centred label; draws itself in on load
@@ -216,7 +221,9 @@ export default function LandingPage() {
         </section>
 
         <section id="index" className="scroll-mt-28 py-20">
-          <SectionHead sheet="DRAWING INDEX" title="Everything in one studio." />
+          <SectionHead sheet="DRAWING INDEX" title="From the first sentence to the last brick.">
+            Design the house, check it, price it and get it built: every step in one studio, made for building a home in India.
+          </SectionHead>
           <ul className="border-t border-stone-800">
             {INDEX.map(item => (
               <li key={item.sheet} className="group grid grid-cols-[70px_1fr] gap-4 border-b border-stone-800 py-6 transition-colors hover:bg-stone-900/30 sm:grid-cols-[110px_240px_1fr] sm:gap-8 sm:px-2">
