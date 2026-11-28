@@ -200,7 +200,7 @@ export default function MaterialScan({ projectId, apiUrl, elements, setElements,
         <header className="flex items-center justify-between border-b border-zinc-800 px-5 py-3.5">
           <div>
             <h2 className="flex items-center gap-2 text-sm font-semibold text-white"><ScanLine className="h-4 w-4 text-zinc-400" /> Scan a material</h2>
-            <p className="mt-0.5 text-xs text-zinc-500">Photograph a real sample, like wood, marble, granite, stone, brick or tile, and lay it on your house.</p>
+            <p className="mt-0.5 text-xs text-zinc-500">Photograph wood, marble, stone or tile and use it on your house.</p>
           </div>
           <button onClick={onClose} className="rounded p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-white" aria-label="Close"><X className="h-4 w-4" /></button>
         </header>
@@ -260,14 +260,7 @@ export default function MaterialScan({ projectId, apiUrl, elements, setElements,
 
           <div className="space-y-3">
             {stage !== 'review' && (
-              <div className="rounded-xl border border-zinc-800 p-4 text-xs leading-relaxed text-zinc-400">
-                <p className="text-zinc-200">How it works</p>
-                <ol className="mt-2 list-decimal space-y-1 pl-4">
-                  <li>Photograph the sample straight on, close enough that it fills the frame.</li>
-                  <li>We work out what it is, like wood, marble or granite, and you can correct it.</li>
-                  <li>It becomes a seamless tile: lay it on floors or walls, in 2D and 3D.</li>
-                </ol>
-              </div>
+              <p className="rounded-xl border border-zinc-800 p-4 text-xs text-zinc-400">Fill the frame with the sample, flat on, in daylight.</p>
             )}
             {stage === 'review' && busy === 'reading' && (
               <div className="text-xs text-zinc-400">

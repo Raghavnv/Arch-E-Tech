@@ -39,9 +39,10 @@ export function Panel({ icon: Icon, title, info, onClose, wide, bottom, children
   // most tools open on the right; AI Edit sits along the bottom of the grid, under the plan
   const place = bottom
     ? 'bottom-6 left-[21rem] right-[calc(var(--dock,1.5rem)+4.5rem)] max-w-2xl max-h-[45%]'
-    : `top-24 right-[var(--dock,1.5rem)] max-h-[calc(100%-8rem)] ${wide ? 'w-[min(720px,calc(100%-3rem))]' : 'w-[min(380px,calc(100%-3rem))]'}`;
+    : `top-24 right-[var(--dock,1.5rem)] max-h-[calc(100%-7.5rem)] ${wide ? 'w-[min(720px,calc(100%-3rem))]' : 'w-[min(380px,calc(100%-3rem))]'}`;
+  // above the scale bar and the chat button, which hide while a panel is open
   return (
-    <div className={`absolute z-30 flex flex-col rounded-2xl border border-zinc-800 bg-zinc-950/95 shadow-2xl backdrop-blur-xl ${place}`}>
+    <div className={`absolute z-[45] flex flex-col rounded-2xl border border-zinc-800 bg-zinc-950/95 shadow-2xl backdrop-blur-xl ${place}`}>
       <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
           <Icon className="h-4 w-4 text-zinc-400" /> {title} {info && <InfoTip id={info} />}
@@ -151,9 +152,7 @@ export function AiLayoutPanel({ elements, setElements, onClose, apiUrl }) {
         placeholder="e.g. 3 bedroom house with an open kitchen, a study and 2 bathrooms, about 1600 sq ft"
         className="w-full resize-none rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:border-indigo-500 focus:outline-none"
       />
-      <p className="mt-1.5 text-[11px] text-zinc-500">
-        Mention bedrooms, bathrooms, a study, dining or a total area; anything you leave out gets a sensible default.
-      </p>
+      <p className="mt-1.5 text-[11px] text-zinc-500">Rooms, floors or total area. Anything left out gets a default.</p>
       <div className="mt-3"><OutdoorOptions value={outdoor} onChange={setOutdoor} floors={floors} onFloors={setFloors} compact /></div>
       {hasPlan && <p className="mt-2 text-[11px] text-amber-300/90">This replaces the current plan. Press Ctrl+Z (⌘Z) to get it back.</p>}
       <button
@@ -344,7 +343,7 @@ export function EditPanel({ elements, setElements, selected, floor = 1, apiUrl, 
             Selected: {selected.length > 1 ? `${selected.length} items` : `${TYPE_LABEL[sel.type] || sel.type}${sel.length ? ` · ${sel.length.toFixed(1)} m` : ''}`}
           </span>
         ) : (
-          <span className="text-zinc-500">Ask for any change in plain words: room sizes, new rooms, balconies and patios, doors, windows, furniture, paint, floors, ceilings. Several at once is fine.</span>
+          <span className="text-zinc-500">Ask for any change in plain words.</span>
         )}
       </div>
       <div className="flex items-start gap-2">
@@ -604,7 +603,7 @@ export function BudgetPanel({ elements, setElements, costs, projectId, apiUrl, o
               {after <= budget ? `within budget by ${short(budget - after)}` : `still ${short(after - budget)} over`}
             </span>
           </div>
-          <p className="mt-2 text-[11px] text-zinc-500">Savings are estimates from the live cost takeoff. "Apply to plan" changes the drawing through AI Edit; Ctrl+Z undoes it.</p>
+          <p className="mt-2 text-[11px] text-zinc-500">Estimates from the live cost. Ctrl+Z undoes.</p>
         </div>
       )}
     </Panel>
@@ -694,7 +693,7 @@ export function VastuPanel({ elements, site, projectId, apiUrl, onClose }) {
           <button onClick={() => check()} className="btn-secondary mt-3 w-full py-1.5 text-xs">
             Check again
           </button>
-          <p className="mt-2 text-[10px] leading-snug text-zinc-600">Rooms are placed in the 3 × 3 grid of directions by their centre. Guidance only.</p>
+          <p className="mt-2 text-[10px] leading-snug text-zinc-600">Guidance only.</p>
         </>
       )}
     </Panel>
@@ -749,10 +748,7 @@ export function RulesPanel({ elements, site, projectId, apiUrl, rainwaterTank = 
   const BADGE = { ...STATUS, info: ['bg-zinc-800 text-zinc-300', 'Info'] };
   return (
     <Panel icon={Check} title="Building rules" onClose={onClose}>
-      <p className="text-[11px] leading-snug text-zinc-500">
-        Room sizes follow the National Building Code of India 2016. Plot limits are each city's typical bye-laws for a small
-        house plot; they change with the zone and road width, so confirm with your local authority before applying.
-      </p>
+      <p className="text-[11px] leading-snug text-zinc-500">Typical city limits; confirm with your local authority.</p>
       <label className="mt-3 block text-[10px] text-zinc-400">City
         <select value={city} onChange={(e) => { setCity(e.target.value); check(e.target.value); }}
           className="mt-1 w-full rounded bg-zinc-900 px-2 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500">
@@ -822,7 +818,7 @@ export function RulesPanel({ elements, site, projectId, apiUrl, rainwaterTank = 
               </ul>
             </div>
           ))}
-          <p className="mt-3 text-[10px] leading-snug text-zinc-600">Guidance only: state and municipal bye-laws can differ. Confirm with your local authority before building.</p>
+          <p className="mt-3 text-[10px] leading-snug text-zinc-600">Guidance only; confirm locally.</p>
         </>
       )}
     </Panel>
@@ -885,9 +881,7 @@ export function SharePanel({ projectId, apiUrl, onClose }) {
   const latest = data?.decisions?.[0];
   return (
     <Panel icon={Bookmark} title="Share with client" onClose={onClose}>
-      <p className="text-[11px] leading-snug text-zinc-500">
-        A view-only link: anyone with it can see the plan, comment on rooms and approve it, without an account. Turn it off any time.
-      </p>
+      <p className="text-[11px] leading-snug text-zinc-500">Anyone with the link can view, comment and approve. No account needed.</p>
       <div className="mt-3 flex gap-2">
         <input value={label} onChange={(e) => setLabel(e.target.value)} onKeyDown={(e) => e.stopPropagation()} maxLength={80}
           placeholder="Who is it for? (optional)" className="min-w-0 flex-1 rounded bg-zinc-900 px-2 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500" />
@@ -1014,7 +1008,7 @@ export function ServicesPanel({ elements, floor, projectName, site, north, apiUr
               Download drawings (PDF)
             </button>
             <button onClick={run} className="btn-secondary mt-2 w-full py-1.5 text-xs">Lay out again</button>
-            <p className="mt-2 text-[10px] leading-snug text-zinc-600">A starting point following common practice, for your electrician and plumber to confirm.</p>
+            <p className="mt-2 text-[10px] leading-snug text-zinc-600">A starting point for your electrician and plumber.</p>
           </div>
         </div>
       )}
@@ -1274,7 +1268,7 @@ export function ComfortPanel({ elements, floor, north, site, onClose }) {
               <span className="text-[9px] text-zinc-500">of 100</span>
             </div>
             <div className="text-xs text-zinc-400">
-              <p>How well each room is lit by daylight, how much summer sun and heat it takes, and whether air can cross it, for a house in</p>
+              <p>Daylight, heat and airflow for a house in</p>
               <select value={city} onChange={(e) => pick(e.target.value)} className="mt-1 rounded-lg bg-zinc-900 px-2 py-1 text-xs text-white focus:outline-none">
                 {CITIES.map(([c]) => <option key={c}>{c}</option>)}
               </select>
@@ -1442,21 +1436,21 @@ export function LoanPanel({ elements, houseCost, projectId, apiUrl, onClose }) {
           </div>
           <ul className="mt-3 space-y-1.5 text-[11px] leading-snug text-zinc-300">
             <li className="flex gap-1.5"><span className="text-indigo-400">›</span>
-              <span>Over {years} years you repay {lakh(totalPaid)}: {lakh(loan)} borrowed and {lakh(interest)} interest ({loan > 0 ? Math.round((interest / loan) * 100) : 0}% on top).</span></li>
+              <span>{lakh(interest)} interest over {years} years.</span></li>
             <li className="flex gap-1.5"><span className={afford ? 'text-emerald-400' : 'text-rose-400'}>›</span>
               <span>{afford
-                ? `Banks usually keep all EMIs under half your take-home pay: you could borrow up to about ${lakh(eligible)}, so this loan fits.`
-                : `This EMI is more than banks allow on ${rupees(num('income'))} a month (about ${rupees(maxEmi)} for all EMIs). You could borrow about ${lakh(eligible)}: put in more of your own money, take a longer tenure or a cheaper design.`}</span></li>
+                ? `Fits your income: you could borrow up to ${lakh(eligible)}.`
+                : `Too high for your income: banks would lend about ${lakh(eligible)}.`}</span></li>
             {shortBy > 1 && (
               <li className="flex gap-1.5"><span className="text-amber-400">›</span>
-                <span>Banks lend at most {Math.round(ltvCap(total) * 100)}% of {lakh(total)} (RBI's limit), so you need about {lakh(shortBy)} more of your own money; the loan above is capped.</span></li>
+                <span>Banks lend at most {Math.round(ltvCap(total) * 100)}%: you need {lakh(shortBy)} more of your own.</span></li>
             )}
             {schedule && (
               <li className="flex gap-1.5"><span className="text-indigo-400">›</span>
-                <span>While it is built (about {schedule.months} months), the bank pays each stage as it is reached and you pay interest only on what's been paid out: about {lakh(schedule.pre)} in all before the full EMI starts.</span></li>
+                <span>About {lakh(schedule.pre)} interest while it's built ({schedule.months} months).</span></li>
             )}
             <li className="flex gap-1.5"><span className="text-indigo-400">›</span>
-              <span>Under the old tax regime, interest up to ₹2 lakh a year (section 24b) and principal up to ₹1.5 lakh (80C) can be deducted for a home you live in.</span></li>
+              <span>Tax: up to ₹2 L interest and ₹1.5 L principal deductible (old regime).</span></li>
           </ul>
           <p className="label-caps mt-4">EACH YEAR</p>
           <div className="mt-2 flex h-24 items-end gap-px" role="img" aria-label="Principal and interest paid each year">
@@ -1490,7 +1484,7 @@ export function LoanPanel({ elements, houseCost, projectId, apiUrl, onClose }) {
               </table>
             </>
           )}
-          <p className="mt-3 text-[10px] leading-snug text-zinc-500">An estimate to plan with, not a loan offer: banks set the rate, fees and amount from your credit record. Check with your bank before you commit.</p>
+          <p className="mt-3 text-[10px] leading-snug text-zinc-500">An estimate, not a loan offer.</p>
         </div>
       </div>
     </Panel>

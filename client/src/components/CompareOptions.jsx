@@ -197,7 +197,7 @@ export default function CompareOptions({ projectId, apiUrl, elements, site, onUs
         <div>
           <h2 className="flex items-center gap-2 text-base font-semibold text-white"><Columns3 className="h-4 w-4 text-zinc-400" /> Compare options</h2>
           <p className="mt-0.5 text-xs text-zinc-500">
-            Versions of this house side by side. Clients vote for one on the share link{leader ? <>, and <span className="text-indigo-300">{leader.name}</span> leads with {leader.votes} vote{leader.votes > 1 ? 's' : ''}</> : ''}.
+            Clients vote on the share link{leader ? <>, and <span className="text-indigo-300">{leader.name}</span> leads with {leader.votes} vote{leader.votes > 1 ? 's' : ''}</> : ''}.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -295,7 +295,7 @@ export default function CompareOptions({ projectId, apiUrl, elements, site, onUs
             })}
           </div>
           <p className="mt-4 text-[11px] text-zinc-600">
-            EMI uses your settings from the Home loan planner. Using an option keeps the plan on screen as an option first, so nothing is lost; Undo also works.
+            EMI uses your Home loan settings. Your current plan is always kept.
           </p>
         </div>
       )}

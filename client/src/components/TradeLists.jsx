@@ -202,7 +202,7 @@ export default function TradeLists({ elements, projectName, apiUrl, onClose }) {
             <button onClick={() => csv(tab)} className="btn-secondary px-3 py-1.5 text-xs"><Download className="h-3.5 w-3.5" /> {lists[tab].name}'s list (spreadsheet)</button>
             <button onClick={pdfAll} className="btn-primary px-3 py-1.5 text-xs"><FileText className="h-3.5 w-3.5" /> All trades (PDF)</button>
           </div>
-          <p className="mt-2 text-[10px] text-zinc-600">Estimated from the plan with typical wastage; the site engineer confirms quantities before ordering.</p>
+          <p className="mt-2 text-[10px] text-zinc-600">Estimates; confirm on site before ordering.</p>
         </>
       )}
     </Panel>

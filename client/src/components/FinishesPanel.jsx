@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { Check, Eye, Paintbrush, Lamp, Pipette, Grid3x3, AppWindow } from 'lucide-react';
+import { Check, Eye, Paintbrush, Lamp, Pipette, Grid3x3, AppWindow, PanelRightClose } from 'lucide-react';
 import { WINDOW_FRAMES, WINDOW_TREATMENTS } from './Canvas3D';
 import InfoTip from './InfoTip';
 import { ARCHITECTURAL_TEXTURES, WOOD_FINISHES, PAINT_COLOURS, PLAIN_WALL, WALLPAPERS, CLADDING, SCANNED_WALLS } from '../utils/textureLibrary';
@@ -150,8 +150,11 @@ function FloorsTab({ rooms, onSetFlooring }) {
   );
 }
 
-export default function FinishesPanel({ elements, floor, brush, setBrush, onPaintAll, onPaintRoom, onSetCeiling, onSetFlooring, onSetWindows, onWalk, roofOff }) {
+export default function FinishesPanel({ elements, floor, brush, setBrush, onPaintAll, onPaintRoom, onSetCeiling, onSetFlooring, onSetWindows, onWalk, roofOff, hidden = false }) {
   const [tab, setTab] = useState('walls');
+  // it can be put away to see the whole model; remembered on this device
+  const [open, setOpenState] = useState(() => { try { return localStorage.getItem('finishes_open') !== '0'; } catch { return true; } });
+  const setOpen = (v) => { setOpenState(v); if (!v) setBrush(null); try { localStorage.setItem('finishes_open', v ? '1' : '0'); } catch { /* private mode */ } };
   const [custom, setCustom] = useState('#8fa3b8');
   const rooms = useMemo(() => elements.filter(e => e.type === 'room' && (e.floor || 1) === floor && !['balcony', 'patio', 'terrace', 'deck'].includes(e.kind)), [elements, floor]);
   const [picked, setPicked] = useState([]);
@@ -174,8 +177,17 @@ export default function FinishesPanel({ elements, floor, brush, setBrush, onPain
   };
   const brushName = brush ? brush.name : null;
 
+  if (hidden) return null;
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} title="Show walls, floors, windows and ceilings"
+        className="absolute top-24 right-[var(--dock)] z-20 flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950/90 px-3 py-2 text-xs text-zinc-200 shadow-xl backdrop-blur-xl hover:text-white">
+        <Paintbrush className="h-3.5 w-3.5" /> Walls & floors
+      </button>
+    );
+  }
   return (
-    <div className="absolute top-24 right-[var(--dock)] z-20 flex max-h-[calc(100%-8rem)] w-80 flex-col rounded-2xl border border-zinc-800 bg-zinc-950/92 shadow-2xl backdrop-blur-xl">
+    <div className="absolute top-24 right-[var(--dock)] z-20 flex max-h-[calc(100%-7.5rem)] w-80 flex-col rounded-2xl border border-zinc-800 bg-zinc-950/92 shadow-2xl backdrop-blur-xl">
       <div className="flex items-center gap-1 border-b border-zinc-800 p-2">
         <button onClick={() => setTab('walls')} className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs ${tab === 'walls' ? 'bg-zinc-100 font-semibold text-zinc-950' : 'text-zinc-400 hover:text-white'}`}>
           <Paintbrush className="h-3.5 w-3.5" /> Walls
@@ -190,6 +202,8 @@ export default function FinishesPanel({ elements, floor, brush, setBrush, onPain
           <Lamp className="h-3.5 w-3.5" /> Ceilings
         </button>
         <InfoTip id="painter" align="right" />
+        <button onClick={() => setOpen(false)} title="Hide this panel to see the whole model" aria-label="Hide walls and floors"
+          className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-white"><PanelRightClose className="h-3.5 w-3.5" /></button>
       </div>
 
       {tab === 'windows' ? <WindowsTab rooms={rooms} onSetWindows={onSetWindows} /> : tab === 'floors' ? <FloorsTab rooms={rooms} onSetFlooring={onSetFlooring} /> : tab === 'walls' ? (
@@ -334,7 +348,7 @@ export default function FinishesPanel({ elements, floor, brush, setBrush, onPain
           <button onClick={onWalk} className="btn-secondary w-full gap-1.5 py-1.5 text-[11px]">
             <Eye className="h-3.5 w-3.5" /> {roofOff ? 'Put the roof on and walk through' : 'Walk through to see it'}
           </button>
-          <p className="text-[10px] leading-snug text-zinc-600">Ceilings show from inside: in the walkthrough, in Photo Render captures and the video tour. Costs are added to the takeoff.</p>
+          <p className="text-[10px] leading-snug text-zinc-600">Ceilings show from inside and are added to the cost.</p>
         </div>
       )}
     </div>

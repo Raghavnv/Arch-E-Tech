@@ -216,8 +216,7 @@ export default function ImportPlanModal({ onClose, mode = 'new', floorLabel = 't
         {(step === 'pick' || step === 'reading') && (
           <div className="space-y-4 p-5">
             <p className="text-sm text-zinc-400">
-              Upload a photo, scan or PDF of a floor plan. Walls, doors, windows and rooms are traced into an
-              editable plan{mode === 'replace' ? <> that replaces <span className="text-zinc-200">{floorLabel}</span> (you can undo)</> : ''}.
+              A photo, scan or PDF of a plan becomes an editable plan{mode === 'replace' ? <> for <span className="text-zinc-200">{floorLabel}</span></> : ''}.
             </p>
             {configured === false && (
               <p className="flex items-start gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
@@ -235,8 +234,7 @@ export default function ImportPlanModal({ onClose, mode = 'new', floorLabel = 't
             <label className="flex cursor-pointer items-start gap-2.5 text-xs text-zinc-400">
               <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)}
                 className="mt-0.5 accent-indigo-500" disabled={step === 'reading'} />
-              <span>Share this drawing and the plan I accept to help improve plan reading. Off by default; when off,
-                the drawing isn't kept.</span>
+              <span>Share this drawing to help improve plan reading (off by default).</span>
             </label>
             {error && <p className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-200">{error}</p>}
             <div className="flex justify-end">
@@ -295,8 +293,7 @@ export default function ImportPlanModal({ onClose, mode = 'new', floorLabel = 't
                   onChange={(e) => setDrawingOpacity(Number(e.target.value))} className="mt-2 w-full accent-indigo-500" />
               </div>
               <p className="text-[11px] leading-relaxed text-zinc-500">
-                Check that the walls sit on the drawing. Anything missed or misread can be fixed in the Studio:
-                rename rooms in Rooms, and redraw walls, doors and windows.
+                Check the walls line up. Fix anything in the Studio afterwards.
               </p>
               {error && <p className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-200">{error}</p>}
               <div className="mt-auto flex gap-2">

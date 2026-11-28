@@ -82,8 +82,7 @@ export default function QuoteCheck({ elements, projectId, apiUrl, onClose }) {
   return (
     <Panel icon={FileSearch} title="Check a contractor's quote" onClose={onClose} wide>
       <p className="text-[11px] leading-snug text-zinc-500">
-        Paste the quote: copy it from the PDF, WhatsApp or email, one item per line with its amount. Each trade is compared with
-        this house's estimate, material rates with market rates, and anything usually left out is listed.
+        Paste the quote, one item per line with its amount.
       </p>
       <textarea value={text} onChange={(e) => keep(e.target.value)} onKeyDown={(e) => e.stopPropagation()} rows={7} maxLength={20000}
         placeholder={'e.g.\nRCC columns, beams and slabs - 9.5 L\nSteel TMT 8.2 tonnes @ Rs 78,000 per ton\nBrickwork - Rs 3,10,000\n…\nGrand total: Rs 34,20,000\n\nor a package: Rs 1,950 per sq ft, including …'}

@@ -106,7 +106,7 @@ export default function PhotoMatch({ elements, setElements, onClose }) {
         <header className="flex items-center justify-between border-b border-zinc-800 px-5 py-3.5">
           <div>
             <h2 className="flex items-center gap-2 text-sm font-semibold text-white"><ImagePlus className="h-4 w-4 text-zinc-400" /> Match a photo</h2>
-            <p className="mt-0.5 text-xs text-zinc-500">A room you love, from Pinterest, a magazine or a friend's house. We pick the closest paint, floor and accent from the library.</p>
+            <p className="mt-0.5 text-xs text-zinc-500">Use a photo of a room you love.</p>
           </div>
           <button onClick={onClose} className="rounded p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-white" aria-label="Close"><X className="h-4 w-4" /></button>
         </header>
@@ -139,7 +139,7 @@ export default function PhotoMatch({ elements, setElements, onClose }) {
           </div>
 
           <div className="space-y-2.5">
-            {!result && <p className="rounded-xl border border-zinc-800 p-4 text-xs leading-relaxed text-zinc-400">Add a photo and the matches show here: a wall paint, a floor, an accent wall and the closest whole-house style. You can change any pick before applying.</p>}
+            {!result && <p className="rounded-xl border border-zinc-800 p-4 text-xs leading-relaxed text-zinc-400">Add a photo to see the matching paint, floor, accent and style.</p>}
             {result && (
               <>
                 <label className="block text-xs text-zinc-400">Apply to

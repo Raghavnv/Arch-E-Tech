@@ -238,7 +238,7 @@ export default function VideoTour({ projectId, elements, projectName, onClose, f
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-      <div className="w-[min(980px,100%)] rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
+      <div className="max-h-full w-[min(980px,100%)] overflow-y-auto rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl custom-scrollbar">
         <div className="flex items-center justify-between">
           <h3 className="flex items-center gap-2 text-sm font-semibold text-white"><Clapperboard className="h-4 w-4 text-zinc-400" /> Video tour</h3>
           <button onClick={() => { stop(); onClose(); }} className="rounded p-1 text-zinc-500 hover:bg-zinc-800 hover:text-white"><X className="h-4 w-4" /></button>

@@ -43,7 +43,7 @@ export function AccessPanel({ elements, site, onClose }) {
   const items = useMemo(() => accessibility(elements, site), [elements, site]);
   return (
     <Panel icon={Accessibility} title="Accessibility" onClose={onClose}>
-      <p className="mb-2 text-[11px] leading-snug text-zinc-500">For elderly parents, a wheelchair or a pram, after India's Harmonised Guidelines for Universal Accessibility (2021) and NBC 2016.</p>
+      <p className="mb-2 text-[11px] leading-snug text-zinc-500">For elderly parents, a wheelchair or a pram.</p>
       <Summary items={items} />
       <Items items={items} />
     </Panel>
@@ -67,7 +67,7 @@ export function QuakePanel({ elements, site, apiUrl, onClose }) {
       </label>
       <Summary items={items} />
       <Items items={items} />
-      <p className="mt-3 text-[10px] leading-snug text-zinc-600">Screening only, from the plan's shape. The structure must be designed by a structural engineer to IS 1893, IS 13920 and IS 875.</p>
+      <p className="mt-3 text-[10px] leading-snug text-zinc-600">Screening only; a structural engineer designs the structure.</p>
     </Panel>
   );
 }
@@ -101,7 +101,7 @@ export function FutureFloorPanel({ elements, site, apiUrl, onClose }) {
           </p>
           <p className="label-caps mt-4 mb-1.5">What to do now</p>
           <ol className="list-decimal space-y-1 pl-4 text-[11px] leading-snug text-zinc-300">{r.steps.map((s, i) => <li key={i}>{s}</li>)}</ol>
-          <p className="mt-3 text-[10px] leading-snug text-zinc-600">Making a house ready costs a few per cent now; strengthening an occupied house later typically costs about three times as much, and weeks of disruption. A structural engineer sizes the members.</p>
+          <p className="mt-3 text-[10px] leading-snug text-zinc-600">Being ready costs a few per cent now; strengthening later costs about three times as much.</p>
         </>
       )}
     </Panel>

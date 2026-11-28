@@ -41,40 +41,40 @@ export function accessibility(elements, site = null) {
   const ramp = PLINTH * 12;
   const front = site?.setbacks_m?.front;
   out.push({ status: front != null && front < ramp + 1.5 ? 'warn' : 'info', title: 'Step-free entrance',
-    detail: `The 0.45 m plinth needs a ramp about ${ramp.toFixed(1)} m long at 1:12, with a 1.5 m landing at the door and rails on both sides`
-      + (front != null ? `; the front setback is ${front.toFixed(1)} m${front < ramp + 1.5 ? ', so turn the ramp along the front wall or lower the plinth at the entrance' : ''}.` : '.'),
-    fix: 'Draw the ramp along the front, or keep one entrance at ground level.' });
+    detail: `Needs a ${ramp.toFixed(1)} m ramp (1:12) for the plinth`
+      + (front != null && front < ramp + 1.5 ? `; the ${front.toFixed(1)} m front setback is too short for a straight one.` : '.'),
+    fix: front != null && front < ramp + 1.5 ? 'Run the ramp along the front wall.' : null });
   // doors
   const { types } = openingTypes(elements);
   const doors = types.filter(t => t.type === 'door');
   const main = doors.find(t => t.kind === 'Main entrance door');
-  if (main) out.push({ status: main.w >= 1.0 ? 'pass' : 'fail', title: 'Main door width', detail: `${main.w.toFixed(2)} m; at least 1.0 m lets a wheelchair or stretcher through.`, fix: main.w < 1 ? 'AI Edit: "make the main door 1 m wide"' : null });
+  if (main) out.push({ status: main.w >= 1.0 ? 'pass' : 'fail', title: 'Main door width', detail: `${main.w.toFixed(2)} m (1.0 m needed).`, fix: main.w < 1 ? 'AI Edit: "make the main door 1 m wide"' : null });
   const narrow = doors.filter(t => t.kind !== 'Main entrance door' && t.w < 0.9);
   out.push({ status: narrow.length ? 'warn' : 'pass', title: 'Other doors',
-    detail: narrow.length ? `${narrow.reduce((s, t) => s + t.ids.length, 0)} doors are under 0.9 m (${list(narrow.map(t => `${t.mark} ${t.w.toFixed(2)} m`))}), at ${list([...new Set(narrow.flatMap(t => [...t.where.keys()]))].slice(0, 6))}.` : 'Every door is at least 0.9 m wide.',
+    detail: narrow.length ? `${narrow.reduce((s, t) => s + t.ids.length, 0)} under 0.9 m: ${list([...new Set(narrow.flatMap(t => [...t.where.keys()]))].slice(0, 4))}.` : 'All at least 0.9 m.',
     fix: narrow.length ? 'AI Edit: "widen the bathroom doors to 0.9 m"' : null });
   // ground floor bedroom and bathroom
   const gBed = ground.filter(r => r.kind === 'bedroom' || r.kind === 'master_bedroom');
   const gBath = ground.filter(r => r.kind === 'bathroom');
   out.push({ status: gBed.length && gBath.length ? 'pass' : 'warn', title: 'Living on the ground floor',
-    detail: gBed.length && gBath.length ? `${list(gBed.map(nameOf))} and ${list(gBath.map(nameOf))} are on the ground floor, so no one has to climb stairs.`
+    detail: gBed.length && gBath.length ? 'A bedroom and bathroom downstairs.'
       : `There is ${gBed.length ? '' : 'no bedroom'}${!gBed.length && !gBath.length ? ' and ' : ''}${gBath.length ? '' : 'no bathroom'} on the ground floor.`,
     fix: gBed.length ? null : 'AI Edit: "add a bedroom on the ground floor next to the living room"' });
   // a bathroom a wheelchair can turn in
   const turn = gBath.filter(r => Math.min(r.width, r.height) / U >= 1.5);
   out.push({ status: turn.length ? 'pass' : gBath.length ? 'warn' : 'info', title: 'Accessible bathroom',
-    detail: turn.length ? `${list(turn.map(nameOf))} has the 1.5 m turning space. Add grab bars by the WC and shower, a level shower floor and an outward-opening door.`
+    detail: turn.length ? `${list(turn.map(nameOf))} has 1.5 m to turn. Add grab bars.`
       : gBath.length ? `${list(gBath.map(r => `${nameOf(r)} is ${(r.width / U).toFixed(1)} × ${(r.height / U).toFixed(1)} m`))}; a wheelchair needs 1.5 m to turn.` : 'No ground-floor bathroom to check.',
     fix: !turn.length && gBath.length ? `AI Edit: "make ${gBath[0].name || 'the bathroom'} 1.6 m wide"` : null });
   // hallways
   const tight = rooms.filter(r => r.kind === 'hallway' && Math.min(r.width, r.height) / U < 1.0);
   out.push({ status: tight.length ? 'warn' : 'pass', title: 'Hallways',
-    detail: tight.length ? `${list(tight.map(r => `${nameOf(r)} (${(Math.min(r.width, r.height) / U).toFixed(2)} m)`))} is under 1.0 m wide.` : 'Hallways are at least 1.0 m wide.' });
+    detail: tight.length ? `${list(tight.map(nameOf))} is under 1.0 m.` : 'All at least 1.0 m.' });
   // stairs
   const stairs = elements.filter(e => e.type === 'stairs' && !e.arrival);
   if (stairs.length) {
     const w = Math.min(...stairs.map(s => (s.height || 0) / U));
-    out.push({ status: w >= 1.0 ? 'pass' : 'warn', title: 'Stairs', detail: `${w.toFixed(2)} m wide${w >= 1 ? '' : '; 1.0 m is the minimum for a house'}. Put handrails on both sides, risers no more than 15 cm, and a light switch at the top and bottom.` });
+    out.push({ status: w >= 1.0 ? 'pass' : 'warn', title: 'Stairs', detail: `${w.toFixed(2)} m wide${w >= 1 ? '' : ' (1.0 m needed)'}. Rails on both sides.` });
   }
   return out;
 }
@@ -84,9 +84,8 @@ export function quakeWind(elements, { city = 'Bengaluru', columns = null } = {})
   const [zone, wind] = SEISMIC[city] || ['III', 44];
   const floors = [...new Set(elements.map(e => e.floor || 1))].sort((a, b) => a - b);
   const inside = (f) => elements.filter(e => e.type === 'room' && (e.floor || 1) === f && !OUTDOOR.has(e.kind));
-  out.push({ status: 'info', title: `Seismic zone ${zone}`, detail: `${city} is in zone ${zone} (zone factor ${ZONE_FACTOR[zone]}) under IS 1893.`
-    + (zone === 'II' ? ' Low risk, but the frame still needs ductile detailing.' : ' Design and detail the frame for earthquakes (IS 13920 ductile detailing).') });
-  if (zone !== 'II') out.push({ status: 'warn', title: 'Bands and ties', detail: 'Run RCC bands at plinth, lintel and roof level through every wall, with vertical bars at corners and wall junctions (IS 4326).', fix: 'Note it on the structural drawings.' });
+  out.push({ status: 'info', title: `Seismic zone ${zone}`, detail: zone === 'II' ? 'Low risk.' : `Factor ${ZONE_FACTOR[zone]}: design for earthquakes (IS 13920).` });
+  if (zone !== 'II') out.push({ status: 'warn', title: 'Bands and ties', detail: 'RCC bands at plinth, lintel and roof; bars at corners (IS 4326).' });
 
   // openings on each outside wall, per floor
   const big = [], corner = [];
@@ -113,8 +112,8 @@ export function quakeWind(elements, { city = 'Bengaluru', columns = null } = {})
       });
     });
   });
-  out.push({ status: big.length ? 'warn' : 'pass', title: 'Openings in outside walls', detail: big.length ? `Openings take more than half of some walls (${list(big.slice(0, 3))}). Keep wall between openings, or the frame must carry the sway alone.` : 'No outside wall is more than half openings.' });
-  out.push({ status: corner.length ? 'warn' : 'pass', title: 'Openings near corners', detail: corner.length ? `${corner.length} opening${corner.length > 1 ? 's are' : ' is'} within 0.6 m of a corner; corners crack first in an earthquake. Move them in, or add a column at the corner.` : 'Openings are kept at least 0.6 m from the corners.' });
+  out.push({ status: big.length ? 'warn' : 'pass', title: 'Openings in outside walls', detail: big.length ? `Over half openings: ${list(big.slice(0, 2))}.` : 'Under half on every wall.' });
+  out.push({ status: corner.length ? 'warn' : 'pass', title: 'Openings near corners', detail: corner.length ? `${corner.length} within 0.6 m of a corner; move them in.` : 'All 0.6 m or more from corners.' });
 
   // plan shape: deep re-entrant corners
   const g = inside(1);
@@ -124,7 +123,7 @@ export function quakeWind(elements, { city = 'Bengaluru', columns = null } = {})
     const xs = g.flatMap(r => [box(r).x0, box(r).x1]), ys = g.flatMap(r => [box(r).y0, box(r).y1]);
     const W = Math.max(...xs) - Math.min(...xs), D = Math.max(...ys) - Math.min(...ys);
     const fill = area / (W * D);
-    out.push({ status: fill < 0.75 ? 'warn' : 'pass', title: 'Plan shape', detail: fill < 0.75 ? `The ground floor fills ${Math.round(fill * 100)} % of its bounding box: an L or U shape with deep corners twists in an earthquake (IS 1893 re-entrant corners). Separate the wings with a gap, or stiffen the corner with walls.` : 'A compact plan, with no deep inner corners.' });
+    out.push({ status: fill < 0.75 ? 'warn' : 'pass', title: 'Plan shape', detail: fill < 0.75 ? 'Deep L or U corners twist in an earthquake; stiffen or separate the wings.' : 'Compact, no deep corners.' });
   }
   // overhangs and an open ground floor
   if (floors.length > 1) {
@@ -138,10 +137,9 @@ export function quakeWind(elements, { city = 'Bengaluru', columns = null } = {})
   if (columns && g.length) {
     const area = slabPieces(footprint(g.map(rect))).reduce((s, p) => s + p.w * p.d, 0);
     const bay = Math.sqrt(area / Math.max(1, columns / 1.2));
-    out.push({ status: bay > 4.5 ? 'warn' : 'pass', title: 'Column spacing', detail: `About ${columns} columns, ${bay.toFixed(1)} m apart on average${bay > 4.5 ? '; spans over about 4.5 m need deeper beams and bigger columns' : ''}.` });
+    out.push({ status: bay > 4.5 ? 'warn' : 'pass', title: 'Column spacing', detail: `${columns} columns, ${bay.toFixed(1)} m apart${bay > 4.5 ? ': spans over 4.5 m need deeper beams' : ''}.` });
   }
   // wind
-  out.push({ status: CYCLONE.has(city) ? 'warn' : 'info', title: `Wind: ${wind} m/s`, detail: `The basic wind speed for ${city} is ${wind} m/s (IS 875 Part 3).`
-    + (CYCLONE.has(city) ? ' A cyclone-prone coast: tie parapets and the water tank down, use windows rated for the wind pressure, and avoid light sheet roofs.' : wind >= 47 ? ' Strong winds: anchor sheet roofs, solar panel frames and the water tank.' : '') });
+  out.push({ status: CYCLONE.has(city) ? 'warn' : 'info', title: `Wind: ${wind} m/s`, detail: CYCLONE.has(city) ? 'Cyclone coast: tie down parapets, tank and panels.' : wind >= 47 ? 'Anchor sheet roofs, panels and the tank.' : 'No special measures.' });
   return out;
 }

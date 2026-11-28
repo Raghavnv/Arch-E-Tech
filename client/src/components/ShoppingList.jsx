@@ -144,7 +144,7 @@ export default function ShoppingList({ elements, projectId, projectName, onClose
         ))}
       </div>
       <p className="mt-4 text-[10px] leading-snug text-zinc-600">
-        Prices are estimates for a mid-range piece of the size drawn, not quotes. The links search each shop for the piece; ticks are kept on this device.
+        Estimated prices, not quotes. Ticks stay on this device.
       </p>
     </Panel>
   );

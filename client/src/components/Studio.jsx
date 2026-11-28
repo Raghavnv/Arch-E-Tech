@@ -1044,7 +1044,7 @@ export default function Studio() {
         {activeTab === '3D' && !walkthroughMode && (
           <FinishesPanel elements={canvasElements} floor={activeFloor} brush={selectedMaterial} setBrush={setSelectedMaterial}
             onPaintAll={handlePaintAllWalls} onPaintRoom={handlePaintRoomWalls} onSetCeiling={handleSetCeiling} onSetFlooring={handleSetFlooring} onSetWindows={handleSetWindows}
-            roofOff={roofStyle === 'none'}
+            roofOff={roofStyle === 'none'} hidden={!!toolPanel}
             onWalk={() => { if (roofStyle === 'none') setRoofStyle('flat'); setWalkthroughMode(true); }} />
         )}
 
@@ -1062,7 +1062,7 @@ export default function Studio() {
 
         {/* AI Copilot */}
         {/* the wrapper is click-through: it is as big as the chat box even when closed, and used to block the panels beneath it */}
-        <div className="absolute bottom-6 right-6 z-40 flex flex-col items-end pointer-events-none">
+        <div className={`absolute bottom-6 right-6 z-40 flex flex-col items-end pointer-events-none ${toolPanel && !chatOpen ? 'hidden' : ''}`}>
           <div className={`mb-4 w-80 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl flex flex-col transition-all origin-bottom-right duration-300 ${
             chatOpen ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 pointer-events-none translate-y-4'
           }`} style={{ height: '400px' }}>

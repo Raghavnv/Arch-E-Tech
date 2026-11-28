@@ -220,7 +220,7 @@ export default function PlotMap({ site, front = 'S', onSave, onClose }) {
             <button onClick={save} disabled={!preview || !!busy} className="btn-primary w-full py-2 text-xs">
               {busy === 'save' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} {busy === 'save' ? 'Saving, with the buildings around…' : 'Use this plot'}
             </button>
-            <p className="text-[10px] leading-snug text-zinc-600">Also fetches the buildings around it from OpenStreetMap for the site plan. Sizes from a map are approximate; use the survey or sale deed for the real dimensions.</p>
+            <p className="text-[10px] leading-snug text-zinc-600">Map sizes are approximate; use the survey for real ones.</p>
           </div>
         </div>
       </div>

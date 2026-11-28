@@ -115,8 +115,7 @@ export default function SolarRain({ elements, projectId, facade, site, north = '
       </div>
       {done && <p className="mt-2 text-[11px] text-emerald-300">{done}</p>}
       <p className="mt-3 text-[10px] leading-snug text-zinc-600">
-        Typical yields, rainfall and prices; get a site survey and quote before buying. Subsidy as per PM Surya Ghar for homes
-        (Rs 30,000/kW up to 2 kW, Rs 18,000 for the 3rd kW, at most Rs 78,000), paid after installation by an empanelled vendor with net metering.
+        Typical figures; get a site survey and quote. Subsidy: PM Surya Ghar, up to ₹78,000.
       </p>
     </Panel>
   );

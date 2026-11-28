@@ -53,7 +53,7 @@ export default function DesignStyleModal({ elements, onApply, onClose, onSee }) 
         <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-3">
           <div>
             <h3 className="flex items-center gap-2 text-sm font-semibold text-white"><Sparkles className="h-4 w-4 text-indigo-400" /> Design my house</h3>
-            <p className="text-[11px] text-zinc-500">One style for every room: wall colours and a feature wall, floors, ceilings and lights, and decor. Undo (Ctrl/Cmd+Z) takes it back.</p>
+            <p className="text-[11px] text-zinc-500">One look for every room. Undo takes it back.</p>
           </div>
           <button onClick={onClose} className="rounded p-1 text-zinc-500 hover:bg-zinc-800 hover:text-white"><X className="h-4 w-4" /></button>
         </div>
@@ -112,10 +112,10 @@ export default function DesignStyleModal({ elements, onApply, onClose, onSee }) 
                 <button onClick={onSee} className="mt-2 w-full rounded-md bg-emerald-500/20 py-1.5 text-emerald-100 hover:bg-emerald-500/30">See it in 3D</button>
               </div>
             )}
-            <p className="text-[10px] leading-snug text-zinc-600">Applying another style replaces this one's finishes and decor. Your own furniture stays.</p>
+            <p className="text-[10px] leading-snug text-zinc-600">Your own furniture stays.</p>
             <div className="rounded-xl border border-zinc-800 p-3">
               <p className="text-[11px] font-semibold text-zinc-200">Save this house's look</p>
-              <p className="mt-0.5 text-[10px] text-zinc-500">Its wall colours, feature walls, floors, ceilings, windows and decor become a style you can use on your other houses.</p>
+              <p className="mt-0.5 text-[10px] text-zinc-500">Save this look to use on your other houses.</p>
               <div className="mt-2 flex gap-1.5">
                 <input value={saveName} onChange={(e) => setSaveName(e.target.value)} placeholder="Name it" maxLength={80}
                   className="min-w-0 flex-1 rounded-lg bg-zinc-900 px-2 py-1.5 text-xs text-white placeholder:text-zinc-600 focus:outline-none" />

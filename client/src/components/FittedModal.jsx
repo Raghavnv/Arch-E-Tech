@@ -135,7 +135,7 @@ export default function FittedModal({ elements, onApply, onClose }) {
               Put it in {room?.name || 'the room'}
             </button>
             {done && <p className="flex items-start gap-1.5 text-[11px] text-emerald-300"><Check className="mt-0.5 h-3 w-3 shrink-0" /> {done}</p>}
-            <p className="text-[10px] leading-snug text-zinc-600">Laying out again replaces the earlier kitchen or wardrobes in that room. Wall cabinets and the chimney hang above the counter (not drawn in the preview).</p>
+            <p className="text-[10px] leading-snug text-zinc-600">Laying out again replaces what's there.</p>
           </div>
         </div>
       </div>

@@ -74,12 +74,12 @@ def plan(elements: list[dict], site: dict | None = None, city: str | None = None
         why.append(f"{n + 1} floors fit {lim['city']}'s limits for this plot" + ("" if plot else " (add the plot size to check FAR)") + ".")
 
     steps = [
-        f"Have the structural engineer design the footings, columns and beams for {n + 1} floors (G+{n}), not {n}.",
-        f"Footings and columns sized for the extra load: about Rs {upgrade - starter:,.0f} more now.",
-        f"Leave starter bars at the top of all {now['summary']['columns']} columns, wrapped against rust, with the roof slab cast to take a floor.",
-        "Carry the stair up to the roof with a stair room (mumty), so the new floor needs no new stair.",
-        "Run a spare conduit and a capped water line up to the roof for the new floor's wiring and plumbing.",
-        "Keep the overhead tank and solar panels on stands that can move to the new roof.",
+        f"Get the structure designed for {n + 1} floors (G+{n}).",
+        f"Stronger footings and columns: about Rs {upgrade - starter:,.0f} more now.",
+        f"Leave protected starter bars on all {now['summary']['columns']} columns.",
+        "Take the stair up to the roof (a mumty).",
+        "Run a spare conduit and capped water line to the roof.",
+        "Put the water tank and solar on movable stands.",
     ]
     return {
         "floors_now": n, "floors_later": n + 1, "upgrade_now": round(upgrade), "new_floor_cost": round(new_floor),
