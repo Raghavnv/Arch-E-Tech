@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { HardHat, Loader2, Download, FileText } from 'lucide-react';
-import { jsPDF } from 'jspdf';
 import { Panel } from './StudioTools';
 import { openingTypes } from '../utils/approvalDrawings';
 import { roomWalls } from '../utils/finishSchedule';
@@ -149,7 +148,8 @@ export default function TradeLists({ elements, projectName, apiUrl, onClose }) {
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   };
-  const pdfAll = () => {
+  const pdfAll = async () => {
+    const { jsPDF } = await import('jspdf');
     const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
     Object.values(lists).forEach((L, i) => {
       if (i) pdf.addPage();

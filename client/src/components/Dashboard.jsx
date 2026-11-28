@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import jsPDF from 'jspdf';
 import { 
   Plus, LayoutDashboard, Settings, LogOut, Clock, MoreVertical, 
   Layout, Building, Trash2, Copy, FileText, Share2, Edit2, Eye, 
@@ -357,8 +356,9 @@ export default function Dashboard() {
   };
 
   // Download PDF directly from Report Record
-  const handleDownloadReportPDF = (report) => {
+  const handleDownloadReportPDF = async (report) => {
     try {
+      const { default: jsPDF } = await import('jspdf');
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       
       pdf.setFont("helvetica", "bold");

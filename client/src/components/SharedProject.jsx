@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Check, Loader2, MessageSquare, RotateCcw, ThumbsUp } from 'lucide-react';
 import Mark from './Mark';
-import { PlanDrawing } from './Overview';
+import { PlanDrawing } from './PlanDrawing';
 import { formatArea } from '../utils/units';
 import { LANGUAGES, pickLanguage, rememberLanguage, translator, roomName, dateIn } from '../utils/shareI18n';
 

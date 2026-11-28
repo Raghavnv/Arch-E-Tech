@@ -1,22 +1,25 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import LandingPage from './components/LandingPage';
-import Dashboard from './components/Dashboard';
-import NewProject from './components/NewProject';
-import Studio from './components/Studio';
 import Auth from './components/Auth';
-import OnboardingCinematic from './components/OnboardingCinematic';
-import HowItWorks from './components/HowItWorks';
-import RenderStudio from './components/RenderStudio';
-import Overview from './components/Overview';
-import WarRoom from './components/WarRoom';
-import ImmersiveView from './components/ImmersiveView';
-import SharedProject from './components/SharedProject';
-import RoomDesigner from './components/RoomDesigner';
-import ARView from './components/ARView';
-import ConstructionTracker from './components/ConstructionTracker';
 import BackgroundPattern from './components/BackgroundPattern';
 import ErrorBoundary from './components/ErrorBoundary';
 import { useLocation } from 'react-router-dom';
+
+// pages load when first visited, so the landing page and sign-in don't download the 3D engine and every tool
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const NewProject = lazy(() => import('./components/NewProject'));
+const Studio = lazy(() => import('./components/Studio'));
+const OnboardingCinematic = lazy(() => import('./components/OnboardingCinematic'));
+const HowItWorks = lazy(() => import('./components/HowItWorks'));
+const RenderStudio = lazy(() => import('./components/RenderStudio'));
+const Overview = lazy(() => import('./components/Overview'));
+const WarRoom = lazy(() => import('./components/WarRoom'));
+const ImmersiveView = lazy(() => import('./components/ImmersiveView'));
+const SharedProject = lazy(() => import('./components/SharedProject'));
+const RoomDesigner = lazy(() => import('./components/RoomDesigner'));
+const ARView = lazy(() => import('./components/ARView'));
+const ConstructionTracker = lazy(() => import('./components/ConstructionTracker'));
 
 // a fresh boundary per page, so leaving a crashed page clears the error
 function RoutedBoundary({ children }) {
@@ -30,6 +33,7 @@ function App() {
       <div className="min-h-screen bg-transparent text-zinc-100 font-sans selection:bg-white selection:text-black">
         <BackgroundPattern />
         <RoutedBoundary>
+        <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-700 border-t-zinc-300" /></div>}>
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/how-it-works" element={<HowItWorks />} />
@@ -47,6 +51,7 @@ function App() {
           <Route path="/immersive" element={<ImmersiveView />} />
           <Route path="/shared/:token" element={<SharedProject />} />
         </Routes>
+        </Suspense>
         </RoutedBoundary>
       </div>
     </Router>

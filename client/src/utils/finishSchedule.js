@@ -1,4 +1,3 @@
-import { jsPDF } from 'jspdf';
 import { formatArea, formatMoney } from './units';
 import { roomsAlong } from './designStyles';
 import { ARCHITECTURAL_TEXTURES, WOOD_FINISHES, WALLPAPERS, CLADDING, PAINT_COLOURS, SCANNED_WALLS } from './textureLibrary';
@@ -88,7 +87,7 @@ function roomFurniture(room, elements) {
   return [...counts.values()];
 }
 
-export function buildFinishSchedule(elements, { project = 'House' } = {}) {
+export function buildFinishSchedule(elements, { project = 'House' } = {}, jsPDF) {
   const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
   let y = PAGE.m;
   const need = (h) => { if (y + h > PAGE.h - PAGE.m) { pdf.addPage(); y = PAGE.m; } };
@@ -187,7 +186,9 @@ export function buildFinishSchedule(elements, { project = 'House' } = {}) {
   return pdf;
 }
 
-export function downloadFinishSchedule(elements, options = {}) {
-  const pdf = buildFinishSchedule(elements, options);
+// the PDF library loads only when a schedule is made, so the helpers above stay light for other tools
+export async function downloadFinishSchedule(elements, options = {}) {
+  const { jsPDF } = await import('jspdf');
+  const pdf = buildFinishSchedule(elements, options, jsPDF);
   pdf.save(`${(options.project || 'house').replace(/[^\w-]+/g, '_')}_finish_schedule.pdf`);
 }

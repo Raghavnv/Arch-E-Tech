@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { X, Loader2, Plus, Sparkles, Trash2, Check, Columns3, ThumbsUp, Pencil } from 'lucide-react';
-import { PlanDrawing } from './Overview';
+import { PlanDrawing } from './PlanDrawing';
 import { computeCosts } from '../utils/costs';
 import { assessComfort } from '../utils/comfort';
 import { formatArea, currencyRate, CURRENCY } from '../utils/units';

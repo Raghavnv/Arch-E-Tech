@@ -5,7 +5,6 @@ import { X, Loader2, AlertTriangle, Download, ScanLine, LayoutTemplate, Image as
 import { detectRooms } from '../utils/detectRooms';
 import InfoTip from './InfoTip';
 import { formatArea, formatMoney, currencyCode, CURRENCY } from '../utils/units';
-import { downloadPlanSheet } from '../utils/planSheet';
 import { assessComfort, CITIES } from '../utils/comfort';
 import { lakh, rupees, emiOf, loanFor, ltvCap } from '../utils/loan';
 import { LANGUAGES } from '../utils/shareI18n';
@@ -982,8 +981,9 @@ export function ServicesPanel({ elements, floor, projectName, site, north, apiUr
   const cost = (sys) => (data ? data.points.filter(p => (PLUMB.has(p.type) ? 'plumbing' : 'electrical') === sys)
     .reduce((s, p) => s + (POINT_RATE[p.type] || 0), 0) : 0);
   const download = () => {
-    try { downloadPlanSheet(elements, { project: projectName || 'Plan', north, site, services: data, approval: false }); }
-    catch (e) { setError(e.message); }
+    import('../utils/planSheet')
+      .then(m => m.downloadPlanSheet(elements, { project: projectName || 'Plan', north, site, services: data, approval: false }))
+      .catch(e => setError(e.message));
   };
 
   return (

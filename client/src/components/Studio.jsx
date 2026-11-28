@@ -1,6 +1,4 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Menu, MousePointer2, Box, Home, PenTool, LayoutTemplate, 
@@ -27,17 +25,14 @@ import PlotMap from './PlotMap';
 import StudioTour, { tourDone } from './StudioTour';
 import TradeLists from './TradeLists';
 import { AccessPanel, QuakePanel, FutureFloorPanel } from './HouseChecks';
-import { buildBrochure } from '../utils/clientBrochure';
 import { frontOf } from '../utils/facade';
 import { applyFacade, DEFAULT_FACADE } from '../utils/facade';
-import { downloadFinishSchedule } from '../utils/finishSchedule';
 import { setSideRange } from '../utils/designStyles';
 import ImportPlanModal from './ImportPlanModal';
 import InfoTip from './InfoTip';
 import Mark from './Mark';
 import { measurement, currencySymbol, currencyCode, CURRENCY, formatSize } from '../utils/units';
 import { computeCosts } from '../utils/costs';
-import { downloadPlanSheet } from '../utils/planSheet';
 import { registerMaterials } from '../utils/materialScan';
 
 
@@ -387,6 +382,7 @@ export default function Studio() {
         post('/api/ai/vastu-check', { elements: canvasElements, north: northOf() }),
         post('/api/ai/quantities', { elements: canvasElements }),
       ]);
+      const { buildBrochure } = await import('../utils/clientBrochure');   // PDF code loads only when asked for
       const pdf = buildBrochure({ project: projectName || 'Our home', projectId, elements: canvasElements, site: projectSite, facade: projectFacade,
         north: northOf(), renders: renders || [], options, rules, vastu, quantities });
       pdf.save(`${(projectName || 'home').replace(/[^\w-]+/g, '-')}-brochure.pdf`);
@@ -395,9 +391,10 @@ export default function Studio() {
     } finally { setExporting(null); }
   };
 
-  const exportPlanSheet = () => {
+  const exportPlanSheet = async () => {
     setExporting('sheet');
     try {
+      const { downloadPlanSheet } = await import('../utils/planSheet');
       downloadPlanSheet(canvasElements, { project: projectName || 'Plan', north: northOf(), site: projectSite, roofStyle, facade: projectFacade });
     } catch (e) {
       alert(e.message);
@@ -449,10 +446,12 @@ export default function Studio() {
       const canvasContainer = document.getElementById("studio-canvas-container");
       let imgData = null;
       if (canvasContainer) {
+        const { default: html2canvas } = await import('html2canvas');
         const canvas = await html2canvas(canvasContainer, { backgroundColor: '#0f0e0d', scale: 2 });
         imgData = canvas.toDataURL('image/png');
       }
 
+      const { default: jsPDF } = await import('jspdf');
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(22);
@@ -604,6 +603,7 @@ export default function Studio() {
       await flushSave();
       const container = document.getElementById("studio-canvas-container");
       if (container) {
+        const { default: html2canvas } = await import('html2canvas');
         const snap = await html2canvas(container, { backgroundColor: '#0f0e0d', scale: 1 });
         localStorage.setItem('renderStudioSnapshot', snap.toDataURL('image/png'));
       }
@@ -1224,7 +1224,7 @@ export default function Studio() {
             desc: `${activeFloor === 1 ? 'Ground floor' : `Floor ${activeFloor}`} for AutoCAD and other CAD apps`, disabled: !!exporting,
             onClick: exportDxf },
           { id: 'finishes', icon: ClipboardList, label: 'Finish schedule (PDF)', desc: 'Room by room: paints, floors, ceilings, curtains, furniture',
-            onClick: () => downloadFinishSchedule(canvasElements, { project: projectName || 'House' }) },
+            onClick: () => import('../utils/finishSchedule').then(m => m.downloadFinishSchedule(canvasElements, { project: projectName || 'House' })) },
           { id: 'pdf', icon: FileText, label: isGeneratingPDF ? 'Building PDF…' : 'PDF Report', desc: 'Plan, costs and notes', disabled: isGeneratingPDF,
             onClick: generatePDFReport },
         ] },
