@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 
 import requests
+from fastapi.concurrency import run_in_threadpool
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -49,12 +50,28 @@ def make_router(get_db, get_current_user, owned_project) -> APIRouter:
         data = await file.read(MAX_BYTES + 1)
         if len(data) > MAX_BYTES:
             raise HTTPException(413, "That file is larger than 15 MB.")
+        def call():
+            # a free Hugging Face Space sleeps when unused and answers 502/503 while it wakes (up to a
+            # minute or so): keep asking for about 90 s before giving up
+            import time
+            deadline = time.monotonic() + 90
+            while True:
+                try:
+                    resp = requests.post(f"{READER_URL}/read", timeout=180,
+                                         headers={"Authorization": f"Bearer {READER_TOKEN}"} if READER_TOKEN else {},
+                                         files={"file": (file.filename or "plan", data, file.content_type)})
+                    if resp.status_code not in (502, 503, 504) or time.monotonic() > deadline:
+                        return resp
+                except requests.RequestException:
+                    if time.monotonic() > deadline:
+                        raise
+                time.sleep(8)
         try:
-            r = requests.post(f"{READER_URL}/read", timeout=180,
-                              headers={"Authorization": f"Bearer {READER_TOKEN}"} if READER_TOKEN else {},
-                              files={"file": (file.filename or "plan", data, file.content_type)})
+            r = await run_in_threadpool(call)          # off the event loop: other requests keep flowing
         except requests.RequestException:
-            raise HTTPException(502, "The plan reader didn't answer. Try again in a minute.")
+            raise HTTPException(502, "The plan reader didn't answer. It may be waking up: try again in a minute.")
+        if r.status_code in (502, 503, 504):
+            raise HTTPException(502, "The plan reader is still waking up. Try again in a minute.")
         if r.status_code != 200:
             try:
                 detail = r.json().get("detail")
