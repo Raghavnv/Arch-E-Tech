@@ -12,10 +12,10 @@ const HERO_PHOTO = 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c
 const RENDER_PHOTO = 'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1400&q=80';
 
 const INDEX = [
-  { sheet: 'A-101', title: 'A plan from a sentence', text: 'Describe the home and get a complete floor plan, on one to three floors, with patios, balconies and terraces where you want them. Mark your plot on the map and it fits the plot.' },
+  { sheet: 'A-101', title: 'A plan from a sentence', text: 'Describe the home and get a complete floor plan, on one to three floors, with patios, balconies and terraces where you want them. Mark your plot on the map for its size, facing and north.' },
   { sheet: 'A-102', title: 'Change it by asking', text: 'AI Edit makes any change you type: bigger rooms, a new bedroom, a wider door, paint, floors, a whole style. Every edit can be undone.' },
   { sheet: 'A-103', title: 'Compare options', text: 'Keep two or three versions side by side with their cost, EMI, daylight and Vastu, and let the family vote on the share link.' },
-  { sheet: 'A-201', title: '3D, walkthrough and AR', text: 'The plan rises into a 3D house you can paint, furnish and walk through, see on its street, or stand in your plot with your phone.' },
+  { sheet: 'A-201', title: '3D, walkthrough and AR', text: 'The plan rises into a 3D house you can paint, furnish and walk through, see on its street, or view life-size through your phone.' },
   { sheet: 'A-202', title: 'Finishes from a photo or a sample', text: 'Match a photo you love, or scan a real sample of wood, marble or tile with your camera and lay it on your floors and walls.' },
   { sheet: 'A-301', title: 'Photo Render', text: 'Every room as a photograph, first empty and then furnished as you describe, all in one house style.' },
   { sheet: 'A-401', title: 'Cost, loan and quotes', text: 'A live estimate, your monthly EMI and what a bank will lend, a shopping list with shop links, and any contractor\'s quote checked line by line.' },
