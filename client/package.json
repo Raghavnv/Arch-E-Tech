@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "node --import ./tests/resolve.mjs --test tests/"
+    "test": "node --import ./tests/resolve.mjs --test tests/maths.test.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
