@@ -483,6 +483,18 @@ Everything still runs:
 
 ---
 
+## Tests
+
+The numbers people rely on are checked automatically, with the demo house as a realistic fixture:
+
+- `backend/tests/` (Python's unittest): the estimate, city rules and rainwater rule, the quote checker (Indian
+  amounts, quantities and rates, package quotes, GST), the future floor, the plan editor, Vastu and options.
+  Run from `backend/`: `.venv/bin/python -m unittest discover tests`
+- `client/tests/` (Node's test runner): EMI and loan limits, the solar subsidy and sizing, panel layout,
+  rainwater, the plot from the map, the accessibility and earthquake checks, colour maths. Run from `client/`: `npm test`
+
+Both run on every push (`.github/workflows/tests.yml`).
+
 ## Environment variables
 
 ### Backend (Render)

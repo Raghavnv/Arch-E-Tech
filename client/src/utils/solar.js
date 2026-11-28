@@ -91,21 +91,29 @@ export function plan(elements, { city = 'Bengaluru', units, tariff = 8, ratePerK
  */
 export function panelLayout(rooms, count, north = 'up') {
   if (!count || !rooms.length) return [];
-  const pieces = slabPieces(footprint(rooms.map(r => ({ x: r.x, z: r.z, w: r.w, d: r.d })), 0.2)).sort((p, q) => q.w * q.d - p.w * p.d);
-  const southAlongZ = north === 'up' || north === 'down';        // rows run east-west
+  // the roof is every room's rectangle together; a panel goes wherever it fits wholly on it, 0.6 m in
+  // from the edge, in rows far enough apart not to shade each other
+  const inside = (x, z) => rooms.some(r => x >= r.x - 1e-6 && x <= r.x + r.w + 1e-6 && z >= r.z - 1e-6 && z <= r.z + r.d + 1e-6);
+  const M = 0.6;                                                    // kept in from the roof's outer edge only
+  const rowsAlongX = north === 'up' || north === 'down';          // rows run east-west
   const [pl, pw] = PANEL_SIZE;
-  const rowGap = pw + 0.7;                                       // panel depth plus spacing so rows don't shade each other
-  const out = [];
-  for (const p of pieces) {
-    const L = southAlongZ ? p.w : p.d, D = southAlongZ ? p.d : p.w;
-    const across = Math.floor((L - 1.2) / (pl + 0.05)), rows = Math.floor((D - 1.2 + 0.7) / rowGap);
-    for (let i = 0; i < rows && out.length < count; i++) {
-      for (let j = 0; j < across && out.length < count; j++) {
-        const a = 0.6 + j * (pl + 0.05) + pl / 2, b = 0.6 + i * rowGap + pw / 2;
-        out.push(southAlongZ ? { x: p.x + a, z: p.z + b, along: 'x' } : { x: p.x + b, z: p.z + a, along: 'z' });
-      }
+  const [sx, sz] = rowsAlongX ? [pl, pw] : [pw, pl];               // the panel's footprint
+  const gap = 0.7;
+  const x0 = Math.min(...rooms.map(r => r.x)), x1 = Math.max(...rooms.map(r => r.x + r.w));
+  const z0 = Math.min(...rooms.map(r => r.z)), z1 = Math.max(...rooms.map(r => r.z + r.d));
+  // the panel with its margin round it must lie on the roof: test a grid of points over that area
+  const fits = (cx, cz) => {
+    for (let a = -1; a <= 1; a += 0.5) for (let b = -1; b <= 1; b += 0.5) {
+      if (!inside(cx + a * (sx / 2 + M), cz + b * (sz / 2 + M))) return false;
     }
-    if (out.length >= count) break;
+    return true;
+  };
+  const out = [];
+  const stepA = rowsAlongX ? sx + 0.05 : sx + gap, stepB = rowsAlongX ? sz + gap : sz + 0.05;
+  for (let cz = z0 + M + sz / 2; cz <= z1 - M - sz / 2 + 1e-6 && out.length < count; cz += stepB) {
+    for (let cx = x0 + M + sx / 2; cx <= x1 - M - sx / 2 + 1e-6 && out.length < count; ) {
+      if (fits(cx, cz)) { out.push({ x: cx, z: cz, along: rowsAlongX ? 'x' : 'z' }); cx += stepA; } else cx += 0.1;
+    }
   }
   return out;
 }
