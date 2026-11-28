@@ -6,6 +6,7 @@
   PUT    /api/projects/{id}/facade            {"facade": {...}}
   GET    /api/projects/{id}/progress          the build's progress
   PUT    /api/projects/{id}/progress          {"progress": {...}}
+  PUT    /api/projects/{id}/site              {"site": {...}}  the plot, e.g. drawn on the map
   PUT    /api/projects/{id}/materials         {"materials": [...]}  materials scanned from photos
   POST   /api/ai/identify-material            {"image"} -> what the material is, when an AI key is set
 
@@ -31,6 +32,10 @@ class NewStyle(BaseModel):
 
 class FacadeIn(BaseModel):
     facade: dict
+
+
+class SiteIn(BaseModel):
+    site: dict
 
 
 class ProgressIn(BaseModel):
@@ -96,6 +101,16 @@ def make_router(get_db, get_current_user, owned_project) -> APIRouter:
         if _size(req.facade) > 16_000:
             raise HTTPException(413, "That facade is too large.")
         project.facade = req.facade
+        db.commit()
+        return {"status": "success"}
+
+    @router.put("/api/projects/{project_id}/site")
+    def set_site(project_id: int, req: SiteIn, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+        """The plot: size, facing, north, and (from the map) its corners, location and neighbouring buildings."""
+        project = owned_project(project_id, db, user)
+        if _size(req.site) > 200_000:
+            raise HTTPException(413, "That plot is too detailed to save.")
+        project.site = req.site
         db.commit()
         return {"status": "success"}
 

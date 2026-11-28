@@ -40,7 +40,7 @@ function describe(f) {
 }
 
 /** What a room's walls carry: [{ name, kind, swatch, m2, band }], from its own side of each wall. */
-function roomWalls(room, elements) {
+export function roomWalls(room, elements) {
   const out = new Map();
   const doors = elements.filter(e => e.type === 'door' && (e.floor || 1) === (room.floor || 1));
   const wins = elements.filter(e => e.type === 'window' && (e.floor || 1) === (room.floor || 1));

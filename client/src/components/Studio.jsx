@@ -5,7 +5,7 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Menu, MousePointer2, Box, Home, PenTool, LayoutTemplate, 
   Settings, Save, FileText, ChevronRight, Calculator, CheckCircle, 
-  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen, FileUp, Compass, Ruler, PenLine, ShieldCheck, Share2, Zap, Sofa, HardHat, Clapperboard, Smartphone, Palette, ChefHat, ClipboardList, ListChecks, Landmark, Columns3, ImagePlus, ShoppingBag, SunMedium, FileSearch 
+  AlertTriangle, X, Maximize, MessageSquare, Layers, Sun, Eye, Image as ImageIcon, Sparkles, Download, ScanLine, Magnet, Wand2, Grip, Play, Wallet, Trees, PanelLeftClose, PanelLeftOpen, FileUp, Compass, Ruler, PenLine, ShieldCheck, Share2, Zap, Sofa, HardHat, Clapperboard, Smartphone, Palette, ChefHat, ClipboardList, ListChecks, Landmark, Columns3, ImagePlus, ShoppingBag, SunMedium, FileSearch, MapPin, BookOpen, Accessibility, Activity, Hammer, ArrowUpFromLine 
 } from 'lucide-react';
 import Canvas2D from './Canvas2D';
 import Canvas3D from './Canvas3D';
@@ -23,6 +23,11 @@ import MaterialScan from './MaterialScan';
 import ShoppingList from './ShoppingList';
 import SolarRain from './SolarRain';
 import QuoteCheck from './QuoteCheck';
+import PlotMap from './PlotMap';
+import TradeLists from './TradeLists';
+import { AccessPanel, QuakePanel, FutureFloorPanel } from './HouseChecks';
+import { buildBrochure } from '../utils/clientBrochure';
+import { frontOf } from '../utils/facade';
 import { applyFacade, DEFAULT_FACADE } from '../utils/facade';
 import { downloadFinishSchedule } from '../utils/finishSchedule';
 import { setSideRange } from '../utils/designStyles';
@@ -83,6 +88,7 @@ export default function Studio() {
   const [compareOpen, setCompareOpen] = useState(false);
   const [photoOpen, setPhotoOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
   const [projectMaterials, setProjectMaterials] = useState([]);   // materials scanned from photos
   const [projectSite, setProjectSite] = useState(null);   // the plot, when the project has one   // what is selected on the 2D plan, for "edit this"
   const [smartSnap, setSmartSnap] = useState(() => localStorage.getItem('pref_smart_snap') === '1');
@@ -359,6 +365,29 @@ export default function Studio() {
 
   // which way north points on the drawing (set in the Vastu check; generated plans have north up)
   const northOf = () => { try { return localStorage.getItem(`vastu_north_${projectId || 'draft'}`) || projectSite?.north || 'up'; } catch { return 'up'; } };
+
+  // the client brochure: everything the project knows, gathered from the server, in one A4 PDF
+  const exportBrochure = async () => {
+    setExporting('brochure');
+    try {
+      await flushSave();
+      const h = { Authorization: `Bearer ${localStorage.getItem('token')}` };
+      const json = (p) => p.then(r => (r.ok ? r.json() : null)).catch(() => null);
+      const post = (path, body) => json(fetch(`${API_URL}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }));
+      const [renders, options, rules, vastu, quantities] = await Promise.all([
+        projectId ? json(fetch(`${API_URL}/api/projects/${projectId}/renders`, { headers: h })) : null,
+        projectId ? json(fetch(`${API_URL}/api/projects/${projectId}/options`, { headers: h })) : null,
+        post('/api/ai/building-check', { elements: canvasElements, site: projectSite, city: projectSite?.city || null, rwh_tank_l: projectFacade?.solar?.tank_l || null }),
+        post('/api/ai/vastu-check', { elements: canvasElements, north: northOf() }),
+        post('/api/ai/quantities', { elements: canvasElements }),
+      ]);
+      const pdf = buildBrochure({ project: projectName || 'Our home', projectId, elements: canvasElements, site: projectSite, facade: projectFacade,
+        north: northOf(), renders: renders || [], options, rules, vastu, quantities });
+      pdf.save(`${(projectName || 'home').replace(/[^\w-]+/g, '-')}-brochure.pdf`);
+    } catch (e) {
+      alert(`Couldn't make the brochure: ${e.message}`);
+    } finally { setExporting(null); }
+  };
 
   const exportPlanSheet = () => {
     setExporting('sheet');
@@ -793,16 +822,20 @@ export default function Studio() {
             houseCost={costData.total / CURRENCY[currencyCode()].rate * CURRENCY.INR.rate} />
         )}
         {toolPanel === 'solar' && (
-          <SolarRain elements={canvasElements} projectId={projectId} facade={projectFacade} north={northOf()} onClose={() => setToolPanel(null)}
+          <SolarRain elements={canvasElements} projectId={projectId} facade={projectFacade} site={projectSite} north={northOf()} onClose={() => setToolPanel(null)}
             onSave={async (patch) => {
               // panels sit on a flat roof: show it, so they can be seen in 3D
               if (patch.solar && roofStyle !== 'flat') setRoofStyle('flat');
               await saveFacade({ ...DEFAULT_FACADE, ...(projectFacade || {}), ...patch });
             }} />
         )}
+        {toolPanel === 'trades' && <TradeLists elements={canvasElements} projectName={projectName} apiUrl={API_URL} onClose={() => setToolPanel(null)} />}
+        {toolPanel === 'access' && <AccessPanel elements={canvasElements} site={projectSite} onClose={() => setToolPanel(null)} />}
+        {toolPanel === 'quake' && <QuakePanel elements={canvasElements} site={projectSite} apiUrl={API_URL} onClose={() => setToolPanel(null)} />}
+        {toolPanel === 'future' && <FutureFloorPanel elements={canvasElements} site={projectSite} apiUrl={API_URL} onClose={() => setToolPanel(null)} />}
         {toolPanel === 'quote' && <QuoteCheck elements={canvasElements} projectId={projectId} apiUrl={API_URL} onClose={() => setToolPanel(null)} />}
         {toolPanel === 'shop' && <ShoppingList elements={canvasElements} projectId={projectId} projectName={projectName} onClose={() => setToolPanel(null)} />}
-        {toolPanel === 'comfort' && <ComfortPanel elements={canvasElements} floor={activeFloor} north={northOf()} onClose={() => setToolPanel(null)} />}
+        {toolPanel === 'comfort' && <ComfortPanel elements={canvasElements} floor={activeFloor} north={northOf()} site={projectSite} onClose={() => setToolPanel(null)} />}
         {toolPanel === 'materials' && (
           <MaterialsPanel elements={canvasElements} projectName={projectName} apiUrl={API_URL} onClose={() => setToolPanel(null)} />
         )}
@@ -1130,6 +1163,8 @@ export default function Studio() {
         { title: 'AI', items: [
           { id: 'style', icon: Palette, label: 'Design my house', desc: 'A whole interior style in one click', accent: true, disabled: !canvasElements.some(e => e.type === 'room'),
             onClick: () => setStyleOpen(true) },
+          { id: 'plotmap', icon: MapPin, label: 'Plot from map', desc: 'Mark the plot on the map: size, facing, north, neighbours', disabled: !projectId,
+            onClick: () => setMapOpen(true) },
           { id: 'photo', icon: ImagePlus, label: 'Match a photo', desc: 'Paint, floor and accents from a room you love', accent: true, disabled: !canvasElements.some(e => e.type === 'room'),
             onClick: () => setPhotoOpen(true) },
           { id: 'scan', icon: ScanLine, label: 'Scan a material', desc: 'Photograph wood, marble, stone or tile and lay it on the house', accent: true,
@@ -1150,6 +1185,9 @@ export default function Studio() {
             onClick: () => setToolPanel(t => (t === 'comfort' ? null : 'comfort')) },
           { id: 'solar', icon: SunMedium, label: 'Solar & rainwater', desc: 'Rooftop solar, subsidy and payback; rainwater tank and pits', active: toolPanel === 'solar',
             disabled: !canvasElements.some(e => e.type === 'room'), onClick: () => setToolPanel(t => (t === 'solar' ? null : 'solar')) },
+          { id: 'future', icon: ArrowUpFromLine, label: 'Future floor', desc: 'What it costs to be ready to add a floor later', active: toolPanel === 'future', disabled: !canvasElements.some(e => e.type === 'room'), onClick: () => setToolPanel(t => (t === 'future' ? null : 'future')) },
+          { id: 'access', icon: Accessibility, label: 'Accessibility', desc: 'Step-free entry, door widths, a ground-floor bedroom', active: toolPanel === 'access', disabled: !canvasElements.some(e => e.type === 'room'), onClick: () => setToolPanel(t => (t === 'access' ? null : 'access')) },
+          { id: 'quake', icon: Activity, label: 'Earthquake & wind', desc: 'Seismic zone, wind speed and what the plan needs', active: toolPanel === 'quake', disabled: !canvasElements.some(e => e.type === 'room'), onClick: () => setToolPanel(t => (t === 'quake' ? null : 'quake')) },
           { id: 'vastu', icon: Compass, label: 'Vastu check', desc: 'The plan against Vastu guidelines', active: toolPanel === 'vastu',
             onClick: () => setToolPanel(t => (t === 'vastu' ? null : 'vastu')) },
           { id: 'budget', icon: Wallet, label: 'Budget Advisor', desc: 'Find where to cut back', info: 'budget', accent: true, active: toolPanel === 'budget',
@@ -1159,6 +1197,7 @@ export default function Studio() {
           { id: 'cost', icon: Calculator, label: 'Cost takeoff', desc: `${money(costData.total)} estimated`, onClick: () => setShowCostModal(true) },
           { id: 'loan', icon: Landmark, label: 'Home loan & EMI', desc: 'Monthly EMI, what a bank would lend, payments while it is built', active: toolPanel === 'loan',
             disabled: !canvasElements.some(e => e.type === 'room'), onClick: () => setToolPanel(t => (t === 'loan' ? null : 'loan')) },
+          { id: 'trades', icon: Hammer, label: 'Lists for each trade', desc: 'Mason, carpenter, electrician, plumber, painter, tiler', active: toolPanel === 'trades', disabled: !canvasElements.some(e => e.type === 'room'), onClick: () => setToolPanel(t => (t === 'trades' ? null : 'trades')) },
           { id: 'quote', icon: FileSearch, label: 'Check a quote', desc: "A contractor's quote against this house's estimate", active: toolPanel === 'quote',
             disabled: !canvasElements.some(e => e.type === 'room'), onClick: () => setToolPanel(t => (t === 'quote' ? null : 'quote')) },
           { id: 'shop', icon: ShoppingBag, label: 'Shopping list', desc: 'Every piece to buy, room by room, with shop links', active: toolPanel === 'shop',
@@ -1171,6 +1210,8 @@ export default function Studio() {
             onClick: () => setToolPanel(t => (t === 'share' ? null : 'share')) },
           { id: 'rules', icon: ShieldCheck, label: 'Building rules', desc: 'Room sizes, light and plot limits', active: toolPanel === 'rules',
             onClick: () => setToolPanel(t => (t === 'rules' ? null : 'rules')) },
+          { id: 'brochure', icon: BookOpen, label: exporting === 'brochure' ? 'Making brochure…' : 'Client brochure (PDF)', desc: 'Renders, plans, finishes, cost, EMI, approval and choices',
+            disabled: !!exporting || !canvasElements.some(e => e.type === 'room'), onClick: exportBrochure },
           { id: 'sheet', icon: Ruler, label: exporting === 'sheet' ? 'Drawing set…' : 'Drawing set (PDF)',
             desc: 'Plans, site plan, elevations, section and schedules, A3', disabled: !!exporting, onClick: exportPlanSheet },
           { id: 'dxf', icon: PenLine, label: exporting === 'dxf' ? 'Exporting…' : 'CAD drawing (DXF)',
@@ -1299,6 +1340,15 @@ export default function Studio() {
       {videoOpen && <VideoTour projectId={projectId} elements={canvasElements} projectName={projectName} facade={projectFacade} onClose={() => setVideoOpen(false)} />}
       {compareOpen && <CompareOptions projectId={projectId} apiUrl={API_URL} elements={canvasElements} site={{ ...(projectSite || {}), north: northOf() }}
         onUse={(els) => { setCanvasElements(cleanElements(els)); setActiveFloor(1); }} onClose={() => setCompareOpen(false)} />}
+      {mapOpen && <PlotMap site={projectSite} front={frontOf(canvasElements).side} onClose={() => setMapOpen(false)}
+        onSave={async (site) => {
+          if (!projectId) throw new Error('Save the project first.');
+          const res = await fetch(`${API_URL}/api/projects/${projectId}/site`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` }, body: JSON.stringify({ site }) });
+          if (!res.ok) throw new Error(`Couldn't save the plot (${res.status}).`);
+          setProjectSite(site);
+          // north from the map now leads Vastu, daylight, solar and the drawings
+          try { localStorage.setItem(`vastu_north_${projectId}`, site.north); localStorage.setItem('comfort_city', site.city); } catch { /* private mode */ }
+        }} />}
       {scanOpen && <MaterialScan projectId={projectId} apiUrl={API_URL} elements={canvasElements} setElements={(els) => setCanvasElements(cleanElements(els))}
         materials={projectMaterials} setMaterials={setProjectMaterials} onClose={() => setScanOpen(false)} />}
       {photoOpen && <PhotoMatch elements={canvasElements} setElements={(els) => setCanvasElements(cleanElements(els))} onClose={() => setPhotoOpen(false)} />}

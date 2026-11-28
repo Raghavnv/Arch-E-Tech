@@ -829,6 +829,21 @@ def check_quote(req: QuoteCheck):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+class FutureFloor(BaseModel):
+    elements: list
+    site: dict | None = None
+    city: str | None = None
+
+
+@app.post("/api/ai/future-floor")
+def future_floor_api(req: FutureFloor):
+    """What it costs to make the house ready for one more floor now, against adding it later unprepared."""
+    import future_floor
+    if not any(isinstance(e, dict) and e.get("type") == "room" for e in req.elements):
+        raise HTTPException(status_code=400, detail="The plan has no rooms yet.")
+    return future_floor.plan(req.elements, req.site, req.city)
+
+
 @app.post("/api/ai/vastu-check")
 def vastu_check(req: VastuCheck):
     """Vastu checklist for the ground floor of any plan; north says which way north points on the drawing."""

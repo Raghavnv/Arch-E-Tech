@@ -29,12 +29,12 @@ const Stat = ({ label, value, sub, strong }) => (
   </div>
 );
 
-export default function SolarRain({ elements, projectId, facade, north = 'up', onSave, onClose }) {
+export default function SolarRain({ elements, projectId, facade, site, north = 'up', onSave, onClose }) {
   const key = `solar_${projectId || 'draft'}`;
   const saved = (() => { try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch { return {}; } })();
   const areas = useMemo(() => roofAreas(elements), [elements]);
   const [f, setF] = useState(() => ({
-    city: facade?.solar?.city || saved.city || 'Bengaluru', units: saved.units ?? typicalUse(areas.bedrooms), tariff: saved.tariff ?? 8,
+    city: facade?.solar?.city || saved.city || site?.city || 'Bengaluru', units: saved.units ?? typicalUse(areas.bedrooms), tariff: saved.tariff ?? 8,
     rate: saved.rate ?? 55000, kw: facade?.solar?.kw ?? null, terrace: !!saved.terrace,
   }));
   const [busy, setBusy] = useState(false);

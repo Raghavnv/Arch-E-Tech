@@ -216,6 +216,33 @@ rates, steel and cement quantities with what the design needs, and anything usua
 to ask can be copied for the contractor. With a `GROQ_API_KEY` the quote is read by the AI model; otherwise by a
 built-in reader that handles rupees, lakhs, "@ rate" and per sq ft rates.
 
+### Plot from the map
+Studio → **Plot from map**: search the place (OpenStreetMap), switch between map and satellite, click the plot's corners
+and pick the side on the road. The plot's size, shape and area, the way it faces, which way north is on the plan, and
+the nearest city (for sun, rain and solar figures) are saved with the project; the buildings around it (with heights
+where OpenStreetMap has them, through Overpass) are drawn on the site plan. The site plan then shows the real plot
+shape; Vastu, daylight and solar use its north and city. Sizes from a map are approximate; use the survey for the real ones.
+
+### Client brochure (PDF)
+Studio → **Client brochure (PDF)**: one A4 document for the family: a cover (a photo render, or the plan), every floor
+plan, the room renders, finishes room by room with swatches, the cost, EMI, where the money goes, solar and rainwater,
+the building rules verdict, daylight and Vastu scores, and the options voted on.
+
+### Lists for each trade
+Studio → **Lists for each trade**: what the mason, carpenter, electrician, plumber, painter and tiler each need, from the
+quantities, the electrical and plumbing points room by room, the door and window schedule and the finishes. Each list
+downloads as a spreadsheet; all of them as one PDF.
+
+### Future floor, accessibility, earthquake and wind
+- **Future floor**: the house priced again with one more floor; what being ready costs now (footings and columns for
+  the extra floor, starter bars, the stair to the roof), the new floor later, and roughly what strengthening an
+  unprepared house would cost; whether the city's limits allow it; and what to do now.
+- **Accessibility**: step-free entry (a 1:12 ramp for the plinth), door widths, a ground-floor bedroom and bathroom,
+  a bathroom a wheelchair can turn in, hallway and stair widths, with AI Edit fixes.
+- **Earthquake & wind**: the city's seismic zone (IS 1893) and wind speed (IS 875), bands and ties, openings in outside
+  walls and near corners, plan shape, overhangs, an open ground floor, column spacing, and cyclone precautions.
+  Screening only; a structural engineer designs the structure.
+
 ### Kitchen & wardrobes
 Modular kitchens laid out along a kitchen's walls, clear of its doors: straight, L, parallel, U or L with an island; sink under a window, hob with a chimney, fridge and oven tower, wall cabinets above; 8 cabinet colours, 5 countertops, and a backsplash band. Wardrobes for bedrooms: hinged, sliding or mirrored, 6 finishes, the whole wall or a set width, on the best wall or one you pick. A plan preview shows the result first.
 

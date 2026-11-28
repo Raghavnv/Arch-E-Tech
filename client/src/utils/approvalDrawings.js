@@ -489,7 +489,7 @@ export function drawSitePlan(pdf, elements, { project, site, north = 'up', solar
   const groundArea = rooms.reduce((s, r) => s + (r.width / U) * (r.height / U), 0);
   const plotArea = pw * pd;
   const notes = [
-    plot ? `Plot ${len(pw)} × ${len(pd)} (${formatArea(plotArea)}), road on the ${SIDE_NAME[site.facing] || 'front'}.` : 'Plot size not set: shown with typical setbacks around the house. Generate the house with a plot size to draw the real plot.',
+    plot ? `Plot ${len(pw)} × ${len(pd)} (${formatArea(site.plot_area_m2 || plotArea)}), road on the ${SIDE_NAME[site.facing] || 'front'}${site.source === 'map' ? `; drawn from the map at ${site.lat}, ${site.lng}, ${(site.neighbours || []).length} buildings around it from OpenStreetMap (heights where known)` : ''}.` : 'Plot size not set: shown with typical setbacks around the house. Generate the house with a plot size to draw the real plot.',
     `Ground coverage ${formatArea(groundArea)}${plot ? ` (${Math.round((groundArea / plotArea) * 100)} % of the plot)` : ''}; built-up area ${formatArea(built)}${plot ? `, FAR ${(built / plotArea).toFixed(2)}` : ''}.`,
     `Setbacks as drawn: front ${len(pd - hy - hd)}, rear ${len(Math.max(0, hy))}, sides ${len(hx)} and ${pw - hx - hw < 0 ? `${len(hx + hw - pw)} over the boundary` : len(pw - hx - hw)}${site?.setbacks_m ? '' : ' (typical values; check your local rules)'}.`,
   ];
@@ -500,9 +500,24 @@ export function drawSitePlan(pdf, elements, { project, site, north = 'up', solar
   pdf.setFillColor(225, 225, 225); pdf.setDrawColor(150); pdf.setLineWidth(0.2);
   pdf.rect(X(-2), Y(pd), (pw + 4) * k, road * k, 'F');
   pdf.setFontSize(9); pdf.setTextColor(120); pdf.text('ROAD', X(pw / 2), Y(pd + road / 2) + 1.5, { align: 'center' });
-  // plot boundary (compound wall)
+  // buildings around the plot (from the map), with their heights
+  (site?.neighbours || []).forEach(nb => {
+    const pts = nb.pts.filter(([x, y]) => x > -40 && x < pw + 40 && y > -40 && y < pd + 2);
+    if (pts.length < 3) return;
+    const sp = pts.map(([x, y]) => [X(x), Y(y)]);
+    pdf.setFillColor(232, 230, 226); pdf.setDrawColor(150); pdf.setLineWidth(0.15);
+    pdf.lines(sp.slice(1).map((p, i) => [p[0] - sp[i][0], p[1] - sp[i][1]]), sp[0][0], sp[0][1], [1, 1], 'FD', true);
+    const mx = sp.reduce((s, p) => s + p[0], 0) / sp.length, my = sp.reduce((s, p) => s + p[1], 0) / sp.length;
+    if (mx > AREA.x && mx < AREA.x + AREA.w && my > AREA.y && my < AREA.y + AREA.h) {
+      pdf.setFontSize(5); pdf.setTextColor(130); pdf.text(`${nb.h} m`, mx, my + 1, { align: 'center' }); pdf.setTextColor(25);
+    }
+  });
+  // plot boundary (compound wall): its real shape when drawn on the map
   pdf.setDrawColor(30); pdf.setLineWidth(0.6); pdf.setLineDashPattern(plot ? [] : [2, 1.5], 0);
-  pdf.rect(X(0), Y(0), pw * k, pd * k, 'S');
+  if (site?.polygon?.length >= 3) {
+    const sp = site.polygon.map(([x, y]) => [X(x), Y(y)]);
+    pdf.lines(sp.slice(1).map((p, i) => [p[0] - sp[i][0], p[1] - sp[i][1]]), sp[0][0], sp[0][1], [1, 1], 'S', true);
+  } else pdf.rect(X(0), Y(0), pw * k, pd * k, 'S');
   pdf.setLineDashPattern([], 0);
   // setback zone, then the house outline (ground floor rooms, turned)
   pdf.setDrawColor(160); pdf.setLineWidth(0.15); pdf.setLineDashPattern([1, 1], 0);

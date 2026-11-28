@@ -1253,8 +1253,8 @@ function Gantt({ data }) {
 // ---------------------------------------------------------------------------------------------
 const scoreTone = (s) => (s >= 75 ? '#34d399' : s >= 55 ? '#fbbf24' : '#f87171');
 
-export function ComfortPanel({ elements, floor, north, onClose }) {
-  const [city, setCity] = useState(() => { try { return localStorage.getItem('comfort_city') || 'Bengaluru'; } catch { return 'Bengaluru'; } });
+export function ComfortPanel({ elements, floor, north, site, onClose }) {
+  const [city, setCity] = useState(() => { try { return site?.city || localStorage.getItem('comfort_city') || 'Bengaluru'; } catch { return site?.city || 'Bengaluru'; } });
   const [open, setOpen] = useState(null);
   const result = useMemo(() => assessComfort(elements, { north, city }), [elements, north, city]);
   const pick = (c) => { setCity(c); try { localStorage.setItem('comfort_city', c); } catch { /* private mode */ } };
